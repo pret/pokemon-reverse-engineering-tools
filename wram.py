@@ -6,7 +6,6 @@ RGBDS BSS section and constant parsing.
 import os
 path = os.path.dirname(os.path.abspath(__file__))
 
-
 def read_bss_sections(bss):
     sections = []
     section = {
@@ -112,6 +111,7 @@ def read_hram_constants():
     hram_path = os.path.join(os.path.dirname(path), 'hram.asm')
     return read_constants(hram_path)
 
+# TODO: get rid of this global
 hram_constants = read_hram_constants()
 
 def read_gbhw_constants():
@@ -121,4 +121,5 @@ def read_gbhw_constants():
     gbhw_path = os.path.join(os.path.dirname(path), 'gbhw.asm')
     return read_constants(gbhw_path)
 
+# TODO: get rid of this global
 gbhw_constants = read_gbhw_constants()
