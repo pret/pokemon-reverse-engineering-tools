@@ -5,10 +5,10 @@ Pokémon Crystal utilities and extras
 
 #### Simple ASM generation example
 
-Note: throughout these examples it is possible to use `reload(crystal)` instead of `import crystal`. Once the module is loaded a first time, it must be reloaded if the file changes and the updates are desired.
+Note: throughout these examples it is possible to use `reload(crystal)` instead of `import pokemontools.crystal`. Once the module is loaded a first time, it must be reloaded if the file changes and the updates are desired.
 
 ```python
-import crystal
+import pokemontools.crystal as crystal
 
 # parse the ROM
 crystal.run_main()
@@ -39,7 +39,7 @@ python tests.py
 Here is a demo of how to investigate a particular script, starting with only an address to a known script (0x58043). In this case, the script calls the `2writetext` command to show some dialog. This dialog will be shown at the end of the example.
 
 ```python
-import crystal
+import pokemontools.crystal as crystal
 
 # parse the script at 0x58043 from the map event header at 0x584c3
 # from the second map header at 0x958b8
@@ -129,7 +129,7 @@ UnknownText_0x580c7: ; 0x580c7
 Another approach is to parse the entire ROM, then check a script at a particular address. This has the advantage that the script object will have the `map_group` and `map_id` variables set.
 
 ```python
-import crystal
+import pokemontools.crystal as crystal
 
 # parse the ROM
 crystal.run_main()
@@ -207,7 +207,7 @@ MapEventHeader_0x584c3: ; 0x584c3
 #### Helpful ROM investigation tools
 
 ```python
-import crystal
+import pokemontools.crystal as crystal
 
 # load the bytes
 crystal.load_rom()
