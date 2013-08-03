@@ -39,4 +39,4 @@ pokecrystal.rtc
 .lvimrc
 
 # some users are dumping png.py into extras/
-extras/png.py
+png.py
