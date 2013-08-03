@@ -78,4 +78,3 @@ def scrape_constants(text):
 
 hram_constants = scrape_constants(open(os.path.join(os.path.dirname(path), 'hram.asm'),'r').readlines())
 gbhw_constants = scrape_constants(open(os.path.join(os.path.dirname(path), 'gbhw.asm'),'r').readlines())
-
