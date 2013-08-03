@@ -107,4 +107,17 @@ def read_hram_constants():
 
 hram_constants = read_hram_constants()
 
-gbhw_constants = scrape_constants(open(os.path.join(os.path.dirname(path), 'gbhw.asm'),'r').readlines())
+def read_gbhw_constants():
+    """
+    Load constants from gbhw.asm.
+    """
+    try:
+        gbhw_file_handler = open(os.path.join(os.path.dirname(path), 'gbhw.asm'), 'r')
+    except IOError as exception:
+        gbhw_lines = [""]
+    else:
+        gbhw_lines = gbhw_file_handler.readlines()
+    gbhw_constants = scrape_constants(gbhw_lines)
+    return gbhw_constants
+
+gbhw_constants = read_gbhw_constants()
