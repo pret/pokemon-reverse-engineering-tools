@@ -8,38 +8,38 @@ import hashlib
 import random
 import json
 
-from interval_map import IntervalMap
-from chars import chars, jap_chars
+from pokemontools.interval_map import IntervalMap
+from pokemontools.chars import chars, jap_chars
 
-from romstr import (
+from pokemontools.romstr import (
     RomStr,
     AsmList,
 )
 
-from item_constants import (
+from pokemontools.item_constants import (
     item_constants,
     find_item_label_by_id,
     generate_item_constants,
 )
 
-from pointers import (
+from pokemontools.pointers import (
     calculate_bank,
     calculate_pointer,
 )
 
-from pksv import (
+from pokemontools.pksv import (
     pksv_gs,
     pksv_crystal,
 )
 
-from labels import (
+from pokemontools.labels import (
     remove_quoted_text,
     line_has_comment_address,
     line_has_label,
     get_label_from_line,
 )
 
-from crystal import (
+from pokemontools.crystal import (
     rom,
     load_rom,
     rom_until,
