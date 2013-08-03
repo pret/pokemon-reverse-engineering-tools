@@ -92,18 +92,25 @@ def scrape_constants(text):
         text = text.split('\n')
     return constants_to_dict([line for line in text if 'EQU' in line[:line.find(';')]])
 
+def read_constants(filepath):
+    """
+    Load lines from a file and call scrape_constants.
+    """
+    try:
+        file_handler = open(filepath, "r")
+    except IOError as exception:
+        lines = [""]
+    else:
+        lines = file_handler.readlines()
+    constants = scrape_constants(lines)
+    return constants
+
 def read_hram_constants():
     """
     Load constants from hram.asm.
     """
-    try:
-        hram_file_handler = open(os.path.join(os.path.dirname(path), 'hram.asm'), 'r')
-    except IOError as exception:
-        hram_lines = [""]
-    else:
-        hram_lines = hram_file_handler.readlines()
-    hram_constants = scrape_constants(hram_lines)
-    return hram_constants
+    hram_path = os.path.join(os.path.dirname(path), 'hram.asm')
+    return read_constants(hram_path)
 
 hram_constants = read_hram_constants()
 
@@ -111,13 +118,7 @@ def read_gbhw_constants():
     """
     Load constants from gbhw.asm.
     """
-    try:
-        gbhw_file_handler = open(os.path.join(os.path.dirname(path), 'gbhw.asm'), 'r')
-    except IOError as exception:
-        gbhw_lines = [""]
-    else:
-        gbhw_lines = gbhw_file_handler.readlines()
-    gbhw_constants = scrape_constants(gbhw_lines)
-    return gbhw_constants
+    gbhw_path = os.path.join(os.path.dirname(path), 'gbhw.asm')
+    return read_constants(gbhw_path)
 
 gbhw_constants = read_gbhw_constants()
