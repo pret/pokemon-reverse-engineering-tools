@@ -9,7 +9,9 @@ path = os.path.dirname(os.path.abspath(__file__))
 
 def read_bss_sections(bss):
     sections = []
-    section = {}
+    section = {
+        "labels": [],
+    }
     address = None
     if type(bss) is not list: bss = bss.split('\n')
     for line in bss:
