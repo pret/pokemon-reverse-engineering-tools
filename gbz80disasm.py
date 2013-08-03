@@ -912,7 +912,7 @@ def output_bank_opcodes(original_offset, max_byte_count=0x4000, include_last_add
 
 def has_outstanding_labels(byte_labels):
     """
-    Check whether a label is used once in the asm output. 
+    Check whether a label is used once in the asm output.
 
     If so, then that means it has to be called or specified later.
     """

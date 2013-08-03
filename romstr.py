@@ -66,8 +66,8 @@ class RomStr(str):
 
     def load_labels(self, filename="labels.json"):
         """
-        Loads labels from labels.json. 
-        
+        Loads labels from labels.json.
+
         (Or parses the source code file and
         generates new labels.)
         """
@@ -116,8 +116,8 @@ class RomStr(str):
 
     def get_address_for(self, label):
         """
-        Return the address of a label. 
-        
+        Return the address of a label.
+
         This is slow and could be improved dramatically.
         """
         label = str(label)
@@ -158,10 +158,10 @@ class RomStr(str):
 
     def to_asm(self, address, end_address=None, size=None, max_size=0x4000, debug=None):
         """
-        Disassemble ASM at some address. 
-        
-        This will stop disassembling when either the end_address or size is 
-        met. Also, there's a maximum size that will be parsed, so that large 
+        Disassemble ASM at some address.
+
+        This will stop disassembling when either the end_address or size is
+        met. Also, there's a maximum size that will be parsed, so that large
         patches of data aren't parsed as code.
         """
         if type(address) in [str, unicode] and "0x" in address:

@@ -11,11 +11,11 @@ from pointers import (
 def remove_quoted_text(line):
     """get rid of content inside quotes
     and also removes the quotes from the input string"""
-    while line.count("\"") % 2 == 0 and line.count("\"") > 0: 
+    while line.count("\"") % 2 == 0 and line.count("\"") > 0:
         first = line.find("\"")
         second = line.find("\"", first+1)
         line = line[0:first] + line[second+1:]
-    while line.count("\'") % 2 == 0 and line.count("'") > 0: 
+    while line.count("\'") % 2 == 0 and line.count("'") > 0:
         first = line.find("\'")
         second = line.find("\'", first+1)
         line = line[0:first] + line[second+1:]
@@ -153,7 +153,7 @@ def line_has_label(line):
         return False
     if ":" not in line:
         return False
-    if line[0] == ";": 
+    if line[0] == ";":
         return False
     if line[0] == "\"":
         return False

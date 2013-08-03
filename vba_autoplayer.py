@@ -28,7 +28,7 @@ def skippable(func):
     """
     Makes a function skippable.
 
-    Saves the state before and after the function runs. 
+    Saves the state before and after the function runs.
     Pass "skip=True" to the function to load the previous save
     state from when the function finished.
     """
