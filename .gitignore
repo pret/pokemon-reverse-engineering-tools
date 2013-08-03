@@ -32,3 +32,6 @@
 
 # some users are dumping png.py into extras/
 png.py
+
+# python packaging
+pokemontools.egg-info/
