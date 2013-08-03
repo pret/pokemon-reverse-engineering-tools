@@ -1,6 +1,7 @@
 # coding: utf-8
-
-# RGBDS BSS section and constant parsing.
+"""
+RGBDS BSS section and constant parsing.
+"""
 
 import os
 path = os.path.dirname(os.path.abspath(__file__))
