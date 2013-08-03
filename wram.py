@@ -92,5 +92,19 @@ def scrape_constants(text):
         text = text.split('\n')
     return constants_to_dict([line for line in text if 'EQU' in line[:line.find(';')]])
 
-hram_constants = scrape_constants(open(os.path.join(os.path.dirname(path), 'hram.asm'),'r').readlines())
+def read_hram_constants():
+    """
+    Load constants from hram.asm.
+    """
+    try:
+        hram_file_handler = open(os.path.join(os.path.dirname(path), 'hram.asm'), 'r')
+    except IOError as exception:
+        hram_lines = [""]
+    else:
+        hram_lines = hram_file_handler.readlines()
+    hram_constants = scrape_constants(hram_lines)
+    return hram_constants
+
+hram_constants = read_hram_constants()
+
 gbhw_constants = scrape_constants(open(os.path.join(os.path.dirname(path), 'gbhw.asm'),'r').readlines())
