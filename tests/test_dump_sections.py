@@ -10,7 +10,7 @@ if not hasattr(unittest.TestCase, 'setUpClass'):
     sys.stderr.write("The unittest2 module or Python 2.7 is required to run this script.")
     sys.exit(1)
 
-from dump_sections import (
+from pokemontools.dump_sections import (
     upper_hex,
     format_bank_number,
     calculate_bank_quantity,
