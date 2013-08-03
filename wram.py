@@ -15,7 +15,7 @@ def read_bss_sections(bss):
         line = line.lstrip()
         if 'SECTION' in line:
             if section: sections.append(section) # last section
-            
+
             address = eval(line[line.find('[')+1:line.find(']')].replace('$','0x'))
             section = {
                 'name': line.split('"')[1],
