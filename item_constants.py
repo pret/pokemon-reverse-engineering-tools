@@ -238,4 +238,3 @@ def generate_item_constants():
         while len(item)<13: item+= " "
         output += item + " EQU " + val + "\n"
     return output
-

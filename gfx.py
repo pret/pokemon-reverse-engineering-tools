@@ -1669,4 +1669,3 @@ if __name__ == "__main__":
 
     elif argv[1] == '2bpp-to-png':
         to_png(argv[2])
-

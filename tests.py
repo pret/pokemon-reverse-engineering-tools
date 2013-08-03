@@ -1012,4 +1012,3 @@ def run_tests(): # rather than unittest.main()
 # run the unit tests when this file is executed directly
 if __name__ == "__main__":
     run_tests()
-

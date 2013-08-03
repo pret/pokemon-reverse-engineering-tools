@@ -265,4 +265,3 @@ for blob in found_blobs:
 print "Found " + str(len(found_blobs)) + " possibly copied functions."
 
 print [hex(x) for x in found_blobs[10].locations]
-

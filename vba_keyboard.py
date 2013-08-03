@@ -560,4 +560,3 @@ def plan_typing(text, current="A"):
             buttons.append("a")
             current = target
     return buttons
-

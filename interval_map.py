@@ -101,4 +101,3 @@ class IntervalMap(object):
                     v
                 ))
         return '{'+', '.join(s)+'}'
-

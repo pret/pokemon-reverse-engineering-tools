@@ -277,4 +277,3 @@ jap_chars.update({
 for key, value in jap_chars.items():
     if key not in chars.keys():
         chars[key] = value
-

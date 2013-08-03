@@ -127,4 +127,3 @@ if __name__ == "__main__":
 
     # dump everything to stdout
     sys.stdout.write(output)
-

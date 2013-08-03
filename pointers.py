@@ -22,4 +22,3 @@ def calculate_pointer(short_pointer, bank=None):
         bank = 0
     pointer = short_pointer + (bank * 0x4000)
     return pointer
-

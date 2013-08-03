@@ -169,4 +169,3 @@ def get_label_from_line(line):
     #split up the line
     label = line.split(":")[0]
     return label
-
