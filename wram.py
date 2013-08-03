@@ -54,8 +54,22 @@ def read_bss_sections(bss):
     sections.append(section)
     return sections
 
-wram_sections = read_bss_sections(open(os.path.join(os.path.dirname(path), 'wram.asm'), 'r').readlines())
+def read_wram_sections():
+    """
+    Opens the wram file and calls read_bss_sections.
+    """
+    wram_content = None
+    wram_file_path = os.path.join(os.path.dirname(path), 'wram.asm')
+    try:
+        wram_file_handler = open(wram_file_path, 'r')
+    except IOError as exception:
+        wram_content = [""]
+    else:
+        wram_content = wram_file_handler.readlines()
+    wram_sections = read_bss_sections(wram_content)
+    return wram_sections
 
+wram_sections = read_wram_sections()
 
 def make_wram_labels():
     wram_labels = {}
@@ -67,7 +81,6 @@ def make_wram_labels():
     return wram_labels
 
 wram_labels = make_wram_labels()
-
 
 def constants_to_dict(constants):
     return dict((eval(constant[constant.find('EQU')+3:constant.find(';')].replace('$','0x')), constant[:constant.find('EQU')].strip()) for constant in constants)
