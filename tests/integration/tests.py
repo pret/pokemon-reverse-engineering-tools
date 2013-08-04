@@ -215,5 +215,25 @@ class TestAsmList(unittest.TestCase):
         self.assertIn("AddNTimes", label_names)
         self.assertIn("CheckShininess", label_names)
 
+class TestEncodedText(unittest.TestCase):
+    """for testing chars-table encoded text chunks"""
+
+    def test_process_00_subcommands(self):
+        g = process_00_subcommands(0x197186, 0x197186+601, debug=False)
+        self.assertEqual(len(g), 42)
+        self.assertEqual(len(g[0]), 13)
+        self.assertEqual(g[1], [184, 174, 180, 211, 164, 127, 20, 231, 81])
+
+    def test_parse_text_at2(self):
+        oakspeech = parse_text_at2(0x197186, 601, debug=False)
+        self.assertIn("encyclopedia", oakspeech)
+        self.assertIn("researcher", oakspeech)
+        self.assertIn("dependable", oakspeech)
+
+    def test_parse_text_engine_script_at(self):
+        p = parse_text_engine_script_at(0x197185, debug=False)
+        self.assertEqual(len(p.commands), 2)
+        self.assertEqual(len(p.commands[0]["lines"]), 41)
+
 if __name__ == "__main__":
     unittest.main()
