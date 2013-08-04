@@ -94,16 +94,6 @@ import mock
 class TestCram(unittest.TestCase):
     "this is where i cram all of my unit tests together"
 
-    @classmethod
-    def setUpClass(cls):
-        global rom
-        cls.rom = direct_load_rom()
-        rom = cls.rom
-
-    @classmethod
-    def tearDownClass(cls):
-        del cls.rom
-
     def test_map_name_cleaner(self):
         name = "hello world"
         cleaned_name = map_name_cleaner(name)
