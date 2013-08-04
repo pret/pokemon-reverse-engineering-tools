@@ -568,7 +568,7 @@ class TestLabel(unittest.TestCase):
         line_number = 2
         address = 0xf0c0
         label_name = "poop"
-        l = Label(name=label_name, address=address, line_number=line_number)
+        l = Label(name=label_name, address=address, line_number=line_number, object={})
         self.failUnless(hasattr(l, "name"))
         self.failUnless(hasattr(l, "address"))
         self.failUnless(hasattr(l, "line_number"))
