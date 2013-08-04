@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 
 import os
-import sys
-import inspect
 from copy import copy
 import hashlib
 import random
