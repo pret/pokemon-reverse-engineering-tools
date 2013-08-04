@@ -204,5 +204,16 @@ class TestRomStr(unittest.TestCase):
         self.failUnless(len(bytes) == 3)
         self.failUnless(bytes[0] == 0xd5)
 
+class TestAsmList(unittest.TestCase):
+    # this test takes a lot of time :(
+    def xtest_scan_for_predefined_labels(self):
+        # label keys: line_number, bank, label, offset, address
+        load_asm()
+        all_labels = scan_for_predefined_labels()
+        label_names = [x["label"] for x in all_labels]
+        self.assertIn("GetFarByte", label_names)
+        self.assertIn("AddNTimes", label_names)
+        self.assertIn("CheckShininess", label_names)
+
 if __name__ == "__main__":
     unittest.main()

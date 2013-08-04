@@ -416,16 +416,6 @@ class TestAsmList(unittest.TestCase):
         self.assertEqual(labels[0]["label"], "HelloWorld")
         del asm
 
-    # this test takes a lot of time :(
-    def xtest_scan_for_predefined_labels(self):
-        # label keys: line_number, bank, label, offset, address
-        load_asm()
-        all_labels = scan_for_predefined_labels()
-        label_names = [x["label"] for x in all_labels]
-        self.assertIn("GetFarByte", label_names)
-        self.assertIn("AddNTimes", label_names)
-        self.assertIn("CheckShininess", label_names)
-
     def test_write_all_labels(self):
         """dumping json into a file"""
         filename = "test_labels.json"
