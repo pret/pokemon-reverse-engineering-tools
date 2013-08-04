@@ -10,10 +10,8 @@ from crystal import load_rom
 from pokemon_constants import pokemon_constants
 from trainers import trainer_group_names
 
-
 if __name__ != "__main__":
     rom = load_rom()
-
 
 def mkdir_p(path):
     """
@@ -815,7 +813,7 @@ def decompress_fx_by_id(id):
 def decompress_fx():
     for id in range(num_fx):
         fx = decompress_fx_by_id(id)
-        filename = '../gfx/fx/' + str(id).zfill(3) + '.2bpp' # ../gfx/fx/039.2bpp
+        filename = './gfx/fx/' + str(id).zfill(3) + '.2bpp' # ./gfx/fx/039.2bpp
         to_file(filename, fx.pic)
 
 
@@ -853,14 +851,14 @@ def decompress_monsters(type=front):
         if monster != None: # no unowns here
             if not type: # front
                 filename = 'front.2bpp'
-                folder = '../gfx/pics/' + str(id+1).zfill(3) + '/'
+                folder = './gfx/pics/' + str(id+1).zfill(3) + '/'
                 to_file(folder+filename, monster.pic)
                 filename = 'tiles.2bpp'
-                folder = '../gfx/pics/' + str(id+1).zfill(3) + '/'
+                folder = './gfx/pics/' + str(id+1).zfill(3) + '/'
                 to_file(folder+filename, monster.animtiles)
             else: # back
                 filename = 'back.2bpp'
-                folder = '../gfx/pics/' + str(id+1).zfill(3) + '/'
+                folder = './gfx/pics/' + str(id+1).zfill(3) + '/'
                 to_file(folder+filename, monster.pic)
 
 
@@ -885,14 +883,14 @@ def decompress_unowns(type=front):
 
         if not type: # front
             filename = 'front.2bpp'
-            folder = '../gfx/pics/' + str(unown_dex).zfill(3) + chr(ord('a') + letter) + '/'
+            folder = './gfx/pics/' + str(unown_dex).zfill(3) + chr(ord('a') + letter) + '/'
             to_file(folder+filename, unown.pic)
             filename = 'tiles.2bpp'
-            folder = '../gfx/anim/'
+            folder = './gfx/anim/'
             to_file(folder+filename, unown.animtiles)
         else: # back
             filename = 'back.2bpp'
-            folder = '../gfx/pics/' + str(unown_dex).zfill(3) + chr(ord('a') + letter) + '/'
+            folder = './gfx/pics/' + str(unown_dex).zfill(3) + chr(ord('a') + letter) + '/'
             to_file(folder+filename, unown.pic)
 
 
@@ -913,7 +911,7 @@ def decompress_trainers():
     for id in range(num_trainers):
         # decompress
         trainer = decompress_trainer_by_id(id)
-        filename = '../gfx/trainers/' + str(id).zfill(3) + '.2bpp' # ../gfx/trainers/066.2bpp
+        filename = './gfx/trainers/' + str(id).zfill(3) + '.2bpp' # ./gfx/trainers/066.2bpp
         to_file(filename, trainer.pic)
 
 
@@ -950,7 +948,7 @@ intro_gfx = [
 
 def decompress_intro():
     for name, address in intro_gfx:
-        filename = '../gfx/intro/' + name + '.2bpp'
+        filename = './gfx/intro/' + name + '.2bpp'
         gfx = Decompressed( rom, 'horiz', None, address )
         to_file(filename, gfx.output)
 
@@ -963,7 +961,7 @@ title_gfx = [
 
 def decompress_title():
     for name, address in title_gfx:
-        filename = '../gfx/title/' + name + '.2bpp'
+        filename = './gfx/title/' + name + '.2bpp'
         gfx = Decompressed( rom, 'horiz', None, address )
         to_file(filename, gfx.output)
 
@@ -975,7 +973,7 @@ def decompress_tilesets():
         ptr = tileset*len_tileset + tileset_headers
         address = (ord(rom[ptr])*0x4000) + (((ord(rom[ptr+1]))+ord(rom[ptr+2])*0x100)&0x3fff)
         tiles = Decompressed( rom, 'horiz', None, address )
-        filename = '../gfx/tilesets/'+str(tileset).zfill(2)+'.2bpp'
+        filename = './gfx/tilesets/'+str(tileset).zfill(2)+'.2bpp'
         to_file( filename, tiles.output )
         #print '(' + hex(address) + ', '+ hex(address+tiles.address+1) + '),'
 
@@ -988,7 +986,7 @@ misc = [
 ]
 def decompress_misc():
     for name, address, mode in misc:
-        filename = '../gfx/misc/' + name + '.2bpp'
+        filename = './gfx/misc/' + name + '.2bpp'
         gfx = Decompressed( rom, mode, None, address )
         to_file(filename, gfx.output)
 
@@ -1060,8 +1058,8 @@ def compress_file(filein, fileout, mode='horiz'):
 def compress_monster_frontpic(id, fileout):
     mode = 'vert'
 
-    fpic = '../gfx/pics/' + str(id).zfill(3) + '/front.2bpp'
-    fanim = '../gfx/pics/' + str(id).zfill(3) + '/tiles.2bpp'
+    fpic = './gfx/pics/' + str(id).zfill(3) + '/front.2bpp'
+    fanim = './gfx/pics/' + str(id).zfill(3) + '/tiles.2bpp'
 
     pic = open(fpic, 'rb').read()
     anim = open(fanim, 'rb').read()
@@ -1069,7 +1067,7 @@ def compress_monster_frontpic(id, fileout):
 
     lz = Compressed(image, mode, sizes[id-1])
 
-    out = '../gfx/pics/' + str(id).zfill(3) + '/front.lz'
+    out = './gfx/pics/' + str(id).zfill(3) + '/front.lz'
 
     to_file(out, lz.output)
 
@@ -1471,7 +1469,7 @@ def png_to_lz(filein):
 
 def mass_to_png(debug=False):
     # greyscale
-    for root, dirs, files in os.walk('../gfx/'):
+    for root, dirs, files in os.walk('./gfx/'):
         for name in files:
             if debug: print os.path.splitext(name), os.path.join(root, name)
             if os.path.splitext(name)[1] == '.2bpp':
@@ -1479,7 +1477,7 @@ def mass_to_png(debug=False):
 
 def mass_to_colored_png(debug=False):
     # greyscale, unless a palette is detected
-    for root, dirs, files in os.walk('../gfx/'):
+    for root, dirs, files in os.walk('./gfx/'):
         if 'pics' not in root and 'trainers' not in root:
             for name in files:
                 if debug: print os.path.splitext(name), os.path.join(root, name)
@@ -1488,7 +1486,7 @@ def mass_to_colored_png(debug=False):
                     os.utime(os.path.join(root, name), None)
 
     # only monster and trainer pics for now
-    for root, dirs, files in os.walk('../gfx/pics/'):
+    for root, dirs, files in os.walk('./gfx/pics/'):
         for name in files:
             if debug: print os.path.splitext(name), os.path.join(root, name)
             if os.path.splitext(name)[1] == '.2bpp':
@@ -1498,7 +1496,7 @@ def mass_to_colored_png(debug=False):
                     to_png(os.path.join(root, name))
                 os.utime(os.path.join(root, name), None)
 
-    for root, dirs, files in os.walk('../gfx/trainers/'):
+    for root, dirs, files in os.walk('./gfx/trainers/'):
         for name in files:
             if debug: print os.path.splitext(name), os.path.join(root, name)
             if os.path.splitext(name)[1] == '.2bpp':
@@ -1507,7 +1505,7 @@ def mass_to_colored_png(debug=False):
 
 
 def mass_decompress(debug=False):
-    for root, dirs, files in os.walk('../gfx/'):
+    for root, dirs, files in os.walk('./gfx/'):
         for name in files:
             if 'lz' in name:
                 if '/pics' in root:
@@ -1560,7 +1558,7 @@ def dump_tileset_pngs():
     Also, leaves a bunch of wonderful .2bpp files everywhere for your amusement.
     """
     for tileset_id in range(37):
-        tileset_filename = "../gfx/tilesets/" + str(tileset_id).zfill(2) + ".lz"
+        tileset_filename = "./gfx/tilesets/" + str(tileset_id).zfill(2) + ".lz"
         lz_to_png_by_file(tileset_filename)
 
 def decompress_frontpic(lz_file):
@@ -1586,7 +1584,7 @@ def expand_pic_palettes():
     Instead of managing palette files of varying length, black
     and white are added to pic palettes and excluded from incbins.
     """
-    for root, dirs, files in os.walk('../gfx/'):
+    for root, dirs, files in os.walk('./gfx/'):
         if 'gfx/pics' in root or 'gfx/trainers' in root:
             for name in files:
                 if os.path.splitext(name)[1] == '.pal':
