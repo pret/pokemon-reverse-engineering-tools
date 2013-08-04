@@ -105,10 +105,6 @@ class TestCram(unittest.TestCase):
     def tearDownClass(cls):
         del cls.rom
 
-    def test_generic_useless(self):
-        "do i know how to write a test?"
-        self.assertEqual(1, 1)
-
     def test_map_name_cleaner(self):
         name = "hello world"
         cleaned_name = map_name_cleaner(name)
