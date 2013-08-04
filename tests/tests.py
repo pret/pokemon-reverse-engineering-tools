@@ -96,11 +96,6 @@ try:
 except ImportError:
     import unittest
 
-# check for things we need in unittest
-if not hasattr(unittest.TestCase, 'setUpClass'):
-    sys.stderr.write("The unittest2 module or Python 2.7 is required to run this script.")
-    sys.exit(1)
-
 class TestCram(unittest.TestCase):
     "this is where i cram all of my unit tests together"
 
