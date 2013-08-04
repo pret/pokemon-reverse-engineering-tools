@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 
 import os
-import sys
-import inspect
 from copy import copy
 import hashlib
 import random
@@ -90,33 +88,11 @@ from pokemontools.crystal import (
     reset_incbins,
 )
 
-# for testing all this crap
-try:
-    import unittest2 as unittest
-except ImportError:
-    import unittest
-
-# check for things we need in unittest
-if not hasattr(unittest.TestCase, 'setUpClass'):
-    sys.stderr.write("The unittest2 module or Python 2.7 is required to run this script.")
-    sys.exit(1)
+import unittest
+import mock
 
 class TestCram(unittest.TestCase):
     "this is where i cram all of my unit tests together"
-
-    @classmethod
-    def setUpClass(cls):
-        global rom
-        cls.rom = direct_load_rom()
-        rom = cls.rom
-
-    @classmethod
-    def tearDownClass(cls):
-        del cls.rom
-
-    def test_generic_useless(self):
-        "do i know how to write a test?"
-        self.assertEqual(1, 1)
 
     def test_map_name_cleaner(self):
         name = "hello world"
@@ -139,75 +115,10 @@ class TestCram(unittest.TestCase):
         self.assertNotEqual(data, groups)
         self.assertNotEqual(len(data), len(groups))
 
-    def test_direct_load_rom(self):
-        rom = self.rom
-        self.assertEqual(len(rom), 2097152)
-        self.failUnless(isinstance(rom, RomStr))
-
-    def test_load_rom(self):
-        global rom
-        rom = None
-        load_rom()
-        self.failIf(rom == None)
-        rom = RomStr(None)
-        load_rom()
-        self.failIf(rom == RomStr(None))
-
-    def test_load_asm(self):
-        asm = load_asm()
-        joined_lines = "\n".join(asm)
-        self.failUnless("SECTION" in joined_lines)
-        self.failUnless("bank" in joined_lines)
-        self.failUnless(isinstance(asm, AsmList))
-
-    def test_rom_file_existence(self):
-        "ROM file must exist"
-        self.failUnless("baserom.gbc" in os.listdir("../"))
-
-    def test_rom_md5(self):
-        "ROM file must have the correct md5 sum"
-        rom = self.rom
-        correct = "9f2922b235a5eeb78d65594e82ef5dde"
-        md5 = hashlib.md5()
-        md5.update(rom)
-        md5sum = md5.hexdigest()
-        self.assertEqual(md5sum, correct)
-
-    def test_bizarre_http_presence(self):
-        rom_segment = self.rom[0x112116:0x112116+8]
-        self.assertEqual(rom_segment, "HTTP/1.0")
-
-    def test_rom_interval(self):
-        address = 0x100
-        interval = 10
-        correct_strings = ['0x0', '0xc3', '0x6e', '0x1', '0xce',
-                           '0xed', '0x66', '0x66', '0xcc', '0xd']
-        byte_strings = rom_interval(address, interval, strings=True)
-        self.assertEqual(byte_strings, correct_strings)
-        correct_ints = [0, 195, 110, 1, 206, 237, 102, 102, 204, 13]
-        ints = rom_interval(address, interval, strings=False)
-        self.assertEqual(ints, correct_ints)
-
-    def test_rom_until(self):
-        address = 0x1337
-        byte = 0x13
-        bytes = rom_until(address, byte, strings=True)
-        self.failUnless(len(bytes) == 3)
-        self.failUnless(bytes[0] == '0xd5')
-        bytes = rom_until(address, byte, strings=False)
-        self.failUnless(len(bytes) == 3)
-        self.failUnless(bytes[0] == 0xd5)
-
-    def test_how_many_until(self):
-        how_many = how_many_until(chr(0x13), 0x1337)
-        self.assertEqual(how_many, 3)
-
     def test_calculate_bank(self):
         self.failUnless(calculate_bank(0x8000) == 2)
         self.failUnless(calculate_bank("0x9000") == 2)
         self.failUnless(calculate_bank(0) == 0)
-        for address in [0x4000, 0x5000, 0x6000, 0x7000]:
-            self.assertRaises(Exception, calculate_bank, address)
 
     def test_calculate_pointer(self):
         # for offset <= 0x4000
@@ -217,15 +128,6 @@ class TestCram(unittest.TestCase):
         self.assertEqual(calculate_pointer(0x430F, bank=5), 0x1430F)
         # for offset >= 0x7FFF
         self.assertEqual(calculate_pointer(0x8FFF, bank=6), calculate_pointer(0x8FFF, bank=7))
-
-    def test_calculate_pointer_from_bytes_at(self):
-        addr1 = calculate_pointer_from_bytes_at(0x100, bank=False)
-        self.assertEqual(addr1, 0xc300)
-        addr2 = calculate_pointer_from_bytes_at(0x100, bank=True)
-        self.assertEqual(addr2, 0x2ec3)
-
-    def test_rom_text_at(self):
-        self.assertEquals(rom_text_at(0x112116, 8), "HTTP/1.0")
 
     def test_translate_command_byte(self):
         self.failUnless(translate_command_byte(crystal=0x0) == 0x0)
@@ -397,31 +299,6 @@ class TestRomStr(unittest.TestCase):
         self.assertEquals(len(self.sample_text), self.sample.length())
         self.assertEquals(len(self.sample), self.sample.length())
 
-    def test_rom_interval(self):
-        global rom
-        load_rom()
-        address = 0x100
-        interval = 10
-        correct_strings = ['0x0', '0xc3', '0x6e', '0x1', '0xce',
-                           '0xed', '0x66', '0x66', '0xcc', '0xd']
-        byte_strings = rom.interval(address, interval, strings=True)
-        self.assertEqual(byte_strings, correct_strings)
-        correct_ints = [0, 195, 110, 1, 206, 237, 102, 102, 204, 13]
-        ints = rom.interval(address, interval, strings=False)
-        self.assertEqual(ints, correct_ints)
-
-    def test_rom_until(self):
-        global rom
-        load_rom()
-        address = 0x1337
-        byte = 0x13
-        bytes = rom.until(address, byte, strings=True)
-        self.failUnless(len(bytes) == 3)
-        self.failUnless(bytes[0] == '0xd5')
-        bytes = rom.until(address, byte, strings=False)
-        self.failUnless(len(bytes) == 3)
-        self.failUnless(bytes[0] == 0xd5)
-
 class TestAsmList(unittest.TestCase):
     """AsmList is a class that should act exactly like list()
     except that it never shows the contents of its list
@@ -528,22 +405,14 @@ class TestAsmList(unittest.TestCase):
         self.assertEqual(labels[0]["label"], "HelloWorld")
         del asm
 
-    # this test takes a lot of time :(
-    def xtest_scan_for_predefined_labels(self):
-        # label keys: line_number, bank, label, offset, address
-        load_asm()
-        all_labels = scan_for_predefined_labels()
-        label_names = [x["label"] for x in all_labels]
-        self.assertIn("GetFarByte", label_names)
-        self.assertIn("AddNTimes", label_names)
-        self.assertIn("CheckShininess", label_names)
-
     def test_write_all_labels(self):
         """dumping json into a file"""
         filename = "test_labels.json"
+
         # remove the current file
         if os.path.exists(filename):
             os.system("rm " + filename)
+
         # make up some labels
         labels = []
         # fake label 1
@@ -552,26 +421,33 @@ class TestAsmList(unittest.TestCase):
         # fake label 2
         label = {"line_number": 15, "bank": 2, "label": "SomeOtherLabel", "address": 0x9F0A}
         labels.append(label)
+
         # dump to file
         write_all_labels(labels, filename=filename)
+
         # open the file and read the contents
         file_handler = open(filename, "r")
         contents = file_handler.read()
         file_handler.close()
+
         # parse into json
         obj = json.read(contents)
+
         # begin testing
         self.assertEqual(len(obj), len(labels))
         self.assertEqual(len(obj), 2)
         self.assertEqual(obj, labels)
 
+        # remove the current file
+        if os.path.exists(filename):
+            os.system("rm " + filename)
+
     def test_isolate_incbins(self):
-        global asm
         asm = ["123", "456", "789", "abc", "def", "ghi",
                'INCBIN "baserom.gbc",$12DA,$12F8 - $12DA',
                "jkl",
                'INCBIN "baserom.gbc",$137A,$13D0 - $137A']
-        lines = isolate_incbins()
+        lines = isolate_incbins(asm=asm)
         self.assertIn(asm[6], lines)
         self.assertIn(asm[8], lines)
         for line in lines:
@@ -610,18 +486,22 @@ class TestAsmList(unittest.TestCase):
         asm = ['first line', 'second line', 'third line',
                'INCBIN "baserom.gbc",$90,$200 - $90',
                'fifth line', 'last line']
-        isolate_incbins()
+        isolate_incbins(asm=asm)
         process_incbins()
         line_num = find_incbin_to_replace_for(0x100)
         # must be the 4th line (the INBIN line)
         self.assertEqual(line_num, 3)
 
-    def test_split_incbin_line_into_three(self):
+    @mock.patch("os.lstat")
+    def test_split_incbin_line_into_three(self, mock_os_lstat):
         global asm, incbin_lines, processed_incbins
+
+        mock_os_lstat.return_value.st_size = 0x10000
+
         asm = ['first line', 'second line', 'third line',
                'INCBIN "baserom.gbc",$90,$200 - $90',
                'fifth line', 'last line']
-        isolate_incbins()
+        isolate_incbins(asm=asm)
         process_incbins()
         content = split_incbin_line_into_three(3, 0x100, 10)
         # must end up with three INCBINs in output
@@ -634,7 +514,7 @@ class TestAsmList(unittest.TestCase):
                'INCBIN "baserom.gbc",$90,$200 - $90',
                'fifth line', 'last line',
                'INCBIN "baserom.gbc",$33F,$4000 - $33F']
-        isolate_incbins()
+        isolate_incbins(asm=asm)
         process_incbins()
         largest = analyze_intervals()
         self.assertEqual(largest[0]["line_number"], 6)
@@ -654,27 +534,6 @@ class TestAsmList(unittest.TestCase):
         self.assertNotIn("No newline at end of file", diff)
         self.assertIn("+"+asm[1], diff)
 
-class TestMapParsing(unittest.TestCase):
-    def test_parse_all_map_headers(self):
-        global parse_map_header_at, old_parse_map_header_at, counter
-        counter = 0
-        for k in map_names.keys():
-            if "offset" not in map_names[k].keys():
-                map_names[k]["offset"] = 0
-        temp = parse_map_header_at
-        temp2 = old_parse_map_header_at
-        def parse_map_header_at(address, map_group=None, map_id=None, debug=False):
-            global counter
-            counter += 1
-            return {}
-        old_parse_map_header_at = parse_map_header_at
-        parse_all_map_headers(debug=False)
-        # parse_all_map_headers is currently doing it 2x
-        # because of the new/old map header parsing routines
-        self.assertEqual(counter, 388 * 2)
-        parse_map_header_at = temp
-        old_parse_map_header_at = temp2
-
 class TestTextScript(unittest.TestCase):
     """for testing 'in-script' commands, etc."""
     #def test_to_asm(self):
@@ -687,47 +546,16 @@ class TestTextScript(unittest.TestCase):
 class TestEncodedText(unittest.TestCase):
     """for testing chars-table encoded text chunks"""
 
-    def test_process_00_subcommands(self):
-        g = process_00_subcommands(0x197186, 0x197186+601, debug=False)
-        self.assertEqual(len(g), 42)
-        self.assertEqual(len(g[0]), 13)
-        self.assertEqual(g[1], [184, 174, 180, 211, 164, 127, 20, 231, 81])
-
-    def test_parse_text_at2(self):
-        oakspeech = parse_text_at2(0x197186, 601, debug=False)
-        self.assertIn("encyclopedia", oakspeech)
-        self.assertIn("researcher", oakspeech)
-        self.assertIn("dependable", oakspeech)
-
-    def test_parse_text_engine_script_at(self):
-        p = parse_text_engine_script_at(0x197185, debug=False)
-        self.assertEqual(len(p.commands), 2)
-        self.assertEqual(len(p.commands[0]["lines"]), 41)
-
     # don't really care about these other two
     def test_parse_text_from_bytes(self): pass
     def test_parse_text_at(self): pass
-
-class TestScript(unittest.TestCase):
-    """for testing parse_script_engine_script_at and script parsing in
-    general. Script should be a class."""
-    #def test_parse_script_engine_script_at(self):
-    #    pass # or raise NotImplementedError, bryan_message
-
-    def test_find_all_text_pointers_in_script_engine_script(self):
-        address = 0x197637 # 0x197634
-        script = parse_script_engine_script_at(address, debug=False)
-        bank = calculate_bank(address)
-        r = find_all_text_pointers_in_script_engine_script(script, bank=bank, debug=False)
-        results = list(r)
-        self.assertIn(0x197661, results)
 
 class TestLabel(unittest.TestCase):
     def test_label_making(self):
         line_number = 2
         address = 0xf0c0
         label_name = "poop"
-        l = Label(name=label_name, address=address, line_number=line_number)
+        l = Label(name=label_name, address=address, line_number=line_number, object={})
         self.failUnless(hasattr(l, "name"))
         self.failUnless(hasattr(l, "address"))
         self.failUnless(hasattr(l, "line_number"))
@@ -738,277 +566,6 @@ class TestLabel(unittest.TestCase):
         self.assertEqual(l.name, label_name)
         self.assertEqual(l.address, address)
 
-class TestByteParams(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        load_rom()
-        cls.address = 10
-        cls.sbp = SingleByteParam(address=cls.address)
-
-    @classmethod
-    def tearDownClass(cls):
-        del cls.sbp
-
-    def test__init__(self):
-        self.assertEqual(self.sbp.size, 1)
-        self.assertEqual(self.sbp.address, self.address)
-
-    def test_parse(self):
-        self.sbp.parse()
-        self.assertEqual(str(self.sbp.byte), str(45))
-
-    def test_to_asm(self):
-        self.assertEqual(self.sbp.to_asm(), "$2d")
-        self.sbp.should_be_decimal = True
-        self.assertEqual(self.sbp.to_asm(), str(45))
-
-    # HexByte and DollarSignByte are the same now
-    def test_HexByte_to_asm(self):
-        h = HexByte(address=10)
-        a = h.to_asm()
-        self.assertEqual(a, "$2d")
-
-    def test_DollarSignByte_to_asm(self):
-        d = DollarSignByte(address=10)
-        a = d.to_asm()
-        self.assertEqual(a, "$2d")
-
-    def test_ItemLabelByte_to_asm(self):
-        i = ItemLabelByte(address=433)
-        self.assertEqual(i.byte, 54)
-        self.assertEqual(i.to_asm(), "COIN_CASE")
-        self.assertEqual(ItemLabelByte(address=10).to_asm(), "$2d")
-
-    def test_DecimalParam_to_asm(self):
-        d = DecimalParam(address=10)
-        x = d.to_asm()
-        self.assertEqual(x, str(0x2d))
-
-class TestMultiByteParam(unittest.TestCase):
-    def setup_for(self, somecls, byte_size=2, address=443, **kwargs):
-        self.cls = somecls(address=address, size=byte_size, **kwargs)
-        self.assertEqual(self.cls.address, address)
-        self.assertEqual(self.cls.bytes, rom_interval(address, byte_size, strings=False))
-        self.assertEqual(self.cls.size, byte_size)
-
-    def test_two_byte_param(self):
-        self.setup_for(MultiByteParam, byte_size=2)
-        self.assertEqual(self.cls.to_asm(), "$f0c0")
-
-    def test_three_byte_param(self):
-        self.setup_for(MultiByteParam, byte_size=3)
-
-    def test_PointerLabelParam_no_bank(self):
-        self.setup_for(PointerLabelParam, bank=None)
-        # assuming no label at this location..
-        self.assertEqual(self.cls.to_asm(), "$f0c0")
-        global all_labels
-        # hm.. maybe all_labels should be using a class?
-        all_labels = [{"label": "poop", "address": 0xf0c0,
-                       "offset": 0xf0c0, "bank": 0,
-                       "line_number": 2
-                     }]
-        self.assertEqual(self.cls.to_asm(), "poop")
-
-class TestPostParsing: #(unittest.TestCase):
-    """tests that must be run after parsing all maps"""
-    @classmethod
-    def setUpClass(cls):
-        run_main()
-
-    def test_signpost_counts(self):
-        self.assertEqual(len(map_names[1][1]["signposts"]), 0)
-        self.assertEqual(len(map_names[1][2]["signposts"]), 2)
-        self.assertEqual(len(map_names[10][5]["signposts"]), 7)
-
-    def test_warp_counts(self):
-        self.assertEqual(map_names[10][5]["warp_count"], 9)
-        self.assertEqual(map_names[18][5]["warp_count"], 3)
-        self.assertEqual(map_names[15][1]["warp_count"], 2)
-
-    def test_map_sizes(self):
-        self.assertEqual(map_names[15][1]["height"], 18)
-        self.assertEqual(map_names[15][1]["width"], 10)
-        self.assertEqual(map_names[7][1]["height"], 4)
-        self.assertEqual(map_names[7][1]["width"], 4)
-
-    def test_map_connection_counts(self):
-        self.assertEqual(map_names[7][1]["connections"], 0)
-        self.assertEqual(map_names[10][1]["connections"], 12)
-        self.assertEqual(map_names[10][2]["connections"], 12)
-        self.assertEqual(map_names[11][1]["connections"], 9) # or 13?
-
-    def test_second_map_header_address(self):
-        self.assertEqual(map_names[11][1]["second_map_header_address"], 0x9509c)
-        self.assertEqual(map_names[1][5]["second_map_header_address"], 0x95bd0)
-
-    def test_event_address(self):
-        self.assertEqual(map_names[17][5]["event_address"], 0x194d67)
-        self.assertEqual(map_names[23][3]["event_address"], 0x1a9ec9)
-
-    def test_people_event_counts(self):
-        self.assertEqual(len(map_names[23][3]["people_events"]), 4)
-        self.assertEqual(len(map_names[10][3]["people_events"]), 9)
-
-class TestMetaTesting(unittest.TestCase):
-    """test whether or not i am finding at least
-    some of the tests in this file"""
-    tests = None
-
-    def setUp(self):
-        if self.tests == None:
-            self.__class__.tests = assemble_test_cases()
-
-    def test_assemble_test_cases_count(self):
-        "does assemble_test_cases find some tests?"
-        self.failUnless(len(self.tests) > 0)
-
-    def test_assemble_test_cases_inclusion(self):
-        "is this class found by assemble_test_cases?"
-        # i guess it would have to be for this to be running?
-        self.failUnless(self.__class__ in self.tests)
-
-    def test_assemble_test_cases_others(self):
-        "test other inclusions for assemble_test_cases"
-        self.failUnless(TestRomStr in self.tests)
-        self.failUnless(TestCram in self.tests)
-
-    def test_check_has_test(self):
-        self.failUnless(check_has_test("beaver", ["test_beaver"]))
-        self.failUnless(check_has_test("beaver", ["test_beaver_2"]))
-        self.failIf(check_has_test("beaver_1", ["test_beaver"]))
-
-    def test_find_untested_methods(self):
-        untested = find_untested_methods()
-        # the return type must be an iterable
-        self.failUnless(hasattr(untested, "__iter__"))
-        #.. basically, a list
-        self.failUnless(isinstance(untested, list))
-
-    def test_find_untested_methods_method(self):
-        """create a function and see if it is found"""
-        # setup a function in the global namespace
-        global some_random_test_method
-        # define the method
-        def some_random_test_method(): pass
-        # first make sure it is in the global scope
-        members = inspect.getmembers(sys.modules[__name__], inspect.isfunction)
-        func_names = [functuple[0] for functuple in members]
-        self.assertIn("some_random_test_method", func_names)
-        # test whether or not it is found by find_untested_methods
-        untested = find_untested_methods()
-        self.assertIn("some_random_test_method", untested)
-        # remove the test method from the global namespace
-        del some_random_test_method
-
-    def test_load_tests(self):
-        loader = unittest.TestLoader()
-        suite = load_tests(loader, None, None)
-        suite._tests[0]._testMethodName
-        membership_test = lambda member: \
-            inspect.isclass(member) and issubclass(member, unittest.TestCase)
-        tests = inspect.getmembers(sys.modules[__name__], membership_test)
-        classes = [x[1] for x in tests]
-        for test in suite._tests:
-            self.assertIn(test.__class__, classes)
-
-    def test_report_untested(self):
-        untested = find_untested_methods()
-        output = report_untested()
-        if len(untested) > 0:
-            self.assertIn("NOT TESTED", output)
-            for name in untested:
-                self.assertIn(name, output)
-        elif len(untested) == 0:
-            self.assertNotIn("NOT TESTED", output)
-
-def assemble_test_cases():
-    """finds classes that inherit from unittest.TestCase
-    because i am too lazy to remember to add them to a
-    global list of tests for the suite runner"""
-    classes = []
-    clsmembers = inspect.getmembers(sys.modules[__name__], inspect.isclass)
-    for (name, some_class) in clsmembers:
-        if issubclass(some_class, unittest.TestCase):
-            classes.append(some_class)
-    return classes
-
-def load_tests(loader, tests, pattern):
-    suite = unittest.TestSuite()
-    for test_class in assemble_test_cases():
-        tests = loader.loadTestsFromTestCase(test_class)
-        suite.addTests(tests)
-    return suite
-
-def check_has_test(func_name, tested_names):
-    """checks if there is a test dedicated to this function"""
-    if "test_"+func_name in tested_names:
-        return True
-    for name in tested_names:
-        if "test_"+func_name in name:
-            return True
-    return False
-
-def find_untested_methods():
-    """finds all untested functions in this module
-    by searching for method names in test case
-    method names."""
-    untested = []
-    avoid_funcs = ["main", "run_tests", "run_main", "copy", "deepcopy"]
-    test_funcs = []
-    # get a list of all classes in this module
-    classes = inspect.getmembers(sys.modules[__name__], inspect.isclass)
-    # for each class..
-    for (name, klass) in classes:
-        # only look at those that have tests
-        if issubclass(klass, unittest.TestCase):
-            # look at this class' methods
-            funcs = inspect.getmembers(klass, inspect.ismethod)
-            # for each method..
-            for (name2, func) in funcs:
-                # store the ones that begin with test_
-                if "test_" in name2 and name2[0:5] == "test_":
-                    test_funcs.append([name2, func])
-    # assemble a list of all test method names (test_x, test_y, ..)
-    tested_names = [funcz[0] for funcz in test_funcs]
-    # now get a list of all functions in this module
-    funcs = inspect.getmembers(sys.modules[__name__], inspect.isfunction)
-    # for each function..
-    for (name, func) in funcs:
-        # we don't care about some of these
-        if name in avoid_funcs: continue
-        # skip functions beginning with _
-        if name[0] == "_": continue
-        # check if this function has a test named after it
-        has_test = check_has_test(name, tested_names)
-        if not has_test:
-            untested.append(name)
-    return untested
-
-def report_untested():
-    """
-    This reports about untested functions in the global namespace. This was
-    originally in the crystal module, where it would list out the majority of
-    the functions. Maybe it should be moved back.
-    """
-    untested = find_untested_methods()
-    output = "NOT TESTED: ["
-    first = True
-    for name in untested:
-        if first:
-            output += name
-            first = False
-        else: output += ", "+name
-    output += "]\n"
-    output += "total untested: " + str(len(untested))
-    return output
-
-def run_tests(): # rather than unittest.main()
-    loader = unittest.TestLoader()
-    suite = load_tests(loader, None, None)
-    unittest.TextTestRunner(verbosity=2).run(suite)
-    print report_untested()
-
 # run the unit tests when this file is executed directly
 if __name__ == "__main__":
-    run_tests()
+    unittest.main()

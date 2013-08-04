@@ -6663,9 +6663,11 @@ def get_dependencies_for(some_object, recompute=False, global_dependencies=set()
         print "asm is: \n\n" + to_asm(some_object)
         raise e
 
-def isolate_incbins():
+def isolate_incbins(asm=None):
     "find each incbin line"
-    global incbin_lines, asm
+    global incbin_lines
+    if asm == None:
+        asm = globals()["asm"]
     incbin_lines = []
     for line in asm:
         if line == "": continue
@@ -6687,7 +6689,7 @@ def process_incbins():
         load_asm()
     # get a list of incbins if that hasn't happened yet
     if incbin_lines == [] or incbin_lines == None:
-        isolate_incbins()
+        isolate_incbins(asm=asm)
     # reset the global that this function creates
     processed_incbins = {}
     # for each incbin..
@@ -6728,7 +6730,7 @@ def reset_incbins():
     incbin_lines = []
     processed_incbins = {}
     load_asm()
-    isolate_incbins()
+    isolate_incbins(asm=asm)
     process_incbins()
 
 def find_incbin_to_replace_for(address, debug=False, rom_file="../baserom.gbc"):
@@ -7340,7 +7342,7 @@ def analyze_intervals():
     if asm == None:
         load_asm()
     if processed_incbins == {}:
-        isolate_incbins()
+        isolate_incbins(asm=asm)
         process_incbins()
     results = []
     ordered_keys = sorted(processed_incbins, key=lambda entry: processed_incbins[entry]["interval"])
