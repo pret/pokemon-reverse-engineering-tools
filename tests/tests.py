@@ -452,6 +452,9 @@ class TestAsmList(unittest.TestCase):
         self.assertEqual(len(obj), len(labels))
         self.assertEqual(len(obj), 2)
         self.assertEqual(obj, labels)
+        # remove the current file
+        if os.path.exists(filename):
+            os.system("rm " + filename)
 
     def test_isolate_incbins(self):
         global asm
