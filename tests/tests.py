@@ -429,9 +429,11 @@ class TestAsmList(unittest.TestCase):
     def test_write_all_labels(self):
         """dumping json into a file"""
         filename = "test_labels.json"
+
         # remove the current file
         if os.path.exists(filename):
             os.system("rm " + filename)
+
         # make up some labels
         labels = []
         # fake label 1
@@ -440,18 +442,23 @@ class TestAsmList(unittest.TestCase):
         # fake label 2
         label = {"line_number": 15, "bank": 2, "label": "SomeOtherLabel", "address": 0x9F0A}
         labels.append(label)
+
         # dump to file
         write_all_labels(labels, filename=filename)
+
         # open the file and read the contents
         file_handler = open(filename, "r")
         contents = file_handler.read()
         file_handler.close()
+
         # parse into json
         obj = json.read(contents)
+
         # begin testing
         self.assertEqual(len(obj), len(labels))
         self.assertEqual(len(obj), 2)
         self.assertEqual(obj, labels)
+
         # remove the current file
         if os.path.exists(filename):
             os.system("rm " + filename)
