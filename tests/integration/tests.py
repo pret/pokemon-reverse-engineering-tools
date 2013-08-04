@@ -235,5 +235,148 @@ class TestEncodedText(unittest.TestCase):
         self.assertEqual(len(p.commands), 2)
         self.assertEqual(len(p.commands[0]["lines"]), 41)
 
+class TestScript(unittest.TestCase):
+    """for testing parse_script_engine_script_at and script parsing in
+    general. Script should be a class."""
+    #def test_parse_script_engine_script_at(self):
+    #    pass # or raise NotImplementedError, bryan_message
+
+    def test_find_all_text_pointers_in_script_engine_script(self):
+        address = 0x197637 # 0x197634
+        script = parse_script_engine_script_at(address, debug=False)
+        bank = calculate_bank(address)
+        r = find_all_text_pointers_in_script_engine_script(script, bank=bank, debug=False)
+        results = list(r)
+        self.assertIn(0x197661, results)
+
+class TestByteParams(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        load_rom()
+        cls.address = 10
+        cls.sbp = SingleByteParam(address=cls.address)
+
+    @classmethod
+    def tearDownClass(cls):
+        del cls.sbp
+
+    def test__init__(self):
+        self.assertEqual(self.sbp.size, 1)
+        self.assertEqual(self.sbp.address, self.address)
+
+    def test_parse(self):
+        self.sbp.parse()
+        self.assertEqual(str(self.sbp.byte), str(45))
+
+    def test_to_asm(self):
+        self.assertEqual(self.sbp.to_asm(), "$2d")
+        self.sbp.should_be_decimal = True
+        self.assertEqual(self.sbp.to_asm(), str(45))
+
+    # HexByte and DollarSignByte are the same now
+    def test_HexByte_to_asm(self):
+        h = HexByte(address=10)
+        a = h.to_asm()
+        self.assertEqual(a, "$2d")
+
+    def test_DollarSignByte_to_asm(self):
+        d = DollarSignByte(address=10)
+        a = d.to_asm()
+        self.assertEqual(a, "$2d")
+
+    def test_ItemLabelByte_to_asm(self):
+        i = ItemLabelByte(address=433)
+        self.assertEqual(i.byte, 54)
+        self.assertEqual(i.to_asm(), "COIN_CASE")
+        self.assertEqual(ItemLabelByte(address=10).to_asm(), "$2d")
+
+    def test_DecimalParam_to_asm(self):
+        d = DecimalParam(address=10)
+        x = d.to_asm()
+        self.assertEqual(x, str(0x2d))
+
+class TestMultiByteParam(unittest.TestCase):
+    def setup_for(self, somecls, byte_size=2, address=443, **kwargs):
+        self.cls = somecls(address=address, size=byte_size, **kwargs)
+        self.assertEqual(self.cls.address, address)
+        self.assertEqual(self.cls.bytes, rom_interval(address, byte_size, strings=False))
+        self.assertEqual(self.cls.size, byte_size)
+
+    def test_two_byte_param(self):
+        self.setup_for(MultiByteParam, byte_size=2)
+        self.assertEqual(self.cls.to_asm(), "$f0c0")
+
+    def test_three_byte_param(self):
+        self.setup_for(MultiByteParam, byte_size=3)
+
+    def test_PointerLabelParam_no_bank(self):
+        self.setup_for(PointerLabelParam, bank=None)
+        # assuming no label at this location..
+        self.assertEqual(self.cls.to_asm(), "$f0c0")
+        global all_labels
+        # hm.. maybe all_labels should be using a class?
+        all_labels = [{"label": "poop", "address": 0xf0c0,
+                       "offset": 0xf0c0, "bank": 0,
+                       "line_number": 2
+                     }]
+        self.assertEqual(self.cls.to_asm(), "poop")
+
+class TestPostParsing: #(unittest.TestCase):
+    """tests that must be run after parsing all maps"""
+    def test_signpost_counts(self):
+        self.assertEqual(len(map_names[1][1]["signposts"]), 0)
+        self.assertEqual(len(map_names[1][2]["signposts"]), 2)
+        self.assertEqual(len(map_names[10][5]["signposts"]), 7)
+
+    def test_warp_counts(self):
+        self.assertEqual(map_names[10][5]["warp_count"], 9)
+        self.assertEqual(map_names[18][5]["warp_count"], 3)
+        self.assertEqual(map_names[15][1]["warp_count"], 2)
+
+    def test_map_sizes(self):
+        self.assertEqual(map_names[15][1]["height"], 18)
+        self.assertEqual(map_names[15][1]["width"], 10)
+        self.assertEqual(map_names[7][1]["height"], 4)
+        self.assertEqual(map_names[7][1]["width"], 4)
+
+    def test_map_connection_counts(self):
+        self.assertEqual(map_names[7][1]["connections"], 0)
+        self.assertEqual(map_names[10][1]["connections"], 12)
+        self.assertEqual(map_names[10][2]["connections"], 12)
+        self.assertEqual(map_names[11][1]["connections"], 9) # or 13?
+
+    def test_second_map_header_address(self):
+        self.assertEqual(map_names[11][1]["second_map_header_address"], 0x9509c)
+        self.assertEqual(map_names[1][5]["second_map_header_address"], 0x95bd0)
+
+    def test_event_address(self):
+        self.assertEqual(map_names[17][5]["event_address"], 0x194d67)
+        self.assertEqual(map_names[23][3]["event_address"], 0x1a9ec9)
+
+    def test_people_event_counts(self):
+        self.assertEqual(len(map_names[23][3]["people_events"]), 4)
+        self.assertEqual(len(map_names[10][3]["people_events"]), 9)
+
+class TestMapParsing(unittest.TestCase):
+    def test_parse_all_map_headers(self):
+        global parse_map_header_at, old_parse_map_header_at, counter
+        counter = 0
+        for k in map_names.keys():
+            if "offset" not in map_names[k].keys():
+                map_names[k]["offset"] = 0
+        temp = parse_map_header_at
+        temp2 = old_parse_map_header_at
+        def parse_map_header_at(address, map_group=None, map_id=None, debug=False):
+            global counter
+            counter += 1
+            return {}
+        old_parse_map_header_at = parse_map_header_at
+        parse_all_map_headers(debug=False)
+        # parse_all_map_headers is currently doing it 2x
+        # because of the new/old map header parsing routines
+        self.assertEqual(counter, 388 * 2)
+        parse_map_header_at = temp
+        old_parse_map_header_at = temp2
+
 if __name__ == "__main__":
     unittest.main()
