@@ -445,12 +445,11 @@ class TestAsmList(unittest.TestCase):
             os.system("rm " + filename)
 
     def test_isolate_incbins(self):
-        global asm
         asm = ["123", "456", "789", "abc", "def", "ghi",
                'INCBIN "baserom.gbc",$12DA,$12F8 - $12DA',
                "jkl",
                'INCBIN "baserom.gbc",$137A,$13D0 - $137A']
-        lines = isolate_incbins()
+        lines = isolate_incbins(asm=asm)
         self.assertIn(asm[6], lines)
         self.assertIn(asm[8], lines)
         for line in lines:
@@ -489,7 +488,7 @@ class TestAsmList(unittest.TestCase):
         asm = ['first line', 'second line', 'third line',
                'INCBIN "baserom.gbc",$90,$200 - $90',
                'fifth line', 'last line']
-        isolate_incbins()
+        isolate_incbins(asm=asm)
         process_incbins()
         line_num = find_incbin_to_replace_for(0x100)
         # must be the 4th line (the INBIN line)
@@ -504,7 +503,7 @@ class TestAsmList(unittest.TestCase):
         asm = ['first line', 'second line', 'third line',
                'INCBIN "baserom.gbc",$90,$200 - $90',
                'fifth line', 'last line']
-        isolate_incbins()
+        isolate_incbins(asm=asm)
         process_incbins()
         content = split_incbin_line_into_three(3, 0x100, 10)
         # must end up with three INCBINs in output
@@ -517,7 +516,7 @@ class TestAsmList(unittest.TestCase):
                'INCBIN "baserom.gbc",$90,$200 - $90',
                'fifth line', 'last line',
                'INCBIN "baserom.gbc",$33F,$4000 - $33F']
-        isolate_incbins()
+        isolate_incbins(asm=asm)
         process_incbins()
         largest = analyze_intervals()
         self.assertEqual(largest[0]["line_number"], 6)
