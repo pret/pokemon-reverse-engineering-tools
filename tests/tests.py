@@ -89,6 +89,7 @@ from pokemontools.crystal import (
 )
 
 import unittest
+import mock
 
 class TestCram(unittest.TestCase):
     "this is where i cram all of my unit tests together"
@@ -504,8 +505,12 @@ class TestAsmList(unittest.TestCase):
         # must be the 4th line (the INBIN line)
         self.assertEqual(line_num, 3)
 
-    def test_split_incbin_line_into_three(self):
+    @mock.patch("os.lstat")
+    def test_split_incbin_line_into_three(self, mock_os_lstat):
         global asm, incbin_lines, processed_incbins
+
+        mock_os_lstat.return_value.st_size = 0x10000
+
         asm = ['first line', 'second line', 'third line',
                'INCBIN "baserom.gbc",$90,$200 - $90',
                'fifth line', 'last line']
