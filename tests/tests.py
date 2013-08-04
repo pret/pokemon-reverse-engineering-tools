@@ -119,8 +119,6 @@ class TestCram(unittest.TestCase):
         self.failUnless(calculate_bank(0x8000) == 2)
         self.failUnless(calculate_bank("0x9000") == 2)
         self.failUnless(calculate_bank(0) == 0)
-        for address in [0x4000, 0x5000, 0x6000, 0x7000]:
-            self.assertRaises(Exception, calculate_bank, address)
 
     def test_calculate_pointer(self):
         # for offset <= 0x4000
