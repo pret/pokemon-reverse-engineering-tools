@@ -124,69 +124,6 @@ class TestCram(unittest.TestCase):
         self.assertNotEqual(data, groups)
         self.assertNotEqual(len(data), len(groups))
 
-    def test_direct_load_rom(self):
-        rom = self.rom
-        self.assertEqual(len(rom), 2097152)
-        self.failUnless(isinstance(rom, RomStr))
-
-    def test_load_rom(self):
-        global rom
-        rom = None
-        load_rom()
-        self.failIf(rom == None)
-        rom = RomStr(None)
-        load_rom()
-        self.failIf(rom == RomStr(None))
-
-    def test_load_asm(self):
-        asm = load_asm()
-        joined_lines = "\n".join(asm)
-        self.failUnless("SECTION" in joined_lines)
-        self.failUnless("bank" in joined_lines)
-        self.failUnless(isinstance(asm, AsmList))
-
-    def test_rom_file_existence(self):
-        "ROM file must exist"
-        self.failUnless("baserom.gbc" in os.listdir("../"))
-
-    def test_rom_md5(self):
-        "ROM file must have the correct md5 sum"
-        rom = self.rom
-        correct = "9f2922b235a5eeb78d65594e82ef5dde"
-        md5 = hashlib.md5()
-        md5.update(rom)
-        md5sum = md5.hexdigest()
-        self.assertEqual(md5sum, correct)
-
-    def test_bizarre_http_presence(self):
-        rom_segment = self.rom[0x112116:0x112116+8]
-        self.assertEqual(rom_segment, "HTTP/1.0")
-
-    def test_rom_interval(self):
-        address = 0x100
-        interval = 10
-        correct_strings = ['0x0', '0xc3', '0x6e', '0x1', '0xce',
-                           '0xed', '0x66', '0x66', '0xcc', '0xd']
-        byte_strings = rom_interval(address, interval, strings=True)
-        self.assertEqual(byte_strings, correct_strings)
-        correct_ints = [0, 195, 110, 1, 206, 237, 102, 102, 204, 13]
-        ints = rom_interval(address, interval, strings=False)
-        self.assertEqual(ints, correct_ints)
-
-    def test_rom_until(self):
-        address = 0x1337
-        byte = 0x13
-        bytes = rom_until(address, byte, strings=True)
-        self.failUnless(len(bytes) == 3)
-        self.failUnless(bytes[0] == '0xd5')
-        bytes = rom_until(address, byte, strings=False)
-        self.failUnless(len(bytes) == 3)
-        self.failUnless(bytes[0] == 0xd5)
-
-    def test_how_many_until(self):
-        how_many = how_many_until(chr(0x13), 0x1337)
-        self.assertEqual(how_many, 3)
-
     def test_calculate_bank(self):
         self.failUnless(calculate_bank(0x8000) == 2)
         self.failUnless(calculate_bank("0x9000") == 2)
@@ -202,15 +139,6 @@ class TestCram(unittest.TestCase):
         self.assertEqual(calculate_pointer(0x430F, bank=5), 0x1430F)
         # for offset >= 0x7FFF
         self.assertEqual(calculate_pointer(0x8FFF, bank=6), calculate_pointer(0x8FFF, bank=7))
-
-    def test_calculate_pointer_from_bytes_at(self):
-        addr1 = calculate_pointer_from_bytes_at(0x100, bank=False)
-        self.assertEqual(addr1, 0xc300)
-        addr2 = calculate_pointer_from_bytes_at(0x100, bank=True)
-        self.assertEqual(addr2, 0x2ec3)
-
-    def test_rom_text_at(self):
-        self.assertEquals(rom_text_at(0x112116, 8), "HTTP/1.0")
 
     def test_translate_command_byte(self):
         self.failUnless(translate_command_byte(crystal=0x0) == 0x0)
@@ -381,31 +309,6 @@ class TestRomStr(unittest.TestCase):
         self.assertEquals(len(self.sample_text), len(self.sample))
         self.assertEquals(len(self.sample_text), self.sample.length())
         self.assertEquals(len(self.sample), self.sample.length())
-
-    def test_rom_interval(self):
-        global rom
-        load_rom()
-        address = 0x100
-        interval = 10
-        correct_strings = ['0x0', '0xc3', '0x6e', '0x1', '0xce',
-                           '0xed', '0x66', '0x66', '0xcc', '0xd']
-        byte_strings = rom.interval(address, interval, strings=True)
-        self.assertEqual(byte_strings, correct_strings)
-        correct_ints = [0, 195, 110, 1, 206, 237, 102, 102, 204, 13]
-        ints = rom.interval(address, interval, strings=False)
-        self.assertEqual(ints, correct_ints)
-
-    def test_rom_until(self):
-        global rom
-        load_rom()
-        address = 0x1337
-        byte = 0x13
-        bytes = rom.until(address, byte, strings=True)
-        self.failUnless(len(bytes) == 3)
-        self.failUnless(bytes[0] == '0xd5')
-        bytes = rom.until(address, byte, strings=False)
-        self.failUnless(len(bytes) == 3)
-        self.failUnless(bytes[0] == 0xd5)
 
 class TestAsmList(unittest.TestCase):
     """AsmList is a class that should act exactly like list()
