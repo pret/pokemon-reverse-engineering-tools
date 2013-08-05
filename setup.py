@@ -22,7 +22,7 @@ requires = [
 
 setup(
     name="pokemontools",
-    version="1.0.1",
+    version="1.0.2",
     description="Tools for compiling and disassembling Pokémon Red and Pokémon Crystal.",
     long_description=open("README.md", "r").read(),
     license="BSD",
