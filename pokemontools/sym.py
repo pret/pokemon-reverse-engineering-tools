@@ -2,10 +2,6 @@
 
 import json
 
-# from crystal import load_rom
-# from gbz80disasm import load_labels
-
-
 def make_sym_from_json(filename = '../pokecrystal.sym', j = 'labels.json'):
     # todo: delete and remake labels.json at runtime
     with open(filename, 'w') as sym:
