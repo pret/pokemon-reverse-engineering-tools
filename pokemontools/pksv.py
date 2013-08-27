@@ -293,13 +293,23 @@ pksv_crystal = {
 }
 
 #these cause the script to end; used in create_command_classes
-pksv_crystal_more_enders = [0x03, 0x04, 0x05, 0x0C, 0x51, 0x52,
-                            0x53, 0x8D, 0x8F, 0x90, 0x91, 0x92,
-                            0x9B,
-                            0xB2, #maybe?
-                            0xCC, #maybe?
-                            0x9A, # describedecoration
-                           ]
+pksv_crystal_more_enders = [
+    0x03, # 2jump
+    0x04,
+    0x05,
+    0x0C,
+    0x51,
+    0x52,
+    0x53,
+    0x65,
+    0x8D, # priorityjump
+    0x8F, # ptpriorityjump
+    0x90, # return
+    0x91, # end
+    0x92, # reloadandreturn
+    0x9A, # describedecoration
+    0x9B, # fruittree
+]
 
 # these have no pksv names as of pksv 2.1.1
 pksv_crystal_unknowns = [
