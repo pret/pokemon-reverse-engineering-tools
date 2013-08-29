@@ -5,7 +5,7 @@ Basic preprocessor for both pokecrystal and pokered.
 
 import sys
 
-from extras.pokemontools.crystal import (
+from crystal import (
     DataByteWordMacro,
 )
 
@@ -515,7 +515,19 @@ def macro_translator(macro, token, line, skippable_macros, show_original_lines=F
         try:
             param_type  = macro.param_types[index - correction]
         except KeyError as exception:
-            raise Exception("line is: " + str(line) + " and macro is: " + str(macro))
+            raise Exception(
+                "Got a KeyError on param_types. This usually happens when a " \
+                "macro should have been skipped but wasn't. But there are also " \
+                "other sources of this error.\n\n" \
+                "line is: {line}\n" \
+                "macro is: {macro}\n" \
+                "error is: {error}\n"
+                .format(
+                    line=line,
+                    macro=macro,
+                    error=exception,
+                )
+            )
         description = param_type["name"]
         param_klass = param_type["class"]
         byte_type   = param_klass.byte_type # db or dw
