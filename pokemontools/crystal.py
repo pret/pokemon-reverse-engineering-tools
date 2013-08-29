@@ -3587,7 +3587,7 @@ class ItemFragment(Command):
     }
 
     def __init__(self, address=None, bank=None, map_group=None, map_id=None, debug=False, label=None):
-        assert is_valid_address(address), "PeopleEvent must be given a valid address"
+        assert is_valid_address(address), "ItemFragment must be given a valid address"
         self.address = address
         self.last_address = address + self.size
         self.bank = bank
