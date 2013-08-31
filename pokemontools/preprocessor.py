@@ -13,9 +13,6 @@ default_macros = [
     DataByteWordMacro,
 ]
 
-class SkippableMacro(object):
-    macro_name = "db"
-
 chars = {
 "ガ": 0x05,
 "ギ": 0x06,
@@ -281,6 +278,16 @@ chars = {
 "9": 0xFF
 }
 
+class PreprocessorException(Exception):
+    """
+    There was a problem in the preprocessor.
+    """
+
+class MacroException(PreprocessorException):
+    """
+    There was a problem with a macro.
+    """
+
 def separate_comment(l):
     """
     Separates asm and comments on a single line.
@@ -392,8 +399,9 @@ def macro_test(asm, macro_table):
     """
     # macros are determined by the first symbol on the line
     token = extract_token(asm)
-    # check against all names
-    if token in macro_table:
+
+    # skip db and dw since rgbasm handles those and they aren't macros
+    if token is not None and token not in ["db", "dw"] and token in macro_table:
         return (macro_table[token], token)
     else:
         return (None, None)
@@ -410,15 +418,69 @@ def is_based_on(something, base):
     options += [something.__name__]
     return (base in options)
 
-def macro_translator(macro, token, line, skippable_macros, show_original_lines=False, do_macro_sanity_check=False):
+def check_macro_sanity(params, macro, original_line):
+    """
+    Checks whether or not the correct number of arguments are being passed to a
+    certain macro. There are a number of possibilities based on the types of
+    parameters that define the macro.
+
+    @param params: a list of parameters given to the macro
+    @param macro: macro klass
+    @param original_line: the line being preprocessed
+    """
+    allowed_length = 0
+
+    for (index, param_type) in macro.param_types.items():
+        param_klass = param_type["class"]
+
+        if param_klass.byte_type == "db":
+            allowed_length += 1 # just one value
+        elif param_klass.byte_type == "dw":
+            if param_klass.size == 2:
+                allowed_length += 1 # just label
+            elif param_klass.size == 3:
+                allowed_length += 2 # bank and label
+            else:
+                raise MacroException(
+                    "dunno what to do with a macro param with a size > 3 (size={size})"
+                    .format(size=param_klass.size)
+                )
+        else:
+            raise MacroException(
+                "dunno what to do with this non db/dw macro param: {klass} in line {line}"
+                .format(klass=param_klass, line=original_line)
+            )
+
+    # sometimes the allowed length can vary
+    if hasattr(macro, "allowed_lengths"):
+        allowed_lengths = macro.allowed_lengths + [allowed_length]
+    else:
+        allowed_lengths = [allowed_length]
+
+    # used twice, so precompute once
+    params_len = len(params)
+
+    if params_len not in allowed_lengths:
+        raise PreprocessorException(
+            "mismatched number of parameters ({count}, instead of any of {allowed}) on this line: {line}"
+            .format(
+                count=params_len,
+                allowed=allowed_lengths,
+                line=original_line,
+            )
+        )
+
+    return True
+
+def macro_translator(macro, token, line, show_original_lines=False, do_macro_sanity_check=False):
     """
     Converts a line with a macro into a rgbasm-compatible line.
 
     @param show_original_lines: show lines before preprocessing in stdout
     @param do_macro_sanity_check: helpful for debugging macros
     """
-
-    assert macro.macro_name == token, "macro/token mismatch"
+    if macro.macro_name != token:
+        raise MacroException("macro/token mismatch")
 
     original_line = line
 
@@ -446,16 +508,15 @@ def macro_translator(macro, token, line, skippable_macros, show_original_lines=F
 
         # check if there are no params (redundant)
         if len(params) == 1 and params[0] == "":
-            raise Exception, "macro has no params?"
+            raise MacroException("macro has no params?")
 
     # write out a comment showing the original line
     if show_original_lines:
         sys.stdout.write("; original_line: " + original_line)
 
-    # "db" is a macro because of SkippableMacro
-    # rgbasm can handle "db" so no preprocessing is required
-    # (don't check its param count)
-    if macro.__name__ in skippable_macros or (macro.macro_name == "db" and macro in skippable_macros):
+    # rgbasm can handle "db" so no preprocessing is required, plus this wont be
+    # reached because of earlier checks in macro_test.
+    if macro.macro_name in ["db", "dw"]:
         sys.stdout.write(original_line)
         return
 
@@ -465,45 +526,10 @@ def macro_translator(macro, token, line, skippable_macros, show_original_lines=F
     if not macro.override_byte_check:
         sys.stdout.write("db ${0:02X}\n".format(macro.id))
 
-    # --- long-winded sanity check goes here ---
-
+    # Does the number of parameters on this line match any allowed number of
+    # parameters that the macro expects?
     if do_macro_sanity_check:
-
-        # sanity check... this won't work because PointerLabelBeforeBank shows
-        # up as two params, so these two lengths will always be different.
-        #assert len(params) == len(macro.param_types), \
-        #       "mismatched number of parameters on this line: " + \
-        #       original_line
-
-        # v2 sanity check :) although it sorta sucks that this loop happens twice?
-        allowed_length = 0
-        for (index, param_type) in macro.param_types.items():
-            param_klass = param_type["class"]
-
-            if param_klass.byte_type == "db":
-                allowed_length += 1 # just one value
-            elif param_klass.byte_type == "dw":
-                if param_klass.size == 2:
-                    allowed_length += 1 # just label
-                elif param_klass.size == 3:
-                    allowed_length += 2 # bank and label
-                else:
-                    raise Exception, "dunno what to do with a macro param with a size > 3"
-            else:
-                raise Exception, "dunno what to do with this non db/dw macro param: " + \
-                                 str(param_klass) + " in line: " + original_line
-
-        # sometimes the allowed length can vary
-        if hasattr(macro, "allowed_lengths"):
-            allowed_lengths = macro.allowed_lengths + [allowed_length]
-        else:
-            allowed_lengths = [allowed_length]
-
-        assert len(params) in allowed_lengths, \
-               "mismatched number of parameters on this line: " + \
-               original_line
-
-    # --- end of ridiculously long sanity check ---
+        check_macro_sanity(params, macro, original_line)
 
     # used for storetext
     correction = 0
@@ -512,22 +538,7 @@ def macro_translator(macro, token, line, skippable_macros, show_original_lines=F
 
     index = 0
     while index < len(params):
-        try:
-            param_type  = macro.param_types[index - correction]
-        except KeyError as exception:
-            raise Exception(
-                "Got a KeyError on param_types. This usually happens when a " \
-                "macro should have been skipped but wasn't. But there are also " \
-                "other sources of this error.\n\n" \
-                "line is: {line}\n" \
-                "macro is: {macro}\n" \
-                "error is: {error}\n"
-                .format(
-                    line=line,
-                    macro=macro,
-                    error=exception,
-                )
-            )
+        param_type  = macro.param_types[index - correction]
         description = param_type["name"]
         param_klass = param_type["class"]
         byte_type   = param_klass.byte_type # db or dw
@@ -561,9 +572,13 @@ def macro_translator(macro, token, line, skippable_macros, show_original_lines=F
                 output += ("db " + param_klass.from_asm(param) + "\n")
                 index += 1
             else:
-                raise Exception, "dunno what to do with this macro " + \
-                "param (" + str(param_klass) + ") " + "on this line: " + \
-                original_line
+                raise MacroException(
+                    "dunno what to do with this macro param ({klass}) in line: {line}"
+                    .format(
+                        klass=param_klass,
+                        line=original_line,
+                    )
+                )
 
         # or just print out the byte
         else:
@@ -573,8 +588,12 @@ def macro_translator(macro, token, line, skippable_macros, show_original_lines=F
 
     sys.stdout.write(output)
 
-def read_line(l, skippable_macros, macro_table):
+def read_line(l, macro_table):
     """Preprocesses a given line of asm."""
+
+    if l in ["\n", ""] or l[0] == ";":
+        sys.stdout.write(l)
+        return # jump out early
 
     # strip comments from asm
     asm, comment = separate_comment(l)
@@ -589,7 +608,7 @@ def read_line(l, skippable_macros, macro_table):
         sys.stdout.write(asm)
 
     # ascii string macro preserves the bytes as ascii (skip the translator)
-    elif len(asm) > 6 and "ascii " == asm[:6] or "\tascii " == asm[:7]:
+    elif len(asm) > 6 and ("ascii " == asm[:6] or "\tascii " == asm[:7]):
         asm = asm.replace("ascii", "db", 1)
         sys.stdout.write(asm)
 
@@ -601,21 +620,15 @@ def read_line(l, skippable_macros, macro_table):
     else:
         macro, token = macro_test(asm, macro_table)
         if macro:
-            macro_translator(macro, token, asm, skippable_macros)
+            macro_translator(macro, token, asm)
         else:
             sys.stdout.write(asm)
 
-    if comment: sys.stdout.write(comment)
+    if comment:
+        sys.stdout.write(comment)
 
-def preprocess(macros, skippable_macros=None, lines=None):
+def preprocess(macro_table, lines=None):
     """Main entry point for the preprocessor."""
-    if skippable_macros == None:
-        skippable_macros = [SkippableMacro]
-
-    macro_table = make_macro_table(list(set(macros + skippable_macros)))
-
-    # HACK for pokecrystal. Must be after make_macro_table call.
-    skippable_macros += ["TextEndingCommand"]
 
     if not lines:
         # read each line from stdin
@@ -625,4 +638,4 @@ def preprocess(macros, skippable_macros=None, lines=None):
         lines = lines.split("\n")
 
     for l in lines:
-        read_line(l, skippable_macros, macro_table)
+        read_line(l, macro_table)
