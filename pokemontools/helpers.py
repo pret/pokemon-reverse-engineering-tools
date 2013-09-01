@@ -1,6 +1,7 @@
 """
 Generic functions that should be reusable anywhere in pokemontools.
 """
+import os
 
 def index(seq, f):
     """return the index of the first item in seq
@@ -27,3 +28,14 @@ def flattener(x):
 def flatten(x):
     "flattens a list of sublists into just one list"
     return list(flattener(x))
+
+def mkdir_p(path):
+    """
+    Make a directory at a given path.
+    """
+    try:
+        os.makedirs(path)
+    except OSError as exc: # Python >2.5
+        if exc.errno == errno.EEXIST:
+            pass
+        else: raise

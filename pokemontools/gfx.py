@@ -12,18 +12,6 @@ import trainers
 if __name__ != "__main__":
     rom = crystal.load_rom()
 
-def mkdir_p(path):
-    """
-    Make a directory at a given path.
-    """
-    try:
-        os.makedirs(path)
-    except OSError as exc: # Python >2.5
-        if exc.errno == errno.EEXIST:
-            pass
-        else: raise
-
-
 def hex_dump(input, debug=True):
     """
     Display hex dump in rows of 16 bytes.
