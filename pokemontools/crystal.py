@@ -47,6 +47,7 @@ texts = []
 # this doesn't do anything but is still used in TextScript
 constant_abbreviation_bytes = {}
 
+import helpers
 import chars
 import labels
 import pksv
@@ -133,12 +134,6 @@ def load_asm(filename="../main.asm"):
     asm = direct_load_asm(filename=filename)
     return asm
 
-def grouper(some_list, count=2):
-    """splits a list into sublists
-    given: [1, 2, 3, 4]
-    returns: [[1, 2], [3, 4]]"""
-    return [some_list[i:i+count] for i in range(0, len(some_list), count)]
-
 def is_valid_address(address):
     """is_valid_rom_address"""
     if address == None:
@@ -170,7 +165,7 @@ def load_map_group_offsets():
     global rom
     map_group_offsets = [] # otherwise this method can only be used once
     data = rom_interval(map_group_pointer_table, map_group_count*2, strings=False)
-    data = grouper(data)
+    data = helpers.grouper(data)
     for pointer_parts in data:
         pointer = pointer_parts[0] + (pointer_parts[1] << 8)
         offset = pointer - 0x4000 + map_group_pointer_table
@@ -3539,7 +3534,7 @@ def old_parse_warp_bytes(some_bytes, debug=True):
     """parse some number of warps from the data"""
     assert len(some_bytes) % warp_byte_size == 0, "wrong number of bytes"
     warps = []
-    for bytes in grouper(some_bytes, count=warp_byte_size):
+    for bytes in helpers.grouper(some_bytes, count=warp_byte_size):
         y = int(bytes[0], 16)
         x = int(bytes[1], 16)
         warp_to = int(bytes[2], 16)
@@ -3600,7 +3595,7 @@ def old_parse_xy_trigger_bytes(some_bytes, bank=None, map_group=None, map_id=Non
     """parse some number of triggers from the data"""
     assert len(some_bytes) % trigger_byte_size == 0, "wrong number of bytes"
     triggers = []
-    for bytes in grouper(some_bytes, count=trigger_byte_size):
+    for bytes in helpers.grouper(some_bytes, count=trigger_byte_size):
         trigger_number = int(bytes[0], 16)
         y = int(bytes[1], 16)
         x = int(bytes[2], 16)
@@ -4518,7 +4513,7 @@ def old_parse_people_event_bytes(some_bytes, address=None, map_group=None, map_i
         bank = pointers.calculate_bank(address)
 
     people_events = []
-    for bytes in grouper(some_bytes, count=people_event_byte_size):
+    for bytes in helpers.grouper(some_bytes, count=people_event_byte_size):
         pict = int(bytes[0], 16)
         y = int(bytes[1], 16)    # y from top + 4
         x = int(bytes[2], 16)    # x from left + 4
@@ -4940,7 +4935,7 @@ def parse_signposts(address, signpost_count, bank=None, map_group=None, map_id=N
 def old_parse_signpost_bytes(some_bytes, bank=None, map_group=None, map_id=None, debug=True):
     assert len(some_bytes) % signpost_byte_size == 0, "wrong number of bytes"
     signposts = []
-    for bytes in grouper(some_bytes, count=signpost_byte_size):
+    for bytes in helpers.grouper(some_bytes, count=signpost_byte_size):
         y = int(bytes[0], 16)
         x = int(bytes[1], 16)
         func = int(bytes[2], 16)
@@ -6278,7 +6273,7 @@ class MapScriptHeader:
         self.trigger_count = ord(rom[address])
         self.triggers = []
         ptr_line_size = 4
-        groups = grouper(rom_interval(address+1, self.trigger_count * ptr_line_size, strings=False), count=ptr_line_size)
+        groups = helpers.grouper(rom_interval(address+1, self.trigger_count * ptr_line_size, strings=False), count=ptr_line_size)
         current_address = address+1
         for (index, trigger_bytes) in enumerate(groups):
             logging.debug(
@@ -6361,7 +6356,7 @@ def old_parse_map_script_header_at(address, map_group=None, map_id=None, debug=T
     #[[Number1 of pointers] Number1 * [2byte pointer to script][00][00]]
     ptr_line_size = 4 #[2byte pointer to script][00][00]
     trigger_ptr_cnt = ord(rom[address])
-    trigger_pointers = grouper(rom_interval(address+1, trigger_ptr_cnt * ptr_line_size, strings=False), count=ptr_line_size)
+    trigger_pointers = helpers.grouper(rom_interval(address+1, trigger_ptr_cnt * ptr_line_size, strings=False), count=ptr_line_size)
     triggers = {}
     for index, trigger_pointer in enumerate(trigger_pointers):
         logging.debug("parsing a trigger header...")
@@ -6382,7 +6377,7 @@ def old_parse_map_script_header_at(address, map_group=None, map_id=None, debug=T
     #[[Number2 of pointers] Number2 * [hook number][2byte pointer to script]]
     callback_ptr_line_size = 3
     callback_ptr_cnt = ord(rom[address])
-    callback_ptrs = grouper(rom_interval(address+1, callback_ptr_cnt * callback_ptr_line_size, strings=False), count=callback_ptr_line_size)
+    callback_ptrs = helpers.grouper(rom_interval(address+1, callback_ptr_cnt * callback_ptr_line_size, strings=False), count=callback_ptr_line_size)
     callback_pointers = {}
     callbacks = {}
     for index, callback_line in enumerate(callback_ptrs):
@@ -6475,7 +6470,7 @@ def old_parse_people_event_bytes(some_bytes, address=None, map_group=None, map_i
         bank = pointers.calculate_bank(address)
 
     people_events = []
-    for bytes in grouper(some_bytes, count=people_event_byte_size):
+    for bytes in helpers.grouper(some_bytes, count=people_event_byte_size):
         pict = int(bytes[0], 16)
         y = int(bytes[1], 16)    # y from top + 4
         x = int(bytes[2], 16)    # x from left + 4
@@ -7536,11 +7531,6 @@ def dump_things_in_bank(bank, start=50, end=100):
 
     logging.info("done dumping things for bank {banked}".format(banked="$%.2x" % bank))
 
-def index(seq, f):
-    """return the index of the first item in seq
-    where f(item) == True."""
-    return next((i for i in xrange(len(seq)) if f(seq[i])), None)
-
 def analyze_intervals():
     """find the largest baserom.gbc intervals"""
     global asm, processed_incbins
@@ -7779,9 +7769,9 @@ def scan_for_predefined_labels(debug=False):
             abbreviation_next = "1"
 
         # calculate the start/stop line numbers for this bank
-        start_line_id = index(asm, lambda line: "\"bank" + abbreviation.lower() + "\"" in line.lower())
+        start_line_id = helpers.index(asm, lambda line: "\"bank" + abbreviation.lower() + "\"" in line.lower())
         if bank_id != 0x7F:
-            end_line_id = index(asm, lambda line: "\"bank" + abbreviation_next.lower() + "\"" in line.lower())
+            end_line_id = helpers.index(asm, lambda line: "\"bank" + abbreviation_next.lower() + "\"" in line.lower())
             end_line_id += 1
         else:
             end_line_id = len(asm) - 1
