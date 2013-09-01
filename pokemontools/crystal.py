@@ -22,7 +22,6 @@ if not hasattr(json, "dumps"):
     json.dumps = json.write
 
 from labels import (
-    remove_quoted_text,
     line_has_comment_address,
     line_has_label,
     get_label_from_line,
