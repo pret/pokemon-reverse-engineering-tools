@@ -52,10 +52,10 @@ import chars
 import labels
 import pksv
 import romstr
-import move_constants
 import pointers
 import interval_map
 import trainers
+import move_constants
 import pokemon_constants
 import item_constants
 import wram
