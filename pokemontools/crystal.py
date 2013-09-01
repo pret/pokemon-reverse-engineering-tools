@@ -56,6 +56,7 @@ import pointers
 import interval_map
 import trainers
 import pokemon_constants
+import wram
 
 # ---- script_parse_table explanation ----
 # This is an IntervalMap that keeps track of previously parsed scripts, texts
@@ -7551,13 +7552,12 @@ def write_all_labels(all_labels, filename="labels.json"):
     fh.close()
     return True
 
-from wram import wram_labels
 def get_ram_label(address):
     """
     returns a label assigned to a particular ram address
     """
-    if address in wram_labels.keys():
-        return wram_labels[address][-1]
+    if address in wram.wram_labels.keys():
+        return wram.wram_labels[address][-1]
     return None
 
 def get_label_for(address):
