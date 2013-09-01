@@ -43,9 +43,6 @@ trigger_byte_size = 8
 signpost_byte_size = 5
 people_event_byte_size = 13
 
-# a message to show with NotImplementedErrors
-bryan_message = "bryan hasn't got to this yet"
-
 max_texts = 3
 text_count = 0
 texts = []
@@ -760,8 +757,6 @@ class OldTextScript:
         return commands
 
     def get_dependencies(self, recompute=False, global_dependencies=set()):
-        #if recompute:
-        #    raise NotImplementedError(bryan_message)
         global_dependencies.update(self.dependencies)
         return self.dependencies
 
@@ -1602,7 +1597,6 @@ class PokemonParam(SingleByteParam):
 
 class PointerParamToItemAndLetter(MultiByteParam):
     # [2F][2byte pointer to item no + 0x20 bytes letter text]
-    #raise NotImplementedError(bryan_message)
     pass
 
 
@@ -1645,7 +1639,6 @@ class MoveParam(SingleByteParam):
 
 class MenuDataPointerParam(PointerLabelParam):
     # read menu data at the target site
-    #raise NotImplementedError(bryan_message)
     pass
 
 
