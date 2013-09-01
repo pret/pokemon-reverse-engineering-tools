@@ -12,6 +12,7 @@ from copy import copy, deepcopy
 import subprocess
 from new import classobj
 import random
+import logging
 
 # for capwords
 import string
@@ -100,7 +101,7 @@ def is_script_already_parsed_at(address):
 def script_parse_table_pretty_printer():
     """helpful debugging output"""
     for each in script_parse_table.items():
-        print each
+        logging.info("{0}".format(each))
 
 def map_name_cleaner(input):
     """generate a valid asm label for a given map name"""
@@ -333,7 +334,14 @@ class TextScript:
 
         # don't clutter up my screen
         if self.debug:
-            print "NewTextScript.parse address="+hex(self.address)+" map_group="+str(self.map_group)+" map_id="+str(self.map_id)
+            logging.debug(
+                "NewTextScript.parse address={address} map_group={map_group} map_id={map_id}"
+                .format(
+                    address=hex(self.address),
+                    map_group=str(self.map_group),
+                    map_id=self.map_id,
+                )
+            )
 
         # load up the rom if it hasn't been loaded already
         load_rom()
@@ -362,9 +370,16 @@ class TextScript:
 
             if self.address == 0x9c00e and self.debug:
                 if current_address > 0x9c087:
-                    print "self.commands is: " + str(commands)
-                    print "command 0 address is: " + hex(commands[0].address) + " last_address="+hex(commands[0].last_address)
-                    print "command 1 address is: " + hex(commands[1].address) + " last_address="+hex(commands[1].last_address)
+                    logging.debug("self.commands is: {commands}".format(commands=commands))
+                    for num in [0, 1]:
+                        logging.debug(
+                            "command {id} address={address} last_address={last}"
+                            .format(
+                                id=str(num),
+                                address=hex(commands[num].address),
+                                last=hex(commands[num].last_address),
+                            )
+                        )
                     raise Exception("going beyond the bounds for this text script")
 
             # no matching command found
@@ -375,7 +390,7 @@ class TextScript:
             cls = scripting_command_class(address=current_address, map_group=self.map_group, map_id=self.map_id, debug=self.debug, force=self.force)
 
             if self.debug:
-                print cls.to_asm()
+                logging.debug(cls.to_asm())
 
             # store it in this script object
             commands.append(cls)
@@ -393,10 +408,10 @@ class TextScript:
         self.last_address = current_address
 
         if self.debug:
-            print "cls.address is: " + hex(cls.address)
-            print "cls.size is: " + hex(cls.size)
-            print "cls.last_address is: " + hex(cls.last_address)
-            print "self.last_address is: " + hex(self.last_address)
+            logging.debug("cls.address is {0}".format(hex(cls.address)))
+            logging.debug("cls.size is {0}".format(hex(cls.size)))
+            logging.debug("cls.last_address is {0}".format(hex(cls.last_address)))
+            logging.debug("self.last_address is {0}".format(hex(self.last_address)))
 
         assert self.last_address == (cls.address + cls.size), "the last address should equal the last command's (address + size)"
         assert self.last_address == cls.last_address, "the last address of the TextScript should be the last_address of its last command"
@@ -404,7 +419,7 @@ class TextScript:
         # just some debugging..
         if self.debug:
             last_address = self.last_address
-            print "TextScript last_address == " + hex(last_address)
+            logging.debug("TextScript last_address == {0}".format(hex(last_address)))
             #assert last_address != 0x5db06, "TextScript.parse somehow has a text with a last_address of 0x5db06 instead of 0x5db07"
 
         # store the script in the global table/map thing
@@ -413,7 +428,7 @@ class TextScript:
 
         if self.debug:
             asm_output = "\n".join([command.to_asm() for command in commands])
-            print "--------------\n"+asm_output
+            logging.debug("asm_output is:\n{0}".format(asm_output))
 
         # store the script
         self.commands = commands
@@ -546,7 +561,7 @@ class OldTextScript:
         commands = {}
 
         if is_script_already_parsed_at(address) and not force:
-            print "text is already parsed at this location: " + hex(address)
+            logging.debug("text is already parsed at this location: {0}".format(hex(address)))
             raise Exception("text is already parsed, what's going on ?")
             return script_parse_table[address]
 
@@ -561,7 +576,10 @@ class OldTextScript:
             command = {}
             command_byte = ord(rom[address])
             if debug:
-                print "TextScript.parse_script_at has encountered a command byte " + hex(command_byte) + " at " + hex(address)
+                logging.debug(
+                    "TextScript.parse_script_at has encountered a command byte {0} at {1}"
+                    .format(hex(command_byte), hex(address))
+                )
             end_address = address + 1
             if  command_byte == 0:
                 # read until $57, $50 or $58
@@ -578,7 +596,7 @@ class OldTextScript:
 
                 if show and debug:
                     text = parse_text_at2(offset+1, end_address-offset+1, debug=debug)
-                    print text
+                    logging.debug("output of parse_text_at2 is {0}".format(text))
 
                 command = {"type": command_byte,
                            "start_address": offset,
@@ -656,7 +674,15 @@ class OldTextScript:
 
                 # use this to look at the surrounding bytes
                 if debug:
-                    print "next command is: " + hex(ord(rom[offset])) + " ... we are at command number: " + str(command_counter) + " near " + hex(offset) + " on map_id=" + str(map_id)
+                    logging.debug("next command is {0}".format(hex(ord(rom[offset]))))
+                    logging.debug(
+                        ".. current command number is {counter} near {offset} on map_id={map_id}"
+                        .format(
+                            counter=command_counter,
+                            offset=hex(offset),
+                            map_id=map_id,
+                        )
+                    )
             elif command_byte == 0x7:
                 # 07 = shift texts 1 row above (2nd line becomes 1st line); address for next text = 2nd line. [07]
                 size = 1
@@ -698,7 +724,7 @@ class OldTextScript:
 
                 if show and debug:
                     text = parse_text_at2(offset+1, end_address-offset+1, debug=debug)
-                    print text
+                    logging.debug("parse_text_at2 text is {0}".format(text))
 
                 command = {"type": command_byte,
                            "start_address": offset,
@@ -740,7 +766,14 @@ class OldTextScript:
                 #if len(commands) > 0:
                 #   print "Unknown text command " + hex(command_byte) + " at " + hex(offset) + ", script began with " + hex(commands[0]["type"])
                 if debug:
-                    print "Unknown text command at " + hex(offset) + " - command: " + hex(ord(rom[offset])) + " on map_id=" + str(map_id)
+                    logging.debug(
+                        "Unknown text command at {offset} - command: {command} on map_id={map_id}"
+                        .format(
+                            offset=hex(offset),
+                            command=hex(ord(rom[offset])),
+                            map_id=map_id,
+                        )
+                    )
 
                 # end at the first unknown command
                 end = True
@@ -787,7 +820,7 @@ class OldTextScript:
             if not "lines" in commands[this_command].keys():
                 command = commands[this_command]
                 if not "type" in command.keys():
-                    print "ERROR in command: " + str(command)
+                    logging.debug("ERROR in command: {0}".format(command))
                     continue # dunno what to do here?
 
                 if   command["type"] == 0x1: # TX_RAM
@@ -850,7 +883,7 @@ class OldTextScript:
                     byte_count += 1
                     had_db_last = True
                 else:
-                    print "ERROR in command: " + hex(command["type"])
+                    logging.debug("ERROR in command: {0}".format(hex(command["type"])))
                     had_db_last = False
 
                 # everything else is for $0s, really
@@ -998,7 +1031,13 @@ class EncodedText:
         """split this text up into multiple lines
         based on subcommands ending each line"""
         if debug:
-            print "process_00_subcommands(" + hex(start_address) + ", " + hex(end_address) + ")"
+            logging.debug(
+                "process_00_subcommands({start}, {end})"
+                .format(
+                    start=hex(start_address),
+                    end=hex(end_address),
+                )
+            )
         lines = {}
         subsection = rom[start_address:end_address]
 
@@ -1029,7 +1068,7 @@ class EncodedText:
             if byte in charset.keys():
                 line += charset[byte]
             elif debug:
-                print "byte not known: " + hex(byte)
+                logging.debug("byte not known: {0}".format(hex(byte)))
         return line
 
     @staticmethod
@@ -1147,9 +1186,9 @@ def generate_map_constants():
         globals += "\n"
         #for multi-byte constants:
         #print each["label"] + " EQUS \"$%.2x,$%.2x\"" % (each["map_group"], each["map_id"])
-    print globals
-    print groups
-    print maps
+    logging.debug("globals: {0}".format(globals))
+    logging.debug("groups: {0}".format(groups))
+    logging.debug("maps: {0}".format(maps))
 
 def generate_map_constants_dimensions():
     """
@@ -1198,7 +1237,7 @@ def find_all_text_pointers_in_script_engine_script(script, bank=None, debug=Fals
     addresses = set()
     for (k, command) in enumerate(script.commands):
         if debug:
-            print "command is: " + str(command)
+            logging.debug("command is: {0}".format(command))
         if   command.id == 0x4B:
             addresses.add(command.params[0].parsed_address)
         elif command.id == 0x4C:
@@ -1457,10 +1496,18 @@ class ScriptPointerLabelAfterBank(PointerLabelAfterBank): pass
 
 def _parse_script_pointer_bytes(self, debug = False):
     PointerLabelParam.parse(self)
-    if debug: print "_parse_script_pointer_bytes - calculating the pointer located at " + hex(self.address)
+    if debug:
+        logging.debug(
+            "_parse_script_pointer_bytes - calculating the pointer located at {0}"
+            .format(hex(self.address))
+        )
     address = calculate_pointer_from_bytes_at(self.address, bank=self.bank)
     if address != None and address > 0x4000:
-        if debug: print "_parse_script_pointer_bytes - the pointer is: " + hex(address)
+        if debug:
+            logging.debug(
+                "_parse_script_pointer_bytes - the pointer is: {0}"
+                .format(hex(address))
+            )
         self.script = parse_script_engine_script_at(address, debug=self.debug, force=self.force, map_group=self.map_group, map_id=self.map_id)
 ScriptPointerLabelParam.parse = _parse_script_pointer_bytes
 ScriptPointerLabelBeforeBank.parse = _parse_script_pointer_bytes
@@ -1878,7 +1925,8 @@ class GivePoke(Command):
         self.size = 1
         for (key, param_type) in self.param_types.items():
             # stop executing after the 4th byte unless it == 0x1
-            if i == 4: print "self.params[3].byte is: " + str(self.params[3].byte)
+            if i == 4:
+                logging.debug("self.params[3].byte is: {0}".format(str(self.params[3].byte)))
             if i == 4 and self.params[3].byte != 1: break
             name = param_type["name"]
             klass = param_type["class"]
@@ -2021,8 +2069,10 @@ def create_movement_commands(debug=False):
                 thing = {"name": each[0], "class": each[1]}
                 params["param_types"][i] = thing
                 if debug:
-                    print "each is: " + str(each)
-                    print "thing[class] is: " + str(thing["class"])
+                    logging.debug(
+                        "each is {0} and thing[class] is {1}"
+                        .format(each, str(thing["class"]))
+                    )
                 params["size"] += thing["class"].size
 
         if byte <= 0x34:
@@ -2096,7 +2146,14 @@ class ApplyMovementData:
 
         # don't clutter up my screen
         if self.debug:
-            print "ApplyMovementData.parse address="+hex(self.address)+" map_group="+str(self.map_group)+" map_id="+str(self.map_id)
+            logging.debug(
+                "ApplyMovementData.parse address={address} map_group={map_group} map_id={map_id}"
+                .format(
+                    address=hex(self.address),
+                    map_group=str(self.map_group),
+                    map_id=str(self.map_id),
+                )
+            )
 
         # load up the rom if it hasn't been loaded already
         load_rom()
@@ -2147,7 +2204,7 @@ class ApplyMovementData:
             cls = scripting_command_class(address=current_address, map_group=self.map_group, map_id=self.map_id, debug=self.debug, force=self.force)
 
             if self.debug:
-                print cls.to_asm()
+                logging.debug("cls.to_asm() is: {0}".format(cls.to_asm()))
 
             # store it in this script object
             commands.append(cls)
@@ -2169,7 +2226,7 @@ class ApplyMovementData:
 
         if self.debug:
             asm_output = "\n".join([command.to_asm() for command in commands])
-            print "--------------\n"+asm_output
+            logging.debug("asm_output: {0}".format(asm_output))
 
         # store the script
         self.commands = commands
@@ -2268,11 +2325,16 @@ class MainText(TextCommand):
 
             if self.address == 0x9c00e and self.debug:
                 if self.last_address != 0x9c086:
-                    print "self.address is: " + hex(self.address)
-                    print "jump is: " + str(jump)
-                    print "bytes are: " + str(self.bytes)
-                    print "self.size is: " + str(self.size)
-                    print "self.last_address is: " + hex(self.last_address)
+                    argparams = {
+                        "self.address": hex(self.address),
+                        "jump": str(jump),
+                        "bytes": str(self.bytes),
+                        "self.size": str(self.size),
+                        "self.last_address": hex(self.last_address),
+                    }
+
+                    logging.debug(str(argparams))
+
                     raise Exception("last_address is wrong for 0x9c00e")
 
     def to_asm(self):
@@ -2844,8 +2906,7 @@ def create_command_classes(debug=False):
                 thing = {"name": each[0], "class": each[1]}
                 params["param_types"][i] = thing
                 if debug:
-                    print "each is: " + str(each)
-                    print "thing[class] is: " + str(thing["class"])
+                    logging.debug("each is {0} and thing[class] is {1}".format(each, thing["class"]))
                 params["size"] += thing["class"].size
         klass_name = cmd_name+"Command"
         klass = classobj(klass_name, (Command,), params)
@@ -2923,8 +2984,7 @@ def create_music_command_classes(debug=False):
                 thing = {"name": each[0], "class": each[1]}
                 params["param_types"][i] = thing
                 if debug:
-                    print "each is: " + str(each)
-                    print "thing[class] is: " + str(thing["class"])
+                    logging.debug("each is {0} and thing[class] is {1}".format(each, thing["class"]))
                 params["size"] += thing["class"].size
         klass_name = cmd_name+"Command"
         klass = classobj(klass_name, (Command,), params)
@@ -3139,8 +3199,7 @@ def create_effect_command_classes(debug=False):
                 thing = {"name": each[0], "class": each[1]}
                 params["param_types"][i] = thing
                 if debug:
-                    print "each is: " + str(each)
-                    print "thing[class] is: " + str(thing["class"])
+                    logging.debug("each is {0} and thing[class] is {1}".format(each, thing["class"]))
                 params["size"] += thing["class"].size
         klass_name = cmd_name+"Command"
         klass = classobj(klass_name, (Command,), params)
@@ -3207,11 +3266,16 @@ def find_broken_recursive_scripts(output=False, debug=True):
             script = script_parse_table[r[0]]
             length = str(len(script))
         if len(script) > 20 or script == {}:
-            print "******************* begin"
-            print "script at " + hex(r[0]) + " from main script " + hex(r[1]) + " with length: " + length
+            logging.debug(
+                "script at {address} from main script {scr} with length {length}"
+                .format(
+                    address=hex(r[0]),
+                    scr=hex(r[1]),
+                    length=length,
+                )
+            )
             if output:
                 parse_script_engine_script_at(r[0], force=True, debug=True)
-            print "==================== end"
 
 
 stop_points = [0x1aafa2,
@@ -3286,7 +3350,7 @@ class Script:
 
     def show_pksv(self):
         """prints a list of pksv command names in this script"""
-        print self.to_pksv()
+        logging.debug("to_pksv(): {0}".format(self.to_pksv()))
 
     def parse(self, start_address, force=False, map_group=None, map_id=None, force_top=True, origin=True, debug=False):
         """parses a script using the Command classes
@@ -3296,12 +3360,29 @@ class Script:
         """
         global command_classes, rom, script_parse_table
         current_address = start_address
-        if debug: print "Script.parse address="+hex(self.address) +" map_group="+str(map_group)+" map_id="+str(map_id)
+        if debug:
+            logging.debug(
+                "Script.parse address={address} map_group={map_group} map_id={map_id}"
+                .format(
+                    address=hex(self.address),
+                    map_group=str(map_group),
+                    map_id=str(map_id),
+                )
+            )
         if start_address in stop_points and force == False:
-            if debug: print "script parsing is stopping at stop_point=" + hex(start_address) + " at map_group="+str(map_group)+" map_id="+str(map_id)
+            if debug:
+                logging.debug(
+                    "script parsing is stopping at stop_point={address} at map_group={map_group} map_id={map_id}"
+                    .format(
+                        stop_point=hex(start_address),
+                        map_group=str(map_group),
+                        map_id=str(map_id),
+                    )
+                )
             return None
         if start_address < 0x4000 and start_address not in [0x26ef, 0x114, 0x1108]:
-            if debug: print "address is less than 0x4000.. address is: " + hex(start_address)
+            if debug:
+                logging.debug("address is less than 0x4000.. address is {0}".format(hex(start_address)))
             sys.exit(1)
         if is_script_already_parsed_at(start_address) and not force and not force_top:
             raise Exception("this script has already been parsed before, please use that instance ("+hex(start_address)+")")
@@ -3334,7 +3415,8 @@ class Script:
             # no matching command found (not implemented yet)- just end this script
             # NOTE: might be better to raise an exception and end the program?
             if scripting_command_class == None:
-                if debug: print "parsing script; current_address is: " + hex(current_address)
+                if debug:
+                    logging.debug("parsing script; current_address is: {0}".format(hex(current_address)))
                 current_address += 1
                 asm_output = "\n".join([command.to_asm() for command in commands])
                 end = True
@@ -3367,7 +3449,8 @@ class Script:
         script_parse_table[start_address:current_address] = self
 
         asm_output = "\n".join([command.to_asm() for command in commands])
-        if debug: print "--------------\n"+asm_output
+        if debug:
+            logging.debug("asm_output is: {0}".format(asm_output))
 
         # store the script
         self.commands = commands
@@ -4258,7 +4341,7 @@ def make_trainer_group_name_trainer_ids(trainer_group_table, debug=True):
     assert trainer_group_table != None, "TrainerGroupTable must be called before setting the trainer names"
 
     if debug:
-        print "starting to make trainer names and give ids to repeated trainer names"
+        logging.info("starting to make trainer names and give ids to repeated trainer names")
 
     i = 1
     for header in trainer_group_table.headers:
@@ -4285,7 +4368,7 @@ def make_trainer_group_name_trainer_ids(trainer_group_table, debug=True):
         i += 1
 
     if debug:
-        print "done improving trainer names"
+        logging.info("done improving trainer names")
 
 def pretty_print_trainer_id_constants():
     """
@@ -6454,7 +6537,11 @@ def parse_all_map_headers(debug=True):
         #del group_data["offset"]
         for map_id, map_data in group_data.items():
             if map_id == "offset": continue # skip the "offset" address for this map group
-            if debug: print "map_group is: " + str(group_id) + "  map_id is: " + str(map_id)
+            if debug:
+                logging.debug(
+                    "map_group={group_id} map_id={map_id}"
+                    .format(group_id=group_id, map_id=map_id)
+                )
             map_header_offset = offset + ((map_id - 1) * map_header_byte_size)
             map_names[group_id][map_id]["header_offset"] = map_header_offset
 
@@ -6648,11 +6735,17 @@ def get_dependencies_for(some_object, recompute=False, global_dependencies=set()
         return global_dependencies
     except RuntimeError, e:
         # 1552, 1291, 2075, 1552, 1291...
-        print "some_object is: " + str(some_object)
-        print "class type: " + str(some_object.__class__)
-        print "label name: " + str(some_object.label.name)
-        print "address: " + str(some_object.address)
-        print "asm is: \n\n" + to_asm(some_object)
+
+        errorargs = {
+            "some_object": some_object,
+            "class type": some_object.__class__,
+            "label name": some_object.label.name,
+            "address": some_object.address,
+            "asm": to_asm(some_object),
+        }
+
+        logging.debug(str(errorargs))
+
         raise e
 
 def isolate_incbins(asm=None):
@@ -6736,10 +6829,21 @@ def find_incbin_to_replace_for(address, debug=False, rom_file="../baserom.gbc"):
         start = incbin["start"]
         end = incbin["end"]
         if debug:
-            print "start is: " + str(start)
-            print "end is: " + str(end)
-            print "address is: " + str(type(address))
-            print "checking.... " + hex(start) + " <= " + hex(address) + " <= " + hex(end)
+            argstuff = {
+                "start": start,
+                "end": end,
+                "address": str(type(address)),
+            }
+
+            logging.debug(str(argstuff))
+            logging.debug(
+                "checking... {start} <= {address} <= {end}"
+                .format(
+                    start=hex(start),
+                    address=hex(address),
+                    end=hex(end),
+                )
+            )
         if start <= address <= end:
             return incbin_key
     return None
@@ -6820,11 +6924,12 @@ def generate_diff_insert(line_number, newline, debug=False):
     os.system("rm " + original_filename)
     os.system("rm " + newfile_filename)
 
-    if debug: print diffcontent
+    if debug:
+        logging.debug("diffcontent is {0}".format(diffcontent))
     return diffcontent
 
 def apply_diff(diff, try_fixing=True, do_compile=True):
-    print "... Applying diff."
+    logging.info("Applying diff.")
 
     # write the diff to a file
     fh = open("temp.patch", "w")
@@ -6869,13 +6974,13 @@ class Incbin:
         start = partial_start.split(",")[0].replace("$", "0x")
 
         if self.debug:
-            print "Incbin.parse -- line is: " + self.line
-            print "Incbin.parse -- partial_start is: " + partial_start
-            print "Incbin.parse -- start is: " + start
+            logging.debug("Incbin.parse line is {0}".format(self.line))
+            logging.debug("Incbin.parse partial_start is {0}".format(partial_start))
+            logging.debug("Incbin.parse start is {0}".format(start))
         try:
             start = eval(start)
         except Exception, e:
-            print "start is: " + str(start)
+            logging.debug("start is {0}".format(start))
             raise Exception("problem with evaluating interval range: " + str(e))
 
         start_hex = hex(start).replace("0x", "$")
@@ -6906,14 +7011,21 @@ class Incbin:
         incbins = []
 
         if self.debug:
-            print "splitting an incbin ("+self.line+") into three at "+hex(start_address)+" for "+str(byte_count)+" bytes"
+            logging.debug(
+                "splitting an incbin (\"{line}\") into three at {start} for {count} bytes"
+                .format(
+                    line=self.line,
+                    start=hex(start_address),
+                    count=byte_count,
+                )
+            )
 
         # start, end1, end2 (to be printed as start, end1 - end2)
         if (start_address - self.start_address) > 0:
             first = (self.start_address, start_address, self.start_address)
             incbins.append(Incbin("INCBIN \"baserom.gbc\",$%.2x,$%.2x - $%.2x" % (first[0], first[1], first[2])))
             if self.debug:
-                print "    " + incbins[0].line
+                logging.debug(incbins[0].line)
         else:
             # skip this one because we're not including anything
             first = None
@@ -6923,13 +7035,13 @@ class Incbin:
         incbins.append(Incbin("INCBIN \"baserom.gbc\",$%.2x,$%.2x" % (start_address, byte_count)))
         incbins[-1].replace_me = True
         if self.debug:
-            print "    " + incbins[-1].line
+            logging.debug(incbins[-1].line)
 
         if (self.last_address - (start_address + byte_count)) > 0:
             third = (start_address + byte_count, self.last_address - (start_address + byte_count))
             incbins.append(Incbin("INCBIN \"baserom.gbc\",$%.2x,$%.2x" % (third[0], third[1])))
             if self.debug:
-                print "    " + incbins[-1].line
+                logging.debug(incbins[-1].line)
 
         return incbins
 
@@ -7020,12 +7132,12 @@ class Asm:
     def insert(self, new_object):
         if isinstance(new_object, ScriptPointerLabelParam):
             # its' probably being injected in some get_dependencies() somewhere
-            print "don't know why ScriptPointerLabelParam is getting to this point?"
+            logging.debug("don't know why ScriptPointerLabelParam is getting to this point?")
             return
 
         # first some validation
         if not hasattr(new_object, "address"):
-            print "object needs to have an address property: " + str(new_object)
+            logging.debug("object needs to have an address property: {0}".format(new_object))
             return
 
         start_address = new_object.address
@@ -7033,7 +7145,7 @@ class Asm:
         # skip this dragon shrine script calling itself
         # what about other scripts that call themselves ?
         if start_address in lousy_dragon_shrine_hack:
-            print "skipping 0x18d079 in dragon shrine for a lousy hack"
+            logging.debug("skipping 0x18d079 in dragon shrine for a lousy hack")
             return
 
         if not hasattr(new_object, "label") and hasattr(new_object, "is_valid") and not new_object.is_valid():
@@ -7044,20 +7156,34 @@ class Asm:
         debugmsg += " start_address="+hex(start_address)#+" end_address="+hex(end_address)
 
         if not hasattr(new_object, "last_address"):
-            print debugmsg
+            logging.debug(debugmsg)
             raise Exception("object needs to have a last_address property")
         end_address = new_object.last_address
         debugmsg += " last_address="+hex(end_address)
 
         # check if the object is already inserted
         if new_object in self.parts:
-            print "object was previously inserted ("+str(new_object)+"; " + hex(new_object.address) + ")"
+            logging.debug(
+                "object was previously inserted ({new_object}; {address})"
+                .format(
+                    new_object=new_object,
+                    address=hex(new_object.address),
+                )
+            )
             return
         # check by label
         other_obj = self.is_label_name_in_file(new_object.label.name)
         if other_obj:
             other_obj = other_obj.object
-            print "object was previously inserted ("+new_object.label.name+" at "+hex(new_object.address)+") by "+other_obj.label.name+" at "+hex(other_obj.address)
+            logging.debug(
+                "object was previously inserted ({name} at {address}) by {othername} at {otheraddress}"
+                .format(
+                    name=new_object.label.name,
+                    address=hex(new_object.address),
+                    othername=other_obj.label.name,
+                    otheraddress=other_obj.address,
+                )
+            )
             return
         # check by address
         #if self.does_address_have_label(new_object.address):
@@ -7065,14 +7191,17 @@ class Asm:
         #    return
 
         if self.debug:
-            print debugmsg
+            logging.debug(debugmsg)
         del debugmsg
         if (end_address < start_address) or ((end_address - start_address) < 0):
             if not self.debug:
-                print "object is new_object="+str(new_object)
-                print "start_address="+hex(start_address)+" end_address="+hex(end_address)
+                logging.debug("object is new_object={0}".format(new_object))
+                logging.deubg(
+                    "start_address={start} end_address={end}"
+                    .format(start=hex(start_address), end=hex(end_address))
+                )
             if hasattr(new_object, "to_asm"):
-                print to_asm(new_object)
+                logging.debug(to_asm(new_object))
             raise Exception("Asm.insert was given an object with a bad address range")
 
         # 1) find which object needs to be replaced
@@ -7104,7 +7233,7 @@ class Asm:
                 found = True
                 break
             elif object.address <= start_address < object.last_address:
-                print "this is probably a script that is looping back on itself?"
+                logging.debug("this is probably a script that is looping back on itself?")
                 found = True
                 break
             # insert before the current object
@@ -7142,7 +7271,7 @@ class Asm:
                 #              " for object.__class__="+str(object0.__class__)+" object="+str(object0)
                 #    continue
                 if self.debug:
-                    print " object is: " + str(object)
+                    logging.debug("object is: {0}".format(object))
                 self.insert(object)
 
                 # just some old debugging
@@ -7287,7 +7416,7 @@ def dump_asm_for_texts_in_bank(bank, start=50, end=100):
     # start dumping
     asm.dump()
 
-    print "done dumping texts for bank $%.2x" % (bank)
+    logging.info("done dumping texts for bank {banked}".format(banked="$%.2x" % bank))
 
 def dump_asm_for_movements_in_bank(bank, start=0, end=100):
     if rom == None or len(rom) <= 4:
@@ -7299,7 +7428,7 @@ def dump_asm_for_movements_in_bank(bank, start=0, end=100):
     asm = Asm()
     asm.insert_with_dependencies(movements)
     asm.dump()
-    print "done dumping movements for bank $%.2x" % (bank)
+    logging.info("done dumping movements for bank {banked}".format(banked="$%.2x" % bank))
 
 def dump_things_in_bank(bank, start=50, end=100):
     """
@@ -7321,7 +7450,7 @@ def dump_things_in_bank(bank, start=50, end=100):
     # start dumping
     asm.dump()
 
-    print "done dumping things for bank $%.2x" % (bank)
+    logging.info("done dumping things for bank {banked}".format(banked="$%.2x" % bank))
 
 def index(seq, f):
     """return the index of the first item in seq
@@ -7579,7 +7708,7 @@ def scan_for_predefined_labels(debug=False):
             output += str(start_line_id)
             output += " to "
             output += str(end_line_id)
-            print output
+            logging.debug(output)
 
         # store the start/stop line number for this bank
         bank_intervals[bank_id] = {"start": start_line_id,
