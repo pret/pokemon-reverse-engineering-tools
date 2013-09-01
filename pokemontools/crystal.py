@@ -56,6 +56,7 @@ import pointers
 import interval_map
 import trainers
 import pokemon_constants
+import item_constants
 import wram
 
 # ---- script_parse_table explanation ----
@@ -222,12 +223,6 @@ def get_pokemon_constant_by_id(id):
             return None
     else:
         return pokemon_constants.pokemon_constants[id]
-
-from item_constants import (
-    item_constants,
-    find_item_label_by_id,
-    generate_item_constants,
-)
 
 def command_debug_information(command_byte=None, map_group=None, map_id=None, address=0, info=None, long_info=None, pksv_name=None):
     "used to help debug in parse_script_engine_script_at"
@@ -1287,7 +1282,7 @@ HexByte=DollarSignByte
 
 class ItemLabelByte(DollarSignByte):
     def to_asm(self):
-        label = find_item_label_by_id(self.byte)
+        label = item_constants.item_constants.find_item_label_by_id(self.byte)
         if label:
             return label
         elif not label:
