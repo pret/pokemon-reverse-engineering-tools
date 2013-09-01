@@ -55,6 +55,7 @@ import move_constants
 import pointers
 import interval_map
 import trainers
+import pokemon_constants
 
 # ---- script_parse_table explanation ----
 # This is an IntervalMap that keeps track of previously parsed scripts, texts
@@ -215,13 +216,11 @@ def clean_up_long_info(long_info):
         long_info = "\n".join(new_lines)
     return long_info
 
-from pokemon_constants import pokemon_constants
-
 def get_pokemon_constant_by_id(id):
     if id == 0:
             return None
     else:
-        return pokemon_constants[id]
+        return pokemon_constants.pokemon_constants[id]
 
 from item_constants import (
     item_constants,
@@ -6678,8 +6677,8 @@ class PokedexEntry:
         self.address = address
         self.dependencies = None
         #label = self.make_label()
-        if pokemon_id in pokemon_constants:
-            pokename = string.capwords(pokemon_constants[pokemon_id].replace("__", " ").replace("_", " ")).replace(" ", "")
+        if pokemon_id in pokemon_constants.pokemon_constants:
+            pokename = string.capwords(pokemon_constants.pokemon_constants[pokemon_id].replace("__", " ").replace("_", " ")).replace(" ", "")
         else:
             pokename = "Pokemon{0}".format(pokemon_id)
         self.label = Label(name=pokename+"PokedexEntry", address=self.address, object=self)
