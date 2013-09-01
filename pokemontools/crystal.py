@@ -7626,6 +7626,5 @@ def run_main():
 # just a helpful alias
 main = run_main
 
-# when you load the module.. parse everything
 if __name__ == "crystal":
     pass
