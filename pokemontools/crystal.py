@@ -53,8 +53,6 @@ from trainers import (
     trainer_group_names,
 )
 
-from move_constants import moves
-
 # for fixing trainer_group_names
 import re
 
@@ -64,6 +62,7 @@ import chars
 import labels
 import pksv
 import romstr
+import move_constants
 
 # ---- script_parse_table explanation ----
 # This is an IntervalMap that keeps track of previously parsed scripts, texts
@@ -1663,8 +1662,8 @@ class TrainerGroupParam(SingleByteParam):
 
 class MoveParam(SingleByteParam):
     def to_asm(self):
-        if self.byte in moves.keys():
-            return moves[self.byte]
+        if self.byte in move_constants.moves.keys():
+            return move_constants.moves[self.byte]
         else:
             # this happens for move=0 (no move) in trainer headers
             return str(self.byte)
