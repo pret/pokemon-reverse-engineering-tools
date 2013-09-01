@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
-# utilities to help disassemble pokémon crystal
+"""
+utilities to help disassemble pokémon crystal
+"""
+
 import os
 import sys
 import inspect
@@ -9,6 +12,7 @@ from copy import copy, deepcopy
 import subprocess
 from new import classobj
 import random
+import logging
 
 # for capwords
 import string
@@ -16,18 +20,6 @@ import string
 # for python2.6
 if not hasattr(json, "dumps"):
     json.dumps = json.write
-
-# New versions of json don't have read anymore.
-if not hasattr(json, "read"):
-    json.read = json.loads
-
-from labels import (
-    remove_quoted_text,
-    line_has_comment_address,
-    line_has_label,
-    get_label_from_line,
-    get_address_from_line_comment
-)
 
 spacing = "\t"
 
@@ -47,9 +39,6 @@ trigger_byte_size = 8
 signpost_byte_size = 5
 people_event_byte_size = 13
 
-# a message to show with NotImplementedErrors
-bryan_message = "bryan hasn't got to this yet"
-
 max_texts = 3
 text_count = 0
 texts = []
@@ -58,28 +47,21 @@ texts = []
 # this doesn't do anything but is still used in TextScript
 constant_abbreviation_bytes = {}
 
-# Import the characters from its module.
-from chars import chars, jap_chars
+import helpers
+import chars
+import labels
+import pksv
+import romstr
+import pointers
+import interval_map
+import trainers
+import move_constants
+import pokemon_constants
+import item_constants
+import wram
+import exceptions
 
-from trainers import (
-    trainer_group_pointer_table_address,    # 0x39999
-    trainer_group_pointer_table_address_gs, # 0x3993E
-    trainer_group_names,
-)
-
-from move_constants import moves
-
-# for fixing trainer_group_names
-import re
-
-from interval_map import IntervalMap
-
-from pksv import (
-    pksv_gs,
-    pksv_crystal,
-    pksv_crystal_unknowns,
-    pksv_crystal_more_enders
-)
+from map_names import map_names
 
 # ---- script_parse_table explanation ----
 # This is an IntervalMap that keeps track of previously parsed scripts, texts
@@ -93,7 +75,7 @@ from pksv import (
 # keys are intervals "500..555" of byte addresses for each script
 # last byte is not inclusive(?) really? according to who??
 # this is how to make sure scripts are not recalculated
-script_parse_table = IntervalMap()
+script_parse_table = interval_map.IntervalMap()
 
 def is_script_already_parsed_at(address):
     """looks up whether or not a script is parsed at a certain address"""
@@ -104,7 +86,7 @@ def is_script_already_parsed_at(address):
 def script_parse_table_pretty_printer():
     """helpful debugging output"""
     for each in script_parse_table.items():
-        print each
+        logging.info("{0}".format(each))
 
 def map_name_cleaner(input):
     """generate a valid asm label for a given map name"""
@@ -122,18 +104,13 @@ def map_name_cleaner(input):
                  replace("hooh", "HoOh").\
                  replace(" ", "")
 
-from romstr import (
-    RomStr,
-    AsmList,
-)
-
-rom = RomStr(None)
+rom = romstr.RomStr(None)
 
 def direct_load_rom(filename="../baserom.gbc"):
     """loads bytes into memory"""
     global rom
     file_handler = open(filename, "rb")
-    rom = RomStr(file_handler.read())
+    rom = romstr.RomStr(file_handler.read())
     file_handler.close()
     return rom
 
@@ -141,9 +118,9 @@ def load_rom(filename="../baserom.gbc"):
     """checks that the loaded rom matches the path
     and then loads the rom if necessary."""
     global rom
-    if rom != RomStr(None) and rom != None:
+    if rom != romstr.RomStr(None) and rom != None:
         return rom
-    if not isinstance(rom, RomStr):
+    if not isinstance(rom, romstr.RomStr):
         return direct_load_rom(filename=filename)
     elif os.lstat(filename).st_size != len(rom):
         return direct_load_rom(filename)
@@ -151,7 +128,7 @@ def load_rom(filename="../baserom.gbc"):
 def direct_load_asm(filename="../main.asm"):
     """returns asm source code (AsmList) from a file"""
     asm = open(filename, "r").read().split("\n")
-    asm = AsmList(asm)
+    asm = romstr.AsmList(asm)
     return asm
 
 def load_asm(filename="../main.asm"):
@@ -159,12 +136,6 @@ def load_asm(filename="../main.asm"):
     global asm
     asm = direct_load_asm(filename=filename)
     return asm
-
-def grouper(some_list, count=2):
-    """splits a list into sublists
-    given: [1, 2, 3, 4]
-    returns: [[1, 2], [3, 4]]"""
-    return [some_list[i:i+count] for i in range(0, len(some_list), count)]
 
 def is_valid_address(address):
     """is_valid_rom_address"""
@@ -197,17 +168,12 @@ def load_map_group_offsets():
     global rom
     map_group_offsets = [] # otherwise this method can only be used once
     data = rom_interval(map_group_pointer_table, map_group_count*2, strings=False)
-    data = grouper(data)
+    data = helpers.grouper(data)
     for pointer_parts in data:
         pointer = pointer_parts[0] + (pointer_parts[1] << 8)
         offset = pointer - 0x4000 + map_group_pointer_table
         map_group_offsets.append(offset)
     return map_group_offsets
-
-from pointers import (
-    calculate_bank,
-    calculate_pointer,
-)
 
 def calculate_pointer_from_bytes_at(address, bank=False):
     """calculates a pointer from 2 bytes at a location
@@ -216,7 +182,7 @@ def calculate_pointer_from_bytes_at(address, bank=False):
         bank = ord(rom[address])
         address += 1
     elif bank == False or bank == None:
-        bank = calculate_bank(address)
+        bank = pointers.calculate_bank(address)
     elif bank == "reverse" or bank == "reversed":
         bank = ord(rom[address+2])
     elif type(bank) == int:
@@ -228,7 +194,7 @@ def calculate_pointer_from_bytes_at(address, bank=False):
     temp  = byte1 + (byte2 << 8)
     if temp == 0:
         return None
-    return calculate_pointer(temp, bank)
+    return pointers.calculate_pointer(temp, bank)
 
 def clean_up_long_info(long_info):
     """cleans up some data from parse_script_engine_script_at formatting issues"""
@@ -250,19 +216,11 @@ def clean_up_long_info(long_info):
         long_info = "\n".join(new_lines)
     return long_info
 
-from pokemon_constants import pokemon_constants
-
 def get_pokemon_constant_by_id(id):
     if id == 0:
-            return None
+        return None
     else:
-        return pokemon_constants[id]
-
-from item_constants import (
-    item_constants,
-    find_item_label_by_id,
-    generate_item_constants,
-)
+        return pokemon_constants.pokemon_constants[id]
 
 def command_debug_information(command_byte=None, map_group=None, map_id=None, address=0, info=None, long_info=None, pksv_name=None):
     "used to help debug in parse_script_engine_script_at"
@@ -337,7 +295,14 @@ class TextScript:
 
         # don't clutter up my screen
         if self.debug:
-            print "NewTextScript.parse address="+hex(self.address)+" map_group="+str(self.map_group)+" map_id="+str(self.map_id)
+            logging.debug(
+                "NewTextScript.parse address={address} map_group={map_group} map_id={map_id}"
+                .format(
+                    address=hex(self.address),
+                    map_group=str(self.map_group),
+                    map_id=self.map_id,
+                )
+            )
 
         # load up the rom if it hasn't been loaded already
         load_rom()
@@ -366,9 +331,16 @@ class TextScript:
 
             if self.address == 0x9c00e and self.debug:
                 if current_address > 0x9c087:
-                    print "self.commands is: " + str(commands)
-                    print "command 0 address is: " + hex(commands[0].address) + " last_address="+hex(commands[0].last_address)
-                    print "command 1 address is: " + hex(commands[1].address) + " last_address="+hex(commands[1].last_address)
+                    logging.debug("self.commands is: {commands}".format(commands=commands))
+                    for num in [0, 1]:
+                        logging.debug(
+                            "command {id} address={address} last_address={last}"
+                            .format(
+                                id=str(num),
+                                address=hex(commands[num].address),
+                                last=hex(commands[num].last_address),
+                            )
+                        )
                     raise Exception("going beyond the bounds for this text script")
 
             # no matching command found
@@ -379,7 +351,7 @@ class TextScript:
             cls = scripting_command_class(address=current_address, map_group=self.map_group, map_id=self.map_id, debug=self.debug, force=self.force)
 
             if self.debug:
-                print cls.to_asm()
+                logging.debug(cls.to_asm())
 
             # store it in this script object
             commands.append(cls)
@@ -397,18 +369,25 @@ class TextScript:
         self.last_address = current_address
 
         if self.debug:
-            print "cls.address is: " + hex(cls.address)
-            print "cls.size is: " + hex(cls.size)
-            print "cls.last_address is: " + hex(cls.last_address)
-            print "self.last_address is: " + hex(self.last_address)
+            logging.debug("cls.address is {0}".format(hex(cls.address)))
+            logging.debug("cls.size is {0}".format(hex(cls.size)))
+            logging.debug("cls.last_address is {0}".format(hex(cls.last_address)))
+            logging.debug("self.last_address is {0}".format(hex(self.last_address)))
 
-        assert self.last_address == (cls.address + cls.size), "the last address should equal the last command's (address + size)"
-        assert self.last_address == cls.last_address, "the last address of the TextScript should be the last_address of its last command"
+        if self.last_address != (cls.address + cls.size):
+            raise exceptions.TextScriptException(
+                "the last address should equal the last command's (address + size)"
+            )
+
+        if self.last_address != cls.last_address:
+            raise exceptions.TextScriptException(
+                "the last address of the TextScript should be the last_address of its last command"
+            )
 
         # just some debugging..
         if self.debug:
             last_address = self.last_address
-            print "TextScript last_address == " + hex(last_address)
+            logging.debug("TextScript last_address == {0}".format(hex(last_address)))
             #assert last_address != 0x5db06, "TextScript.parse somehow has a text with a last_address of 0x5db06 instead of 0x5db07"
 
         # store the script in the global table/map thing
@@ -417,7 +396,7 @@ class TextScript:
 
         if self.debug:
             asm_output = "\n".join([command.to_asm() for command in commands])
-            print "--------------\n"+asm_output
+            logging.debug("asm_output is:\n{0}".format(asm_output))
 
         # store the script
         self.commands = commands
@@ -496,7 +475,7 @@ class OldTextScript:
                     # dump this into script
                     script = trigger["script"]
                     # find all text pointers in script
-                    texts = find_all_text_pointers_in_script_engine_script(script, calculate_bank(trigger["address"]))
+                    texts = find_all_text_pointers_in_script_engine_script(script, pointers.calculate_bank(trigger["address"]))
                     # dump these addresses in
                     addresses.update(texts)
                 # callback scripts
@@ -506,7 +485,7 @@ class OldTextScript:
                     # dump this into script
                     script = callback["script"]
                     # find all text pointers in script
-                    texts = find_all_text_pointers_in_script_engine_script(script, calculate_bank(callback["address"]))
+                    texts = find_all_text_pointers_in_script_engine_script(script, pointers.calculate_bank(callback["address"]))
                     # dump these addresses in
                     addresses.update(texts)
                 # people-events
@@ -524,7 +503,7 @@ class OldTextScript:
                         trainer_data = event["trainer_data"]
                         addresses.update([trainer_data["text_when_seen_ptr"]])
                         addresses.update([trainer_data["text_when_trainer_beaten_ptr"]])
-                        trainer_bank = calculate_bank(event["trainer_data_address"])
+                        trainer_bank = pointers.calculate_bank(event["trainer_data_address"])
                         script1 = trainer_data["script_talk_again"]
                         texts1 = find_all_text_pointers_in_script_engine_script(script1, trainer_bank)
                         addresses.update(texts1)
@@ -550,7 +529,7 @@ class OldTextScript:
         commands = {}
 
         if is_script_already_parsed_at(address) and not force:
-            print "text is already parsed at this location: " + hex(address)
+            logging.debug("text is already parsed at this location: {0}".format(hex(address)))
             raise Exception("text is already parsed, what's going on ?")
             return script_parse_table[address]
 
@@ -565,7 +544,10 @@ class OldTextScript:
             command = {}
             command_byte = ord(rom[address])
             if debug:
-                print "TextScript.parse_script_at has encountered a command byte " + hex(command_byte) + " at " + hex(address)
+                logging.debug(
+                    "TextScript.parse_script_at has encountered a command byte {0} at {1}"
+                    .format(hex(command_byte), hex(address))
+                )
             end_address = address + 1
             if  command_byte == 0:
                 # read until $57, $50 or $58
@@ -582,7 +564,7 @@ class OldTextScript:
 
                 if show and debug:
                     text = parse_text_at2(offset+1, end_address-offset+1, debug=debug)
-                    print text
+                    logging.debug("output of parse_text_at2 is {0}".format(text))
 
                 command = {"type": command_byte,
                            "start_address": offset,
@@ -660,7 +642,15 @@ class OldTextScript:
 
                 # use this to look at the surrounding bytes
                 if debug:
-                    print "next command is: " + hex(ord(rom[offset])) + " ... we are at command number: " + str(command_counter) + " near " + hex(offset) + " on map_id=" + str(map_id)
+                    logging.debug("next command is {0}".format(hex(ord(rom[offset]))))
+                    logging.debug(
+                        ".. current command number is {counter} near {offset} on map_id={map_id}"
+                        .format(
+                            counter=command_counter,
+                            offset=hex(offset),
+                            map_id=map_id,
+                        )
+                    )
             elif command_byte == 0x7:
                 # 07 = shift texts 1 row above (2nd line becomes 1st line); address for next text = 2nd line. [07]
                 size = 1
@@ -702,7 +692,7 @@ class OldTextScript:
 
                 if show and debug:
                     text = parse_text_at2(offset+1, end_address-offset+1, debug=debug)
-                    print text
+                    logging.debug("parse_text_at2 text is {0}".format(text))
 
                 command = {"type": command_byte,
                            "start_address": offset,
@@ -744,7 +734,14 @@ class OldTextScript:
                 #if len(commands) > 0:
                 #   print "Unknown text command " + hex(command_byte) + " at " + hex(offset) + ", script began with " + hex(commands[0]["type"])
                 if debug:
-                    print "Unknown text command at " + hex(offset) + " - command: " + hex(ord(rom[offset])) + " on map_id=" + str(map_id)
+                    logging.debug(
+                        "Unknown text command at {offset} - command: {command} on map_id={map_id}"
+                        .format(
+                            offset=hex(offset),
+                            command=hex(ord(rom[offset])),
+                            map_id=map_id,
+                        )
+                    )
 
                 # end at the first unknown command
                 end = True
@@ -764,8 +761,6 @@ class OldTextScript:
         return commands
 
     def get_dependencies(self, recompute=False, global_dependencies=set()):
-        #if recompute:
-        #    raise NotImplementedError(bryan_message)
         global_dependencies.update(self.dependencies)
         return self.dependencies
 
@@ -793,7 +788,7 @@ class OldTextScript:
             if not "lines" in commands[this_command].keys():
                 command = commands[this_command]
                 if not "type" in command.keys():
-                    print "ERROR in command: " + str(command)
+                    logging.debug("ERROR in command: {0}".format(command))
                     continue # dunno what to do here?
 
                 if   command["type"] == 0x1: # TX_RAM
@@ -856,7 +851,7 @@ class OldTextScript:
                     byte_count += 1
                     had_db_last = True
                 else:
-                    print "ERROR in command: " + hex(command["type"])
+                    logging.debug("ERROR in command: {0}".format(hex(command["type"])))
                     had_db_last = False
 
                 # everything else is for $0s, really
@@ -888,7 +883,7 @@ class OldTextScript:
                     if byte in [0x58, 0x57]:
                         had_text_end_byte_57_58 = True
 
-                    if byte in chars:
+                    if byte in chars.chars:
                         if not quotes_open and not first_byte: # start text
                             output += ", \""
                             quotes_open = True
@@ -896,7 +891,7 @@ class OldTextScript:
                         if not quotes_open and first_byte: # start text
                             output += "\""
                             quotes_open = True
-                        output += chars[byte]
+                        output += chars.chars[byte]
                     elif byte in constant_abbreviation_bytes:
                         if quotes_open:
                             output += "\""
@@ -962,7 +957,7 @@ class EncodedText:
         if bank:
             self.bank = bank
         else:
-            self.bank = calculate_bank(address)
+            self.bank = pointers.calculate_bank(address)
         self.map_group, self.map_id, self.debug = map_group, map_id, debug
         if not label:
             label = self.base_label + hex(address)
@@ -1004,7 +999,13 @@ class EncodedText:
         """split this text up into multiple lines
         based on subcommands ending each line"""
         if debug:
-            print "process_00_subcommands(" + hex(start_address) + ", " + hex(end_address) + ")"
+            logging.debug(
+                "process_00_subcommands({start}, {end})"
+                .format(
+                    start=hex(start_address),
+                    end=hex(end_address),
+                )
+            )
         lines = {}
         subsection = rom[start_address:end_address]
 
@@ -1027,15 +1028,15 @@ class EncodedText:
     def from_bytes(bytes, debug=True, japanese=False):
         """assembles a string based on bytes looked up in the chars table"""
         line = ""
-        if japanese: charset = jap_chars
-        else: charset = chars
+        if japanese: charset = chars.jap_chars
+        else: charset = chars.chars
         for byte in bytes:
             if type(byte) != int:
                 byte = ord(byte)
             if byte in charset.keys():
                 line += charset[byte]
             elif debug:
-                print "byte not known: " + hex(byte)
+                logging.debug("byte not known: {0}".format(hex(byte)))
         return line
 
     @staticmethod
@@ -1153,9 +1154,9 @@ def generate_map_constants():
         globals += "\n"
         #for multi-byte constants:
         #print each["label"] + " EQUS \"$%.2x,$%.2x\"" % (each["map_group"], each["map_id"])
-    print globals
-    print groups
-    print maps
+    logging.debug("globals: {0}".format(globals))
+    logging.debug("groups: {0}".format(groups))
+    logging.debug("maps: {0}".format(maps))
 
 def generate_map_constants_dimensions():
     """
@@ -1193,6 +1194,7 @@ def transform_wildmons(asm):
 
 def parse_script_asm_at(*args, **kwargs):
     # XXX TODO
+    logging.debug("TODO: parse_script_asm_at")
     return None
 
 def find_all_text_pointers_in_script_engine_script(script, bank=None, debug=False):
@@ -1204,7 +1206,7 @@ def find_all_text_pointers_in_script_engine_script(script, bank=None, debug=Fals
     addresses = set()
     for (k, command) in enumerate(script.commands):
         if debug:
-            print "command is: " + str(command)
+            logging.debug("command is: {0}".format(command))
         if   command.id == 0x4B:
             addresses.add(command.params[0].parsed_address)
         elif command.id == 0x4C:
@@ -1286,7 +1288,7 @@ HexByte=DollarSignByte
 
 class ItemLabelByte(DollarSignByte):
     def to_asm(self):
-        label = find_item_label_by_id(self.byte)
+        label = item_constants.item_constants.find_item_label_by_id(self.byte)
         if label:
             return label
         elif not label:
@@ -1420,10 +1422,10 @@ class PointerLabelParam(MultiByteParam):
             else:
                 if "$" in label:
                     if 0x4000 <= caddress <= 0x7FFF:
-                        #bank_part = "$%.2x" % (calculate_bank(self.parent.parent.address))
+                        #bank_part = "$%.2x" % (pointers.calculate_bank(self.parent.parent.address))
                         bank_part = "1"
                     else:
-                        bank_part = "$%.2x" % (calculate_bank(caddress))
+                        bank_part = "$%.2x" % (pointers.calculate_bank(caddress))
                 else:
                     bank_part = "BANK("+label+")"
             # return the asm based on the order the bytes were specified to be in
@@ -1463,10 +1465,18 @@ class ScriptPointerLabelAfterBank(PointerLabelAfterBank): pass
 
 def _parse_script_pointer_bytes(self, debug = False):
     PointerLabelParam.parse(self)
-    if debug: print "_parse_script_pointer_bytes - calculating the pointer located at " + hex(self.address)
+    if debug:
+        logging.debug(
+            "_parse_script_pointer_bytes - calculating the pointer located at {0}"
+            .format(hex(self.address))
+        )
     address = calculate_pointer_from_bytes_at(self.address, bank=self.bank)
     if address != None and address > 0x4000:
-        if debug: print "_parse_script_pointer_bytes - the pointer is: " + hex(address)
+        if debug:
+            logging.debug(
+                "_parse_script_pointer_bytes - the pointer is: {0}"
+                .format(hex(address))
+            )
         self.script = parse_script_engine_script_at(address, debug=self.debug, force=self.force, map_group=self.map_group, map_id=self.map_id)
 ScriptPointerLabelParam.parse = _parse_script_pointer_bytes
 ScriptPointerLabelBeforeBank.parse = _parse_script_pointer_bytes
@@ -1606,7 +1616,6 @@ class PokemonParam(SingleByteParam):
 
 class PointerParamToItemAndLetter(MultiByteParam):
     # [2F][2byte pointer to item no + 0x20 bytes letter text]
-    #raise NotImplementedError(bryan_message)
     pass
 
 
@@ -1628,29 +1637,27 @@ class TrainerIdParam(SingleByteParam):
         trainer_group_id = self.parent.params[foundit].byte
 
         # check the rule to see whether to use an id or not
-        if ("uses_numeric_trainer_ids" in trainer_group_names[trainer_group_id].keys()) or \
-           (not "trainer_names" in trainer_group_names[trainer_group_id].keys()):
+        if ("uses_numeric_trainer_ids" in trainers.trainer_group_names[trainer_group_id].keys()) or \
+           (not "trainer_names" in trainers.trainer_group_names[trainer_group_id].keys()):
             return str(self.byte)
         else:
-            return trainer_group_names[trainer_group_id]["trainer_names"][self.byte-1]
+            return trainers.trainer_group_names[trainer_group_id]["trainer_names"][self.byte-1]
 
 class TrainerGroupParam(SingleByteParam):
     def to_asm(self):
         trainer_group_id = self.byte
-        return trainer_group_names[trainer_group_id]["constant"]
+        return trainers.trainer_group_names[trainer_group_id]["constant"]
 
 class MoveParam(SingleByteParam):
     def to_asm(self):
-        if self.byte in moves.keys():
-            return moves[self.byte]
+        if self.byte in move_constants.moves.keys():
+            return move_constants.moves[self.byte]
         else:
             # this happens for move=0 (no move) in trainer headers
             return str(self.byte)
 
 class MenuDataPointerParam(PointerLabelParam):
-    # read menu data at the target site
-    #raise NotImplementedError(bryan_message)
-    pass
+    """read menu data at the target site"""
 
 
 string_to_text_texts = []
@@ -1658,7 +1665,7 @@ class RawTextPointerLabelParam(PointerLabelParam):
     # not sure if these are always to a text script or raw text?
     def parse(self):
         PointerLabelParam.parse(self)
-        #bank = calculate_bank(self.address)
+        #bank = pointers.calculate_bank(self.address)
         address = calculate_pointer_from_bytes_at(self.address, bank=False)
         self.calculated_address = address
         #self.text = parse_text_at3(address, map_group=self.map_group, map_id=self.map_id, debug=self.debug)
@@ -1886,7 +1893,8 @@ class GivePoke(Command):
         self.size = 1
         for (key, param_type) in self.param_types.items():
             # stop executing after the 4th byte unless it == 0x1
-            if i == 4: print "self.params[3].byte is: " + str(self.params[3].byte)
+            if i == 4:
+                logging.debug("self.params[3].byte is: {0}".format(str(self.params[3].byte)))
             if i == 4 and self.params[3].byte != 1: break
             name = param_type["name"]
             klass = param_type["class"]
@@ -2029,8 +2037,10 @@ def create_movement_commands(debug=False):
                 thing = {"name": each[0], "class": each[1]}
                 params["param_types"][i] = thing
                 if debug:
-                    print "each is: " + str(each)
-                    print "thing[class] is: " + str(thing["class"])
+                    logging.debug(
+                        "each is {0} and thing[class] is {1}"
+                        .format(each, str(thing["class"]))
+                    )
                 params["size"] += thing["class"].size
 
         if byte <= 0x34:
@@ -2097,14 +2107,25 @@ class ApplyMovementData:
         address = self.address
 
         # i feel like checking myself
-        assert is_valid_address(address), "ApplyMovementData.parse must be given a valid address"
+        if not is_valid_address(address):
+            raise exceptions.AddressException(
+                "ApplyMovementData.parse must be given a valid address (but got {0})."
+                .format(hex(address))
+            )
 
         current_address = copy(self.address)
         start_address = copy(current_address)
 
         # don't clutter up my screen
         if self.debug:
-            print "ApplyMovementData.parse address="+hex(self.address)+" map_group="+str(self.map_group)+" map_id="+str(self.map_id)
+            logging.debug(
+                "ApplyMovementData.parse address={address} map_group={map_group} map_id={map_id}"
+                .format(
+                    address=hex(self.address),
+                    map_group=str(self.map_group),
+                    map_id=str(self.map_id),
+                )
+            )
 
         # load up the rom if it hasn't been loaded already
         load_rom()
@@ -2155,7 +2176,7 @@ class ApplyMovementData:
             cls = scripting_command_class(address=current_address, map_group=self.map_group, map_id=self.map_id, debug=self.debug, force=self.force)
 
             if self.debug:
-                print cls.to_asm()
+                logging.debug("cls.to_asm() is: {0}".format(cls.to_asm()))
 
             # store it in this script object
             commands.append(cls)
@@ -2177,7 +2198,7 @@ class ApplyMovementData:
 
         if self.debug:
             asm_output = "\n".join([command.to_asm() for command in commands])
-            print "--------------\n"+asm_output
+            logging.debug("asm_output: {0}".format(asm_output))
 
         # store the script
         self.commands = commands
@@ -2276,11 +2297,16 @@ class MainText(TextCommand):
 
             if self.address == 0x9c00e and self.debug:
                 if self.last_address != 0x9c086:
-                    print "self.address is: " + hex(self.address)
-                    print "jump is: " + str(jump)
-                    print "bytes are: " + str(self.bytes)
-                    print "self.size is: " + str(self.size)
-                    print "self.last_address is: " + hex(self.last_address)
+                    argparams = {
+                        "self.address": hex(self.address),
+                        "jump": str(jump),
+                        "bytes": str(self.bytes),
+                        "self.size": str(self.size),
+                        "self.last_address": hex(self.last_address),
+                    }
+
+                    logging.debug(str(argparams))
+
                     raise Exception("last_address is wrong for 0x9c00e")
 
     def to_asm(self):
@@ -2328,7 +2354,8 @@ class MainText(TextCommand):
 
             # $4f, $51 and $55 can end a line
             if byte in [0x4f, 0x51, 0x55]:
-                assert not new_line, "can't have $4f, $51, $55 as the first character on a newline"
+                if new_line:
+                    raise exceptions.TextScriptException("can't have $4f, $51, $55 as the first character on a newline")
 
                 if in_quotes:
                     output += "\", $%.2x\n" % (byte)
@@ -2384,9 +2411,9 @@ class MainText(TextCommand):
                 # so this is pretty useless overall...
                 if byte == 0x58:
                     self.end = True
-            elif byte in chars.keys():
+            elif byte in chars.chars.keys():
                 # figure out what the character actually is
-                char = chars[byte]
+                char = chars.chars[byte]
 
                 # oh wait.. quotes isn't a valid character in the first place :(
                 if char == "\"":
@@ -2844,7 +2871,7 @@ def create_command_classes(debug=False):
     klasses = [GivePoke]
     for (byte, cmd) in pksv_crystal_more.items():
         cmd_name = cmd[0].replace(" ", "_")
-        params = {"id": byte, "size": 1, "end": byte in pksv_crystal_more_enders, "macro_name": cmd_name}
+        params = {"id": byte, "size": 1, "end": byte in pksv.pksv_crystal_more_enders, "macro_name": cmd_name}
         params["param_types"] = {}
         if len(cmd) > 1:
             param_types = cmd[1:]
@@ -2852,8 +2879,7 @@ def create_command_classes(debug=False):
                 thing = {"name": each[0], "class": each[1]}
                 params["param_types"][i] = thing
                 if debug:
-                    print "each is: " + str(each)
-                    print "thing[class] is: " + str(thing["class"])
+                    logging.debug("each is {0} and thing[class] is {1}".format(each, thing["class"]))
                 params["size"] += thing["class"].size
         klass_name = cmd_name+"Command"
         klass = classobj(klass_name, (Command,), params)
@@ -2931,8 +2957,7 @@ def create_music_command_classes(debug=False):
                 thing = {"name": each[0], "class": each[1]}
                 params["param_types"][i] = thing
                 if debug:
-                    print "each is: " + str(each)
-                    print "thing[class] is: " + str(thing["class"])
+                    logging.debug("each is {0} and thing[class] is {1}".format(each, thing["class"]))
                 params["size"] += thing["class"].size
         klass_name = cmd_name+"Command"
         klass = classobj(klass_name, (Command,), params)
@@ -3147,8 +3172,7 @@ def create_effect_command_classes(debug=False):
                 thing = {"name": each[0], "class": each[1]}
                 params["param_types"][i] = thing
                 if debug:
-                    print "each is: " + str(each)
-                    print "thing[class] is: " + str(thing["class"])
+                    logging.debug("each is {0} and thing[class] is {1}".format(each, thing["class"]))
                 params["size"] += thing["class"].size
         klass_name = cmd_name+"Command"
         klass = classobj(klass_name, (Command,), params)
@@ -3193,7 +3217,8 @@ def pretty_print_pksv_no_names():
     use this to keep track of commands without pksv names
     pksv_no_names is created in parse_script_engine_script_at"""
     for (command_byte, addresses) in pksv_no_names.items():
-        if command_byte in pksv_crystal_unknowns: continue
+        if command_byte in pksv.pksv_crystal_unknowns:
+            continue
         print hex(command_byte) + " appearing in these scripts: "
         for address in addresses:
             print "    " + hex(address)
@@ -3215,11 +3240,16 @@ def find_broken_recursive_scripts(output=False, debug=True):
             script = script_parse_table[r[0]]
             length = str(len(script))
         if len(script) > 20 or script == {}:
-            print "******************* begin"
-            print "script at " + hex(r[0]) + " from main script " + hex(r[1]) + " with length: " + length
+            logging.debug(
+                "script at {address} from main script {scr} with length {length}"
+                .format(
+                    address=hex(r[0]),
+                    scr=hex(r[1]),
+                    length=length,
+                )
+            )
             if output:
                 parse_script_engine_script_at(r[0], force=True, debug=True)
-            print "==================== end"
 
 
 stop_points = [0x1aafa2,
@@ -3268,8 +3298,8 @@ class Script:
         items = []
         if type(self.commands) == dict:
             for (id, command) in self.commands.items():
-                if command["type"] in pksv_crystal:
-                    items.append(pksv_crystal[command["type"]])
+                if command["type"] in pksv.pksv_crystal:
+                    items.append(pksv.pksv_crystal[command["type"]])
                 else:
                     items.append(hex(command["type"]))
         else:
@@ -3294,7 +3324,7 @@ class Script:
 
     def show_pksv(self):
         """prints a list of pksv command names in this script"""
-        print self.to_pksv()
+        logging.debug("to_pksv(): {0}".format(self.to_pksv()))
 
     def parse(self, start_address, force=False, map_group=None, map_id=None, force_top=True, origin=True, debug=False):
         """parses a script using the Command classes
@@ -3304,12 +3334,29 @@ class Script:
         """
         global command_classes, rom, script_parse_table
         current_address = start_address
-        if debug: print "Script.parse address="+hex(self.address) +" map_group="+str(map_group)+" map_id="+str(map_id)
+        if debug:
+            logging.debug(
+                "Script.parse address={address} map_group={map_group} map_id={map_id}"
+                .format(
+                    address=hex(self.address),
+                    map_group=str(map_group),
+                    map_id=str(map_id),
+                )
+            )
         if start_address in stop_points and force == False:
-            if debug: print "script parsing is stopping at stop_point=" + hex(start_address) + " at map_group="+str(map_group)+" map_id="+str(map_id)
+            if debug:
+                logging.debug(
+                    "script parsing is stopping at stop_point={address} at map_group={map_group} map_id={map_id}"
+                    .format(
+                        stop_point=hex(start_address),
+                        map_group=str(map_group),
+                        map_id=str(map_id),
+                    )
+                )
             return None
         if start_address < 0x4000 and start_address not in [0x26ef, 0x114, 0x1108]:
-            if debug: print "address is less than 0x4000.. address is: " + hex(start_address)
+            if debug:
+                logging.debug("address is less than 0x4000.. address is {0}".format(hex(start_address)))
             sys.exit(1)
         if is_script_already_parsed_at(start_address) and not force and not force_top:
             raise Exception("this script has already been parsed before, please use that instance ("+hex(start_address)+")")
@@ -3342,7 +3389,8 @@ class Script:
             # no matching command found (not implemented yet)- just end this script
             # NOTE: might be better to raise an exception and end the program?
             if scripting_command_class == None:
-                if debug: print "parsing script; current_address is: " + hex(current_address)
+                if debug:
+                    logging.debug("parsing script; current_address is: {0}".format(hex(current_address)))
                 current_address += 1
                 asm_output = "\n".join([command.to_asm() for command in commands])
                 end = True
@@ -3375,7 +3423,8 @@ class Script:
         script_parse_table[start_address:current_address] = self
 
         asm_output = "\n".join([command.to_asm() for command in commands])
-        if debug: print "--------------\n"+asm_output
+        if debug:
+            logging.debug("asm_output is: {0}".format(asm_output))
 
         # store the script
         self.commands = commands
@@ -3401,8 +3450,9 @@ class Script:
 
     def old_parse(self, *args, **kwargs):
         """included from old_parse_scripts"""
-from old_parse_scripts import old_parse
-Script.old_parse = old_parse
+
+import old_parse_scripts
+Script.old_parse = old_parse_scripts.old_parse
 
 def parse_script_engine_script_at(address, map_group=None, map_id=None, force=False, debug=True, origin=True):
     if is_script_already_parsed_at(address) and not force:
@@ -3423,29 +3473,43 @@ def compare_script_parsing_methods(address):
     load_rom()
     separator = "################ compare_script_parsing_methods"
     # first do it the old way
-    print separator
-    print "parsing the script at " + hex(address) + " using the old method"
+    logging.debug(separator)
+    logging.debug("parsing the script at {address} using the old method".format(address=hex(address)))
     oldscript = Script(address, debug=True, force=True, origin=True, use_old_parse=True)
     # and now the old way
-    print separator
-    print "parsing the script at " + hex(address) + " using the new method"
+    logging.debug(separator)
+    logging.debug("parsing the script at {address} using the new method".format(address=hex(address)))
     newscript = Script(address, debug=True, force=True, origin=True)
     # let the comparison begin..
     errors = 0
-    print separator + " COMPARISON RESULTS"
+    logging.debug("{0} COMPARISON RESULTS".format(separator))
     if not len(oldscript.commands.keys()) == len(newscript.commands):
-        print "the two scripts don't have the same number of commands"
+        logging.debug("the two scripts don't have the same number of commands")
         errors += 1
     for (id, oldcommand) in oldscript.commands.items():
         newcommand = newscript.commands[id]
-        oldcommand_pksv_name = pksv_crystal[oldcommand["type"]].replace(" ", "_")
+        oldcommand_pksv_name = pksv.pksv_crystal[oldcommand["type"]].replace(" ", "_")
         if oldcommand["start_address"] != newcommand.address:
-            print "the two addresses (command id="+str(id)+") do not match old="+hex(oldcommand["start_address"]) + " new="+hex(newcommand.address)
+            logging.debug(
+                "The two address (command id={id}) do not match old={old} new={new}"
+                .format(
+                    id=id,
+                    old=hex(oldcommand["start_address"]),
+                    new=hex(newcommand.address),
+                )
+            )
             errors += 1
         if oldcommand_pksv_name != newcommand.macro_name:
-            print "the two commands (id="+str(id)+") do not have the same name old="+oldcommand_pksv_name+" new="+newcommand.macro_name
+            logging.debug(
+                "The two commands (id={id}) do not have the same name old={old} new={new}"
+                .format(
+                    id=id,
+                    old=oldcommand_pksv_name,
+                    new=newcommand.macro_name,
+                )
+            )
             errors += 1
-    print "total comparison errors: " + str(errors)
+    logging.info("total comparison errors: {0}".format(errors))
     return oldscript, newscript
 
 
@@ -3485,7 +3549,7 @@ def old_parse_warp_bytes(some_bytes, debug=True):
     """parse some number of warps from the data"""
     assert len(some_bytes) % warp_byte_size == 0, "wrong number of bytes"
     warps = []
-    for bytes in grouper(some_bytes, count=warp_byte_size):
+    for bytes in helpers.grouper(some_bytes, count=warp_byte_size):
         y = int(bytes[0], 16)
         x = int(bytes[1], 16)
         warp_to = int(bytes[2], 16)
@@ -3546,7 +3610,7 @@ def old_parse_xy_trigger_bytes(some_bytes, bank=None, map_group=None, map_id=Non
     """parse some number of triggers from the data"""
     assert len(some_bytes) % trigger_byte_size == 0, "wrong number of bytes"
     triggers = []
-    for bytes in grouper(some_bytes, count=trigger_byte_size):
+    for bytes in helpers.grouper(some_bytes, count=trigger_byte_size):
         trigger_number = int(bytes[0], 16)
         y = int(bytes[1], 16)
         x = int(bytes[2], 16)
@@ -3557,8 +3621,11 @@ def old_parse_xy_trigger_bytes(some_bytes, bank=None, map_group=None, map_id=Non
         script_address = None
         script = None
         if bank:
-            script_address = calculate_pointer(script_ptr, bank)
-            print "******* parsing xy trigger byte scripts... x=" + str(x) + " y=" + str(y)
+            script_address = pointers.calculate_pointer(script_ptr, bank)
+            logging.debug(
+                "parsing xy trigger byte scripts.. x={x} y={y}"
+                .format(x=x, y=y)
+            )
             script = parse_script_engine_script_at(script_address, map_group=map_group, map_id=map_id)
 
         triggers.append({
@@ -3587,7 +3654,11 @@ class ItemFragment(Command):
     }
 
     def __init__(self, address=None, bank=None, map_group=None, map_id=None, debug=False, label=None):
-        assert is_valid_address(address), "ItemFragment must be given a valid address"
+        if not is_valid_address(address):
+            raise exceptions.AddressException(
+                "ItemFragment must be given a valid address (but got {0})."
+                .format(hex(address))
+            )
         self.address = address
         self.last_address = address + self.size
         self.bank = bank
@@ -3661,7 +3732,7 @@ class TrainerFragment(Command):
 
     def __init__(self, *args, **kwargs):
         address = kwargs["address"]
-        print "TrainerFragment address=" + hex(address)
+        logging.debug("TrainerFragment address={0}".format(hex(address)))
         self.address = address
         self.last_address = self.address + self.size
         if not is_valid_address(address) or address in [0x26ef]:
@@ -3705,15 +3776,15 @@ class TrainerFragment(Command):
 
         # give this object a possibly better label
         label = "Trainer"
-        if ("uses_numeric_trainer_ids" in trainer_group_names[trainer_group].keys()) \
-           or ("trainer_names" not in trainer_group_names[trainer_group].keys()):
-            label += string.capwords(trainer_group_names[trainer_group]["constant"])
-            if "trainer_names" in trainer_group_names[trainer_group].keys() \
-               and len(trainer_group_names[trainer_group]["trainer_names"]) > 1:
+        if ("uses_numeric_trainer_ids" in trainers.trainer_group_names[trainer_group].keys()) \
+           or ("trainer_names" not in trainers.trainer_group_names[trainer_group].keys()):
+            label += string.capwords(trainers.trainer_group_names[trainer_group]["constant"])
+            if "trainer_names" in trainers.trainer_group_names[trainer_group].keys() \
+               and len(trainers.trainer_group_names[trainer_group]["trainer_names"]) > 1:
                 label += str(trainer_id)
         else:
-            label += string.capwords(trainer_group_names[trainer_group]["constant"]) + \
-                     string.capwords(trainer_group_names[trainer_group]["trainer_names"][trainer_id-1])
+            label += string.capwords(trainers.trainer_group_names[trainer_group]["constant"]) + \
+                     string.capwords(trainers.trainer_group_names[trainer_group]["trainer_names"][trainer_id-1])
 
         label = label.replace("Gruntm", "GruntM").replace("Gruntf", "GruntF").replace("Lt_surge", "LtSurge")
 
@@ -3791,9 +3862,9 @@ class TrainerGroupTable:
     """
 
     def __init__(self):
-        assert 0x43 in trainer_group_maximums.keys(), "TrainerGroupTable should onyl be created after all the trainers have been found"
-        self.address = trainer_group_pointer_table_address
-        self.bank = calculate_bank(trainer_group_pointer_table_address)
+        assert 0x43 in trainer_group_maximums.keys(), "TrainerGroupTable should only be created after all the trainers have been found"
+        self.address = trainers.trainer_group_pointer_table_address
+        self.bank = pointers.calculate_bank(trainers.trainer_group_pointer_table_address)
         self.label = Label(name="TrainerGroupPointerTable", address=self.address, object=self)
         self.size = None
         self.last_address = None
@@ -3814,16 +3885,16 @@ class TrainerGroupTable:
 
     def parse(self):
         size = 0
-        for (key, kvalue) in trainer_group_names.items():
+        for (key, kvalue) in trainers.trainer_group_names.items():
             # calculate the location of this trainer group header from its pointer
             pointer_bytes_location = kvalue["pointer_address"]
             parsed_address = calculate_pointer_from_bytes_at(pointer_bytes_location, bank=self.bank)
-            trainer_group_names[key]["parsed_address"] = parsed_address
+            trainers.trainer_group_names[key]["parsed_address"] = parsed_address
 
             # parse the trainer group header at this location
             name = kvalue["name"]
             trainer_group_header = TrainerGroupHeader(address=parsed_address, group_id=key, group_name=name)
-            trainer_group_names[key]["header"] = trainer_group_header
+            trainers.trainer_group_names[key]["header"] = trainer_group_header
             self.headers.append(trainer_group_header)
 
             # keep track of the size of this pointer table
@@ -3970,7 +4041,7 @@ class TrainerHeader:
                 x = 2
             else:
                 x = 1
-            seed = trainer_group_names[self.trainer_group_id]["name"]+"_"+seed[-x:]
+            seed = trainers.trainer_group_names[self.trainer_group_id]["name"]+"_"+seed[-x:]
         elif self.trainer_group_id == 0x1f and "EXECUTIVE" in seed:
             seed = "GRUNT_"+seed
         elif self.trainer_group_id == 0x2d and "BENNY" in seed.upper():
@@ -4202,12 +4273,12 @@ def report_unreferenced_trainer_ids():
 
         if len(unreferenced) > 0:
             total_unreferenced_trainers += len(unreferenced)
-            output = "trainer group "+hex(key)+" (\""+trainer_group_names[key]["name"]+"\")"
+            output = "trainer group "+hex(key)+" (\""+trainers.trainer_group_names[key]["name"]+"\")"
             output += " (min="+str(min_id)+", max="+str(max_id)+")"
             output += " has "+str(len(unreferenced))+" unreferenced trainer ids"
             output += ": " + str(unreferenced)
-            print output
-    print "total unreferenced trainers: " + str(total_unreferenced_trainers)
+            logging.info(output)
+    logging.info("total unreferenced trainers: {0}".format(total_unreferenced_trainers))
 
 def check_script_has_trainer_data(script):
     """
@@ -4232,7 +4303,7 @@ def check_script_has_trainer_data(script):
 
 def trainer_name_from_group(group_id, trainer_id=0):
     """This doesn't actually work for trainer_id > 0."""
-    bank = calculate_bank(0x39999)
+    bank = pointers.calculate_bank(0x39999)
     ptr_address = 0x39999 + ((group_id - 1)*2)
     address = calculate_pointer_from_bytes_at(ptr_address, bank=bank)
     text = parse_text_at2(address, how_many_until(chr(0x50), address))
@@ -4245,7 +4316,7 @@ def trainer_group_report():
     output = ""
     total = 0
     for trainer_group_id in trainer_group_maximums.keys():
-        group_name = trainer_group_names[trainer_group_id]["name"]
+        group_name = trainers.trainer_group_names[trainer_group_id]["name"]
         first_name = trainer_name_from_group(trainer_group_id).replace("\n", "")
         trainers = len(trainer_group_maximums[trainer_group_id])
         total += trainers
@@ -4258,7 +4329,7 @@ def trainer_group_report():
 
 def make_trainer_group_name_trainer_ids(trainer_group_table, debug=True):
     """
-    Edits trainer_group_names and sets the trainer names.
+    Edits trainers.trainer_group_names and sets the trainer names.
     For instance, "AMY & MAY" becomes "AMY_AND_MAY1" and "AMY_AND_MAY2"
 
     This should only be used after TrainerGroupTable.parse has been called.
@@ -4266,7 +4337,7 @@ def make_trainer_group_name_trainer_ids(trainer_group_table, debug=True):
     assert trainer_group_table != None, "TrainerGroupTable must be called before setting the trainer names"
 
     if debug:
-        print "starting to make trainer names and give ids to repeated trainer names"
+        logging.info("starting to make trainer names and give ids to repeated trainer names")
 
     i = 1
     for header in trainer_group_table.headers:
@@ -4287,13 +4358,13 @@ def make_trainer_group_name_trainer_ids(trainer_group_table, debug=True):
                     culprit.seed_constant_name = culprit.name.replace("@", "") + str(id+1)
                     culprit.constant_name = culprit.make_constant_name()
 
-        # now add the trainer names to trainer_group_names
-        trainer_group_names[i]["trainer_names"] = [theader.make_constant_name() for theader in header.individual_trainer_headers]
+        # now add the trainer names to trainers.trainer_group_names
+        trainers.trainer_group_names[i]["trainer_names"] = [theader.make_constant_name() for theader in header.individual_trainer_headers]
 
         i += 1
 
     if debug:
-        print "done improving trainer names"
+        logging.info("done improving trainer names")
 
 def pretty_print_trainer_id_constants():
     """
@@ -4302,12 +4373,12 @@ def pretty_print_trainer_id_constants():
     make_trainer_group_name_trainer_ids must be called prior to this.
     """
     assert trainer_group_table != None, "must make trainer_group_table first"
-    assert trainer_group_names != None, "must have trainer_group_names available"
-    assert "trainer_names" in trainer_group_names[1].keys(), "trainer_names must be set in trainer_group_names"
+    assert trainers.trainer_group_names != None, "must have trainers.trainer_group_names available"
+    assert "trainer_names" in trainers.trainer_group_names[1].keys(), "trainer_names must be set in trainers.trainer_group_names"
 
     output = ""
-    for (key, value) in trainer_group_names.items():
-        if "uses_numeric_trainer_ids" in trainer_group_names[key].keys():
+    for (key, value) in trainers.trainer_group_names.items():
+        if "uses_numeric_trainer_ids" in trainers.trainer_group_names[key].keys():
             continue
         id = key
         group = value
@@ -4347,7 +4418,11 @@ class PeopleEvent(Command):
         return output
 
     def __init__(self, address, id, bank=None, map_group=None, map_id=None, debug=False, label=None, force=False):
-        assert is_valid_address(address), "PeopleEvent must be given a valid address"
+        if not is_valid_address(address):
+            raise exceptions.AddressException(
+                "PeopleEvent must be given a valid address (but got {0})."
+                .format(hex(address))
+            )
         self.address = address
         self.last_address = address + people_event_byte_size
         self.id = id
@@ -4458,10 +4533,10 @@ def old_parse_people_event_bytes(some_bytes, address=None, map_group=None, map_i
     # address is not actually required for this function to work...
     bank = None
     if address:
-        bank = calculate_bank(address)
+        bank = pointers.calculate_bank(address)
 
     people_events = []
-    for bytes in grouper(some_bytes, count=people_event_byte_size):
+    for bytes in helpers.grouper(some_bytes, count=people_event_byte_size):
         pict = int(bytes[0], 16)
         y = int(bytes[1], 16)    # y from top + 4
         x = int(bytes[2], 16)    # x from left + 4
@@ -4494,9 +4569,16 @@ def old_parse_people_event_bytes(some_bytes, address=None, map_group=None, map_i
         # but what if it's not in the same bank?
         extra_portion = {}
         if bank:
-            ptr_address = calculate_pointer(script_pointer, bank)
+            ptr_address = pointers.calculate_pointer(script_pointer, bank)
             if is_regular_script:
-                print "parsing a person-script at x=" + str(x-4) + " y=" + str(y-4) + " address="+hex(ptr_address)
+                logging.debug(
+                    "parsing a person-script at x={x} y={y} address={address}"
+                    .format(
+                        x=(x-4),
+                        y=(y-4),
+                        address=hex(ptr_address),
+                    )
+                )
                 script = parse_script_engine_script_at(ptr_address, map_group=map_group, map_id=map_id)
                 extra_portion = {
                     "script_address": ptr_address,
@@ -4504,7 +4586,7 @@ def old_parse_people_event_bytes(some_bytes, address=None, map_group=None, map_i
                     "event_type": "script",
                 }
             if is_give_item:
-                print "... not parsing give item event... [item id][quantity]"
+                logging.debug("not parsing give item event.. [item id][quantity]")
                 extra_portion = {
                     "event_type": "give_item",
                     "give_item_data_address": ptr_address,
@@ -4512,7 +4594,10 @@ def old_parse_people_event_bytes(some_bytes, address=None, map_group=None, map_i
                     "item_qty": ord(rom[ptr_address+1]),
                 }
             if is_trainer:
-                print "parsing a trainer (person-event) at x=" + str(x) + " y=" + str(y)
+                logging.debug(
+                    "parsing a trainer (person-event) at x={x} y={y}"
+                    .format(x=x, y=y)
+                )
                 parsed_trainer = parse_trainer_header_at(ptr_address, map_group=map_group, map_id=map_id)
                 extra_portion = {
                     "event_type": "trainer",
@@ -4752,9 +4837,9 @@ class Signpost(Command):
             script_ptr_byte2 = int(bytes[4], 16)
             script_pointer = script_ptr_byte1 + (script_ptr_byte2 << 8)
 
-            script_address = calculate_pointer(script_pointer, bank)
+            script_address = pointers.calculate_pointer(script_pointer, bank)
             output += " script@"+hex(script_address)
-            print output
+            logging.debug(output)
 
             param = ScriptPointerLabelParam(address=self.address+3, map_group=self.map_group, map_id=self.map_id, debug=self.debug, force=False)
             self.params.append(param)
@@ -4768,7 +4853,7 @@ class Signpost(Command):
             ptr_byte1 = int(bytes[3], 16)
             ptr_byte2 = int(bytes[4], 16)
             pointer = ptr_byte1 + (ptr_byte2 << 8)
-            address = calculate_pointer(pointer, bank)
+            address = pointers.calculate_pointer(pointer, bank)
 
             bit_table_byte1 = ord(rom[address])
             bit_table_byte2 = ord(rom[address+1])
@@ -4777,7 +4862,7 @@ class Signpost(Command):
             script_address = calculate_pointer_from_bytes_at(address+2, bank=bank)
 
             output += " remote_chunk@"+hex(address)+" remote_script@"+hex(script_address)
-            print output
+            logging.debug(output)
 
             r1 = SignpostRemoteScriptChunk(address, signpost=self, \
                    bank=self.bank, map_group=self.map_group, map_id=self.map_id, \
@@ -4799,11 +4884,11 @@ class Signpost(Command):
             ptr_byte1 = int(bytes[3], 16)
             ptr_byte2 = int(bytes[4], 16)
             pointer = ptr_byte1 + (ptr_byte2 << 8)
-            address = calculate_pointer(pointer, bank)
+            address = pointers.calculate_pointer(pointer, bank)
 
             item_id         = ord(rom[address+2])
             output += " item_id="+str(item_id)
-            print output
+            logging.debug(output)
 
             r1 = SignpostRemoteItemChunk(address, signpost=self, \
                    bank=self.bank, map_group=self.map_group, map_id=self.map_id, \
@@ -4823,10 +4908,10 @@ class Signpost(Command):
             ptr_byte1 = int(bytes[3], 16)
             ptr_byte2 = int(bytes[4], 16)
             pointer = ptr_byte1 + (ptr_byte2 << 8)
-            address = calculate_pointer(pointer, bank)
+            address = pointers.calculate_pointer(pointer, bank)
 
             output += " remote unknown chunk at="+hex(address)
-            print output
+            logging.debug(output)
 
             r1 = SignpostRemoteUnknownChunk(address, signpost=self, \
                    bank=self.bank, map_group=self.map_group, map_id=self.map_id, \
@@ -4873,14 +4958,17 @@ def parse_signposts(address, signpost_count, bank=None, map_group=None, map_id=N
 def old_parse_signpost_bytes(some_bytes, bank=None, map_group=None, map_id=None, debug=True):
     assert len(some_bytes) % signpost_byte_size == 0, "wrong number of bytes"
     signposts = []
-    for bytes in grouper(some_bytes, count=signpost_byte_size):
+    for bytes in helpers.grouper(some_bytes, count=signpost_byte_size):
         y = int(bytes[0], 16)
         x = int(bytes[1], 16)
         func = int(bytes[2], 16)
 
         additional = {}
         if func in [0, 1, 2, 3, 4]:
-            print "******* parsing signpost script.. signpost is at: x=" + str(x) + " y=" + str(y)
+            logging.debug(
+                "parsing signpost script.. signpost is at x={x} y={y}"
+                .format(x=x, y=y)
+            )
             script_ptr_byte1 = int(bytes[3], 16)
             script_ptr_byte2 = int(bytes[4], 16)
             script_pointer = script_ptr_byte1 + (script_ptr_byte2 << 8)
@@ -4888,7 +4976,7 @@ def old_parse_signpost_bytes(some_bytes, bank=None, map_group=None, map_id=None,
             script_address = None
             script = None
 
-            script_address = calculate_pointer(script_pointer, bank)
+            script_address = pointers.calculate_pointer(script_pointer, bank)
             script = parse_script_engine_script_at(script_address, map_group=map_group, map_id=map_id)
 
             additional = {
@@ -4898,11 +4986,15 @@ def old_parse_signpost_bytes(some_bytes, bank=None, map_group=None, map_id=None,
             "script": script,
             }
         elif func in [5, 6]:
-            print "******* parsing signpost script.. signpost is at: x=" + str(x) + " y=" + str(y)
+            logging.debug(
+                "parsing signpost script.. signpost is at x={x} y={y}"
+                .format(x=x, y=y)
+            )
+
             ptr_byte1 = int(bytes[3], 16)
             ptr_byte2 = int(bytes[4], 16)
             pointer = ptr_byte1 + (ptr_byte2 << 8)
-            address = calculate_pointer(pointer, bank)
+            address = pointers.calculate_pointer(pointer, bank)
             bit_table_byte1 = ord(rom[address])
             bit_table_byte2 = ord(rom[address+1])
             script_ptr_byte1 = ord(rom[address+2])
@@ -4918,7 +5010,7 @@ def old_parse_signpost_bytes(some_bytes, bank=None, map_group=None, map_id=None,
             "script": script,
             }
         else:
-            print ".. type 7 or 8 signpost not parsed yet."
+            logging.debug(".. type 7 or 8 signpost not parsed yet.")
 
         spost = {
             "y": y,
@@ -4934,7 +5026,10 @@ class MapHeader:
     base_label = "MapHeader_"
 
     def __init__(self, address, map_group=None, map_id=None, debug=True, label=None, bank=0x25):
-        print "creating a MapHeader at "+hex(address)+" map_group="+str(map_group)+" map_id="+str(map_id)
+        logging.debug(
+            "creating a MapHeader at {address} map_group={map_group} map_id={map_id}"
+            .format(address=hex(address), map_group=map_group, map_id=map_id)
+        )
         self.address = address
         self.map_group = map_group
         self.map_id = map_id
@@ -4952,11 +5047,11 @@ class MapHeader:
 
     def parse(self):
         address = self.address
-        print "parsing a MapHeader at " + hex(address)
+        logging.debug("parsing a MapHeader at {0}".format(hex(address)))
         self.bank = HexByte(address=address)
         self.tileset = HexByte(address=address+1)
         self.permission = DecimalParam(address=address+2)
-        self.second_map_header_address = calculate_pointer(ord(rom[address+3])+(ord(rom[address+4])<<8), self.bank.byte)
+        self.second_map_header_address = pointers.calculate_pointer(ord(rom[address+3])+(ord(rom[address+4])<<8), self.bank.byte)
         # TODO: is the bank really supposed to be 0x25 all the time ??
         self.second_map_header = SecondMapHeader(self.second_map_header_address, map_group=self.map_group, map_id=self.map_id, debug=self.debug)
         all_second_map_headers.append(self.second_map_header)
@@ -4988,19 +5083,19 @@ class MapHeader:
 all_map_headers = []
 def parse_map_header_at(address, map_group=None, map_id=None, debug=True):
     """parses an arbitrary map header at some address"""
-    print "parsing a map header at: " + hex(address)
+    logging.debug("parsing a map header at {0}".format(hex(address)))
     map_header = MapHeader(address, map_group=map_group, map_id=map_id, debug=debug)
     all_map_headers.append(map_header)
     return map_header
 
 def old_parse_map_header_at(address, map_group=None, map_id=None, debug=True):
     """parses an arbitrary map header at some address"""
-    print "parsing a map header at: " + hex(address)
+    logging.debug("parsing a map header at {0}".format(hex(address)))
     bytes = rom_interval(address, map_header_byte_size, strings=False, debug=debug)
     bank = bytes[0]
     tileset = bytes[1]
     permission = bytes[2]
-    second_map_header_address = calculate_pointer(bytes[3] + (bytes[4] << 8), 0x25)
+    second_map_header_address = pointers.calculate_pointer(bytes[3] + (bytes[4] << 8), 0x25)
     location_on_world_map = bytes[5] # pokegear world map location
     music = bytes[6]
     time_of_day = bytes[7]
@@ -5017,7 +5112,7 @@ def old_parse_map_header_at(address, map_group=None, map_id=None, debug=True):
         "time_of_day": time_of_day,
         "fishing": fishing_group,
     }
-    print "second map header address is: " + hex(second_map_header_address)
+    logging.debug("second map header address is {0}".format(hex(second_map_header_address)))
     map_header["second_map_header"] = old_parse_second_map_header_at(second_map_header_address, debug=debug)
     event_header_address = map_header["second_map_header"]["event_address"]
     script_header_address = map_header["second_map_header"]["script_address"]
@@ -5053,7 +5148,7 @@ class SecondMapHeader:
     base_label = "SecondMapHeader_"
 
     def __init__(self, address, map_group=None, map_id=None, debug=True, bank=None, label=None):
-        print "creating a SecondMapHeader at " + hex(address)
+        logging.debug("creating a SecondMapHeader at {0}".format(hex(address)))
         self.address = address
         self.map_group = map_group
         self.map_id = map_id
@@ -5337,7 +5432,7 @@ class Connection:
                     p += (h * connected_map_width) - (connected_map_width * 3) + (connected_map_width - 1) - 2
                     method = "west1"
                 elif ((p + connected_map_width - 3)%0x4000)+0x4000 == strip_pointer:
-                    print "west h <= 0"
+                    logging.debug("west h <= 0")
                     # lin's method:
                     #   p += otherMap.width - 3
                     p += connected_map_width - 3
@@ -5354,7 +5449,7 @@ class Connection:
                     # do nothing
                     method = "west5"
             elif ldirection == "south":
-                print "south.. dunno what to do?"
+                logging.debug("south.. dunno what to do?")
 
                 if (p%0x4000)+0x4000 == strip_pointer:
                     # do nothing
@@ -5414,23 +5509,43 @@ class Connection:
             strip_pointer_data.append(data)
 
             if p != strip_pointer:
-                print "method: " + method + " direction: " + ldirection
-                print "other map blockdata address: " + hex(connected_second_map_header.blockdata.address)
-                print "h = " + str(h)
-                print "initial p = " + hex(connected_second_map_header.blockdata.address)
-                print "intermediate p = " + hex(intermediate_p)
-                print "final p = " + hex(p)
-                print "connection length = " + str(connection_strip_length)
-                print "strip_pointer = " + hex(strip_pointer)
-                print "other map height = " + str(connected_map_height)
-                print "other map width = " + str(connected_map_width)
-                o = "other map group_id="+hex(connected_map_group_id) + " map_id="+hex(connected_map_id)+" "+map_names[connected_map_group_id][connected_map_id]["label"] + " smh="+hex(connected_second_map_header.address)
-                o += " width="+str(connected_second_map_header.width.byte)+" height="+str(connected_second_map_header.height.byte)
-                print o
+                wowparams = {
+                    "method": method,
+                    "direction": ldirection,
+                    "other map blockdata address": hex(connected_second_map_header.blockdata.address),
+                    "h": h,
+                    "initial p": hex(connected_second_map_header.blockdata.address),
+                    "intermediate p": hex(intermediate_p),
+                    "final p": hex(p),
+                    "connection length": connection_strip_length,
+                    "strip_pointer": hex(strip_pointer),
+                    "other map height": connected_map_height,
+                    "other map width": connected_map_width,
+                }
 
-                o = "current map group_id="+hex(self.map_group)+" map_id="+hex(self.map_id)+" "+map_names[self.map_group][self.map_id]["label"]+" smh="+hex(self.smh.address)
-                o += " width="+str(self.smh.width.byte)+" height="+str(self.smh.height.byte)
-                print o
+                logging.debug(wowparams)
+
+                whatparams = {
+                    "other map group_id": hex(connected_map_group_id),
+                    "other map map_id": hex(connected_map_id),
+                    "other map name": +map_names[connected_map_group_id][connected_map_id]["label"],
+                    "smh": hex(connected_second_map_header.address),
+                    "width": connected_second_map_header.width.byte,
+                    "height": connected_second_map_header.height.byte,
+                }
+
+                logging.debug(whatparams)
+
+                curparams = {
+                    "current map group_id": hex(self.map_group),
+                    "current map map_id": hex(self.map_id),
+                    "current map name": map_names[self.map_group][self.map_id]["label"],
+                    "smh": hex(self.smh.address),
+                    "width": self.smh.width.byte,
+                    "height": self.smh.height.byte,
+                }
+
+                logging.debug(curparams)
 
                 if ldirection == "east":
                     wrong_easts.append(data)
@@ -5462,24 +5577,36 @@ class Connection:
             #   (depending on the connection's direction)
             if ldirection == "north":
                 x_movement_of_the_connection_strip_in_blocks = strip_destination - 0xC703
-                print "(north) x_movement_of_the_connection_strip_in_blocks is: " + str(x_movement_of_the_connection_strip_in_blocks)
+                logging.debug(
+                    "(north) x_movement_of_the_connection_strip_in_blocks is: {0}"
+                    .format(x_movement_of_the_connection_strip_in_blocks)
+                )
                 if x_movement_of_the_connection_strip_in_blocks < 0:
                     raise Exception("x_movement_of_the_connection_strip_in_blocks is wrong? " + str(x_movement_of_the_connection_strip_in_blocks))
             elif ldirection == "south":
                 # strip_destination =
                 # 0xc703 + (current_map_height + 3) * (current_map_width + 6) + x_movement_of_the_connection_strip_in_blocks
                 x_movement_of_the_connection_strip_in_blocks = strip_destination - (0xc703 + (current_map_height + 3) * (current_map_width + 6))
-                print "(south) x_movement_of_the_connection_strip_in_blocks is: " + str(x_movement_of_the_connection_strip_in_blocks)
+                logging.debug(
+                    "(south) x_movement_of_the_connection_strip_in_blocks is: {0}"
+                    .format(x_movement_of_the_connection_strip_in_blocks)
+                )
             elif ldirection == "east":
                 # strip_destination =
                 #   0xc700 + (current_map_width + 6) * (y_movement_of_the_connection_strip_in_blocks + 3)
                 y_movement_of_the_connection_strip_in_blocks = (strip_destination - 0xc700) / (current_map_width + 6) - 3
-                print "(east) y_movement_of_the_connection_strip_in_blocks is: " + str(y_movement_of_the_connection_strip_in_blocks)
+                logging.debug(
+                    "(east) y_movement_of_the_connection_strip_in_blocks is {0}"
+                    .format(y_movement_of_the_connection_strip_in_blocks)
+                )
             elif ldirection == "west":
                 # strip_destination =
                 #   0xc6fd + (current_map_width + 6) * (y_movement_of_the_connection_strip_in_blocks + 4)
                 y_movement_of_the_connection_strip_in_blocks = (strip_destination - 0xc6fd) / (current_map_width + 6) - 4
-                print "(west) y_movement_of_the_connection_strip_in_blocks is: " + str(y_movement_of_the_connection_strip_in_blocks)
+                logging.debug(
+                    "(west) y_movement_of_the_connection_strip_in_blocks is {0}"
+                    .format(y_movement_of_the_connection_strip_in_blocks)
+                )
 
             # let's also check the window equations
             # tauwasser calls this "window" and lin calls this "memoryCurrentPointer"
@@ -5625,7 +5752,7 @@ class Connection:
                 this_part = "((" + h_out + " * " + map_constant_label + "_WIDTH) - (" + map_constant_label + "_WIDTH * 3) + (" + map_constant_label + "_WIDTH - 1) - 2)"
                 output += "(" + get_label_for(connected_second_map_header.blockdata.address) + " + " + this_part + ")"
             elif ((p + connected_map_width - 3)%0x4000)+0x4000 == strip_pointer:
-                print "west h <= 0"
+                logging.debug("west h <= 0")
                 # lin's method:
                 #   p += otherMap.width - 3
                 p += connected_map_width - 3
@@ -5831,13 +5958,13 @@ def old_parse_second_map_header_at(address, map_group=None, map_id=None, debug=T
     width = bytes[2]
     blockdata_bank = bytes[3]
     blockdata_pointer = bytes[4] + (bytes[5] << 8)
-    blockdata_address = calculate_pointer(blockdata_pointer, blockdata_bank)
+    blockdata_address = pointers.calculate_pointer(blockdata_pointer, blockdata_bank)
     script_bank = bytes[6]
     script_pointer = bytes[7] + (bytes[8] << 8)
-    script_address = calculate_pointer(script_pointer, script_bank)
+    script_address = pointers.calculate_pointer(script_pointer, script_bank)
     event_bank = script_bank
     event_pointer = bytes[9] + (bytes[10] << 8)
-    event_address = calculate_pointer(event_pointer, event_bank)
+    event_address = pointers.calculate_pointer(event_pointer, event_bank)
     connections = bytes[11]
     return {
         "border_block": border_block,
@@ -5906,7 +6033,14 @@ class MapEventHeader:
     base_label = "MapEventHeader_"
 
     def __init__(self, address, map_group=None, map_id=None, debug=True, bank=None, label=None):
-        print "making a MapEventHeader at "+hex(address)+" map_group="+str(map_group)+" map_id="+str(map_id)
+        logging.debug(
+            "making a MapEventHeader at {address} map_group={map_group} map_id={map_id}"
+            .format(
+                address=hex(address),
+                map_group=map_group,
+                map_id=map_id,
+            )
+        )
         self.address = address
         self.map_group = map_group
         self.map_id = map_id
@@ -5924,8 +6058,8 @@ class MapEventHeader:
     def parse(self):
         map_group, map_id, debug = self.map_group, self.map_id, self.debug
         address = self.address
-        bank = calculate_bank(self.address) # or use self.bank
-        print "event header address is: " + hex(address)
+        bank = pointers.calculate_bank(self.address) # or use self.bank
+        logging.debug("event header address is {0}".format(hex(address)))
 
         filler1 = ord(rom[address])
         filler2 = ord(rom[address+1])
@@ -5961,7 +6095,7 @@ class MapEventHeader:
         people_event_byte_count = people_event_byte_size * people_event_count
         # people_events_bytes = rom_interval(after_signposts+1, people_event_byte_count)
         # people_events = parse_people_event_bytes(people_events_bytes, address=after_signposts+1, map_group=map_group, map_id=map_id)
-        people_events = parse_people_events(after_signposts+1, people_event_count, bank=calculate_bank(after_signposts+2), map_group=map_group, map_id=map_id, debug=debug)
+        people_events = parse_people_events(after_signposts+1, people_event_count, bank=pointers.calculate_bank(after_signposts+2), map_group=map_group, map_id=map_id, debug=debug)
         self.people_event_count = people_event_count
         self.people_events = people_events
 
@@ -6038,9 +6172,9 @@ def old_parse_map_event_header_at(address, map_group=None, map_id=None, debug=Tr
     """parse crystal map event header byte structure thing"""
     returnable = {}
 
-    bank = calculate_bank(address)
+    bank = pointers.calculate_bank(address)
 
-    print "event header address is: " + hex(address)
+    logging.debug("event header address is {0}".format(hex(address)))
     filler1 = ord(rom[address])
     filler2 = ord(rom[address+1])
     returnable.update({"1": filler1, "2": filler2})
@@ -6131,7 +6265,14 @@ class MapScriptHeader:
     base_label = "MapScriptHeader_"
 
     def __init__(self, address, map_group=None, map_id=None, debug=True, bank=None, label=None):
-        print "creating a MapScriptHeader at " + hex(address) + " map_group="+str(map_group)+" map_id="+str(map_id)
+        logging.debug(
+            "creating a MapScriptHeader at {address} map_group={map_group} map_id={map_id}"
+            .format(
+                address=hex(address),
+                map_group=map_group,
+                map_id=map_id,
+            )
+        )
         self.address = address
         self.map_group = map_group
         self.map_id = map_id
@@ -6155,10 +6296,17 @@ class MapScriptHeader:
         self.trigger_count = ord(rom[address])
         self.triggers = []
         ptr_line_size = 4
-        groups = grouper(rom_interval(address+1, self.trigger_count * ptr_line_size, strings=False), count=ptr_line_size)
+        groups = helpers.grouper(rom_interval(address+1, self.trigger_count * ptr_line_size, strings=False), count=ptr_line_size)
         current_address = address+1
         for (index, trigger_bytes) in enumerate(groups):
-            print "parsing a map trigger script at "+hex(current_address)+" map_group="+str(map_group)+" map_id="+str(map_id)
+            logging.debug(
+                "parsing a map trigger script at {address} map_group={map_group} map_id={map_id}"
+                .format(
+                    address=hex(current_address),
+                    map_group=map_group,
+                    map_id=map_id,
+                )
+            )
             script = ScriptPointerLabelParam(address=current_address, map_group=map_group, map_id=map_id, debug=debug)
             extra_bytes = MultiByteParam(address=current_address+2, map_group=map_group, map_id=map_id, debug=debug)
             self.triggers.append([script, extra_bytes])
@@ -6171,13 +6319,23 @@ class MapScriptHeader:
         current_address += 1
         self.callbacks = []
         for index in range(self.callback_count):
-            print "parsing a callback script at "+hex(current_address)+" map_group="+str(map_group)+" map_id="+str(map_id)
+            logging.debug(
+                "parsing a callback script at {address} map_group={map_group} map_id={map_id}"
+                .format(
+                    address=hex(current_address),
+                    map_group=map_group,
+                    map_id=map_id,
+                )
+            )
             hook_byte = HexByte(address=current_address)
             callback = ScriptPointerLabelParam(address=current_address+1, map_group=map_group, map_id=map_id, debug=debug)
             self.callbacks.append({"hook": hook_byte, "callback": callback})
             current_address += 3 # i think?
         self.last_address = current_address
-        print "done parsing a MapScriptHeader map_group="+str(map_group)+" map_id="+str(map_id)
+        logging.debug(
+            "done parsing a MapScriptHeader map_group={map_group} map_id={map_id}"
+            .format(map_group=map_group, map_id=map_id)
+        )
         return True
 
     def get_dependencies(self, recompute=False, global_dependencies=set()):
@@ -6217,18 +6375,18 @@ def parse_map_script_header_at(address, map_group=None, map_id=None, debug=True)
     return evv
 
 def old_parse_map_script_header_at(address, map_group=None, map_id=None, debug=True):
-    print "starting to parse the map's script header.."
+    logging.debug("starting to parse the map's script header..")
     #[[Number1 of pointers] Number1 * [2byte pointer to script][00][00]]
     ptr_line_size = 4 #[2byte pointer to script][00][00]
     trigger_ptr_cnt = ord(rom[address])
-    trigger_pointers = grouper(rom_interval(address+1, trigger_ptr_cnt * ptr_line_size, strings=False), count=ptr_line_size)
+    trigger_pointers = helpers.grouper(rom_interval(address+1, trigger_ptr_cnt * ptr_line_size, strings=False), count=ptr_line_size)
     triggers = {}
     for index, trigger_pointer in enumerate(trigger_pointers):
-        print "parsing a trigger header..."
+        logging.debug("parsing a trigger header...")
         byte1 = trigger_pointer[0]
         byte2 = trigger_pointer[1]
         ptr   = byte1 + (byte2 << 8)
-        trigger_address = calculate_pointer(ptr, calculate_bank(address))
+        trigger_address = pointers.calculate_pointer(ptr, pointers.calculate_bank(address))
         trigger_script  = parse_script_engine_script_at(trigger_address, map_group=map_group, map_id=map_id)
         triggers[index] = {
             "script": trigger_script,
@@ -6242,16 +6400,16 @@ def old_parse_map_script_header_at(address, map_group=None, map_id=None, debug=T
     #[[Number2 of pointers] Number2 * [hook number][2byte pointer to script]]
     callback_ptr_line_size = 3
     callback_ptr_cnt = ord(rom[address])
-    callback_ptrs = grouper(rom_interval(address+1, callback_ptr_cnt * callback_ptr_line_size, strings=False), count=callback_ptr_line_size)
+    callback_ptrs = helpers.grouper(rom_interval(address+1, callback_ptr_cnt * callback_ptr_line_size, strings=False), count=callback_ptr_line_size)
     callback_pointers = {}
     callbacks = {}
     for index, callback_line in enumerate(callback_ptrs):
-        print "parsing a callback header..."
+        logging.debug("parsing a callback header..")
         hook_byte = callback_line[0] # 1, 2, 3, 4, 5
         callback_byte1 = callback_line[1]
         callback_byte2 = callback_line[2]
         callback_ptr = callback_byte1 + (callback_byte2 << 8)
-        callback_address = calculate_pointer(callback_ptr, calculate_bank(address))
+        callback_address = pointers.calculate_pointer(callback_ptr, pointers.calculate_bank(address))
         callback_script = parse_script_engine_script_at(callback_address)
         callback_pointers[len(callback_pointers.keys())] = [hook_byte, callback_ptr]
         callbacks[index] = {
@@ -6272,7 +6430,7 @@ def old_parse_map_script_header_at(address, map_group=None, map_id=None, debug=T
     }
 
 def old_parse_trainer_header_at(address, map_group=None, map_id=None, debug=True):
-    bank = calculate_bank(address)
+    bank = pointers.calculate_bank(address)
     bytes = rom_interval(address, 12, strings=False)
     bit_number = bytes[0] + (bytes[1] << 8)
     trainer_group = bytes[2]
@@ -6286,14 +6444,14 @@ def old_parse_trainer_header_at(address, map_group=None, map_id=None, debug=True
         script_when_lost_ptr = 0
         script_when_lost = None
     else:
-        print "parsing script-when-lost"
+        logging.debug("parsing script-when-lost")
         script_when_lost_ptr = calculate_pointer_from_bytes_at(address+8, bank=bank)
         script_when_lost = None
         silver_avoids = [0xfa53]
         if script_when_lost_ptr > 0x4000 and not script_when_lost_ptr in silver_avoids:
             script_when_lost = parse_script_engine_script_at(script_when_lost_ptr, map_group=map_group, map_id=map_id, debug=debug)
 
-    print "parsing script-talk-again" # or is this a text?
+    logging.debug("parsing script-talk-again") # or is this a text?
     script_talk_again_ptr = calculate_pointer_from_bytes_at(address+10, bank=bank)
     script_talk_again = None
     if script_talk_again_ptr > 0x4000:
@@ -6332,10 +6490,10 @@ def old_parse_people_event_bytes(some_bytes, address=None, map_group=None, map_i
     # address is not actually required for this function to work...
     bank = None
     if address:
-        bank = calculate_bank(address)
+        bank = pointers.calculate_bank(address)
 
     people_events = []
-    for bytes in grouper(some_bytes, count=people_event_byte_size):
+    for bytes in helpers.grouper(some_bytes, count=people_event_byte_size):
         pict = int(bytes[0], 16)
         y = int(bytes[1], 16)    # y from top + 4
         x = int(bytes[2], 16)    # x from left + 4
@@ -6368,9 +6526,12 @@ def old_parse_people_event_bytes(some_bytes, address=None, map_group=None, map_i
         # but what if it's not in the same bank?
         extra_portion = {}
         if bank:
-            ptr_address = calculate_pointer(script_pointer, bank)
+            ptr_address = pointers.calculate_pointer(script_pointer, bank)
             if is_regular_script:
-                print "parsing a person-script at x=" + str(x-4) + " y=" + str(y-4) + " address="+hex(ptr_address)
+                logging.debug(
+                    "parsing a person-script at x={x} y={y} address={address}"
+                    .format(x=(x-4), y=(y-4), address=hex(ptr_address))
+                )
                 script = parse_script_engine_script_at(ptr_address, map_group=map_group, map_id=map_id)
                 extra_portion = {
                     "script_address": ptr_address,
@@ -6378,7 +6539,7 @@ def old_parse_people_event_bytes(some_bytes, address=None, map_group=None, map_i
                     "event_type": "script",
                 }
             if is_give_item:
-                print "... not parsing give item event... [item id][quantity]"
+                logging.debug("not parsing give item event.. [item id][quantity]")
                 extra_portion = {
                     "event_type": "give_item",
                     "give_item_data_address": ptr_address,
@@ -6386,7 +6547,7 @@ def old_parse_people_event_bytes(some_bytes, address=None, map_group=None, map_i
                     "item_qty": ord(rom[ptr_address+1]),
                 }
             if is_trainer:
-                print "parsing a trainer (person-event) at x=" + str(x) + " y=" + str(y)
+                logging.debug("parsing a trainer (person-event) at x={x} y={y}".format(x=x, y=y))
                 parsed_trainer = old_parse_trainer_header_at(ptr_address, map_group=map_group, map_id=map_id)
                 extra_portion = {
                     "event_type": "trainer",
@@ -6462,7 +6623,11 @@ def parse_all_map_headers(debug=True):
         #del group_data["offset"]
         for map_id, map_data in group_data.items():
             if map_id == "offset": continue # skip the "offset" address for this map group
-            if debug: print "map_group is: " + str(group_id) + "  map_id is: " + str(map_id)
+            if debug:
+                logging.debug(
+                    "map_group={group_id} map_id={map_id}"
+                    .format(group_id=group_id, map_id=map_id)
+                )
             map_header_offset = offset + ((map_id - 1) * map_header_byte_size)
             map_names[group_id][map_id]["header_offset"] = map_header_offset
 
@@ -6478,7 +6643,7 @@ class PokedexEntryPointerTable:
 
     def __init__(self):
         self.address = 0x44378
-        self.target_bank = calculate_bank(0x181695)
+        self.target_bank = pointers.calculate_bank(0x181695)
         self.label = Label(name="PokedexDataPointerTable", address=self.address, object=self)
         self.size = None
         self.last_address = None
@@ -6526,8 +6691,8 @@ class PokedexEntry:
         self.address = address
         self.dependencies = None
         #label = self.make_label()
-        if pokemon_id in pokemon_constants:
-            pokename = string.capwords(pokemon_constants[pokemon_id].replace("__", " ").replace("_", " ")).replace(" ", "")
+        if pokemon_id in pokemon_constants.pokemon_constants:
+            pokename = string.capwords(pokemon_constants.pokemon_constants[pokemon_id].replace("__", " ").replace("_", " ")).replace(" ", "")
         else:
             pokename = "Pokemon{0}".format(pokemon_id)
         self.label = Label(name=pokename+"PokedexEntry", address=self.address, object=self)
@@ -6566,8 +6731,6 @@ class PokedexEntry:
     {3}
     {4}""".format(self.species, self.weight, self.height, self.page1.to_asm(), self.page2.to_asm())
         return output
-
-from map_names import map_names
 
 # map names with no labels will be generated
 # generate labels for each map name
@@ -6622,21 +6785,6 @@ def to_asm(some_object, use_asm_rules=False):
     asm += "\n; " + hex(last_address)
     return asm
 
-def flattener(x):
-    "flattens a list of sublists into just one list (generator)"
-    try:
-        it = iter(x)
-    except TypeError:
-        yield x
-    else:
-        for i in it:
-            for j in flattener(i):
-                yield j
-
-def flatten(x):
-    "flattens a list of sublists into just one list"
-    return list(flattener(x))
-
 def get_dependencies_for(some_object, recompute=False, global_dependencies=set()):
     """
     calculates which labels need to be satisfied for an object
@@ -6656,11 +6804,17 @@ def get_dependencies_for(some_object, recompute=False, global_dependencies=set()
         return global_dependencies
     except RuntimeError, e:
         # 1552, 1291, 2075, 1552, 1291...
-        print "some_object is: " + str(some_object)
-        print "class type: " + str(some_object.__class__)
-        print "label name: " + str(some_object.label.name)
-        print "address: " + str(some_object.address)
-        print "asm is: \n\n" + to_asm(some_object)
+
+        errorargs = {
+            "some_object": some_object,
+            "class type": some_object.__class__,
+            "label name": some_object.label.name,
+            "address": some_object.address,
+            "asm": to_asm(some_object),
+        }
+
+        logging.debug(str(errorargs))
+
         raise e
 
 def isolate_incbins(asm=None):
@@ -6744,10 +6898,21 @@ def find_incbin_to_replace_for(address, debug=False, rom_file="../baserom.gbc"):
         start = incbin["start"]
         end = incbin["end"]
         if debug:
-            print "start is: " + str(start)
-            print "end is: " + str(end)
-            print "address is: " + str(type(address))
-            print "checking.... " + hex(start) + " <= " + hex(address) + " <= " + hex(end)
+            argstuff = {
+                "start": start,
+                "end": end,
+                "address": str(type(address)),
+            }
+
+            logging.debug(str(argstuff))
+            logging.debug(
+                "checking... {start} <= {address} <= {end}"
+                .format(
+                    start=hex(start),
+                    address=hex(address),
+                    end=hex(end),
+                )
+            )
         if start <= address <= end:
             return incbin_key
     return None
@@ -6828,11 +6993,12 @@ def generate_diff_insert(line_number, newline, debug=False):
     os.system("rm " + original_filename)
     os.system("rm " + newfile_filename)
 
-    if debug: print diffcontent
+    if debug:
+        logging.debug("diffcontent is {0}".format(diffcontent))
     return diffcontent
 
 def apply_diff(diff, try_fixing=True, do_compile=True):
-    print "... Applying diff."
+    logging.info("Applying diff.")
 
     # write the diff to a file
     fh = open("temp.patch", "w")
@@ -6861,6 +7027,7 @@ class AsmLine:
     def __init__(self, line, bank=None):
         self.line = line
         self.bank = bank
+
     def to_asm(self):
         return self.line
 
@@ -6871,19 +7038,20 @@ class Incbin:
         self.replace_me = False
         self.debug = debug
         self.parse()
+
     def parse(self):
         incbin = self.line
         partial_start = incbin[21:]
         start = partial_start.split(",")[0].replace("$", "0x")
 
         if self.debug:
-            print "Incbin.parse -- line is: " + self.line
-            print "Incbin.parse -- partial_start is: " + partial_start
-            print "Incbin.parse -- start is: " + start
+            logging.debug("Incbin.parse line is {0}".format(self.line))
+            logging.debug("Incbin.parse partial_start is {0}".format(partial_start))
+            logging.debug("Incbin.parse start is {0}".format(start))
         try:
             start = eval(start)
         except Exception, e:
-            print "start is: " + str(start)
+            logging.debug("start is {0}".format(start))
             raise Exception("problem with evaluating interval range: " + str(e))
 
         start_hex = hex(start).replace("0x", "$")
@@ -6902,11 +7070,13 @@ class Incbin:
         self.end_address = end
         self.last_address = end
         self.interval = interval
+
     def to_asm(self):
         if self.interval > 0:
             return self.line
         else:
             return ""
+
     def split(self, start_address, byte_count):
         """splits this incbin into three separate incbins"""
         if start_address < self.start_address or start_address > self.end_address:
@@ -6914,14 +7084,21 @@ class Incbin:
         incbins = []
 
         if self.debug:
-            print "splitting an incbin ("+self.line+") into three at "+hex(start_address)+" for "+str(byte_count)+" bytes"
+            logging.debug(
+                "splitting an incbin (\"{line}\") into three at {start} for {count} bytes"
+                .format(
+                    line=self.line,
+                    start=hex(start_address),
+                    count=byte_count,
+                )
+            )
 
         # start, end1, end2 (to be printed as start, end1 - end2)
         if (start_address - self.start_address) > 0:
             first = (self.start_address, start_address, self.start_address)
             incbins.append(Incbin("INCBIN \"baserom.gbc\",$%.2x,$%.2x - $%.2x" % (first[0], first[1], first[2])))
             if self.debug:
-                print "    " + incbins[0].line
+                logging.debug(incbins[0].line)
         else:
             # skip this one because we're not including anything
             first = None
@@ -6931,13 +7108,13 @@ class Incbin:
         incbins.append(Incbin("INCBIN \"baserom.gbc\",$%.2x,$%.2x" % (start_address, byte_count)))
         incbins[-1].replace_me = True
         if self.debug:
-            print "    " + incbins[-1].line
+            logging.debug(incbins[-1].line)
 
         if (self.last_address - (start_address + byte_count)) > 0:
             third = (start_address + byte_count, self.last_address - (start_address + byte_count))
             incbins.append(Incbin("INCBIN \"baserom.gbc\",$%.2x,$%.2x" % (third[0], third[1])))
             if self.debug:
-                print "    " + incbins[-1].line
+                logging.debug(incbins[-1].line)
 
         return incbins
 
@@ -6946,6 +7123,7 @@ class AsmSection:
         self.bank_id = None
         self.line = line
         self.parse()
+
     def parse(self):
         line    = self.line
 
@@ -6968,6 +7146,7 @@ class AsmSection:
         # although it could be argued that lines should exist under this object
         #self.address  = self.start_address = start_address
         #self.last_address = self.end_address = end_address
+
     def to_asm(self):
         return self.line
 
@@ -6987,10 +7166,11 @@ class Asm:
         self.filename = filename
         self.debug = debug
         self.load_and_parse()
+
     def load_and_parse(self):
         self.parts = []
         asm = open(self.filename, "r").read().split("\n")
-        asm_list = AsmList(asm)
+        asm_list = romstr.AsmList(asm)
         bank = 0
         for line in asm_list:
             if (line[0:6] == "INCBIN" or line[1:6] == "INCBIN") and not any([contaminant+"\"" in line for contaminant in [".2bpp", ".1bpp", ".asm", ".lz"]]):
@@ -7000,17 +7180,19 @@ class Asm:
                 bank = thing.bank_id
             else:
                 thing = AsmLine(line, bank=bank)
-                label = get_label_from_line(line)
+                label = labels.get_label_from_line(line)
                 if label:
-                    laddress = get_address_from_line_comment(line)
+                    laddress = labels.get_address_from_line_comment(line)
                     thing.label = Label(name=label, address=laddress, object=thing, add_to_globals=False)
                     self.labels.append(thing.label)
             self.parts.append(thing)
+
     def is_label_name_in_file(self, label_name):
         for llabel in self.labels:
             if llabel.name == label_name:
                 return llabel
         return False
+
     def does_address_have_label(self, address):
         """
         Checks if an address has a label.
@@ -7025,15 +7207,16 @@ class Asm:
                 return part.label
 
         return None
+
     def insert(self, new_object):
         if isinstance(new_object, ScriptPointerLabelParam):
             # its' probably being injected in some get_dependencies() somewhere
-            print "don't know why ScriptPointerLabelParam is getting to this point?"
+            logging.debug("don't know why ScriptPointerLabelParam is getting to this point?")
             return
 
         # first some validation
         if not hasattr(new_object, "address"):
-            print "object needs to have an address property: " + str(new_object)
+            logging.debug("object needs to have an address property: {0}".format(new_object))
             return
 
         start_address = new_object.address
@@ -7041,7 +7224,7 @@ class Asm:
         # skip this dragon shrine script calling itself
         # what about other scripts that call themselves ?
         if start_address in lousy_dragon_shrine_hack:
-            print "skipping 0x18d079 in dragon shrine for a lousy hack"
+            logging.debug("skipping 0x18d079 in dragon shrine for a lousy hack")
             return
 
         if not hasattr(new_object, "label") and hasattr(new_object, "is_valid") and not new_object.is_valid():
@@ -7052,20 +7235,34 @@ class Asm:
         debugmsg += " start_address="+hex(start_address)#+" end_address="+hex(end_address)
 
         if not hasattr(new_object, "last_address"):
-            print debugmsg
+            logging.debug(debugmsg)
             raise Exception("object needs to have a last_address property")
         end_address = new_object.last_address
         debugmsg += " last_address="+hex(end_address)
 
         # check if the object is already inserted
         if new_object in self.parts:
-            print "object was previously inserted ("+str(new_object)+"; " + hex(new_object.address) + ")"
+            logging.debug(
+                "object was previously inserted ({new_object}; {address})"
+                .format(
+                    new_object=new_object,
+                    address=hex(new_object.address),
+                )
+            )
             return
         # check by label
         other_obj = self.is_label_name_in_file(new_object.label.name)
         if other_obj:
             other_obj = other_obj.object
-            print "object was previously inserted ("+new_object.label.name+" at "+hex(new_object.address)+") by "+other_obj.label.name+" at "+hex(other_obj.address)
+            logging.debug(
+                "object was previously inserted ({name} at {address}) by {othername} at {otheraddress}"
+                .format(
+                    name=new_object.label.name,
+                    address=hex(new_object.address),
+                    othername=other_obj.label.name,
+                    otheraddress=other_obj.address,
+                )
+            )
             return
         # check by address
         #if self.does_address_have_label(new_object.address):
@@ -7073,14 +7270,17 @@ class Asm:
         #    return
 
         if self.debug:
-            print debugmsg
+            logging.debug(debugmsg)
         del debugmsg
         if (end_address < start_address) or ((end_address - start_address) < 0):
             if not self.debug:
-                print "object is new_object="+str(new_object)
-                print "start_address="+hex(start_address)+" end_address="+hex(end_address)
+                logging.debug("object is new_object={0}".format(new_object))
+                logging.deubg(
+                    "start_address={start} end_address={end}"
+                    .format(start=hex(start_address), end=hex(end_address))
+                )
             if hasattr(new_object, "to_asm"):
-                print to_asm(new_object)
+                logging.debug(to_asm(new_object))
             raise Exception("Asm.insert was given an object with a bad address range")
 
         # 1) find which object needs to be replaced
@@ -7112,7 +7312,7 @@ class Asm:
                 found = True
                 break
             elif object.address <= start_address < object.last_address:
-                print "this is probably a script that is looping back on itself?"
+                logging.debug("this is probably a script that is looping back on itself?")
                 found = True
                 break
             # insert before the current object
@@ -7126,6 +7326,7 @@ class Asm:
             raise Exception("unable to insert object into Asm")
         self.labels.append(new_object.label)
         return True
+
     def insert_with_dependencies(self, input):
         if type(input) == list:
             input_objects = input
@@ -7150,7 +7351,7 @@ class Asm:
                 #              " for object.__class__="+str(object0.__class__)+" object="+str(object0)
                 #    continue
                 if self.debug:
-                    print " object is: " + str(object)
+                    logging.debug("object is: {0}".format(object))
                 self.insert(object)
 
                 # just some old debugging
@@ -7158,10 +7359,13 @@ class Asm:
                 #    raise Exception("debugging...")
                 #elif object.label.name == "UnknownScript_0x60011":
                 #    raise Exception("debugging.. dependencies are: " + str(object.dependencies) + " versus: " + str(object.get_dependencies()))
+
     def insert_single_with_dependencies(self, object):
         self.insert_with_dependencies(object)
+
     def insert_multiple_with_dependencies(self, objects):
         self.insert_with_dependencies(objects)
+
     def insert_all(self, limit=100):
         count = 0
         for each in script_parse_table.items():
@@ -7170,9 +7374,11 @@ class Asm:
             if type(object) == str: continue
             self.insert_single_with_dependencies(object)
             count += 1
+
     def insert_and_dump(self, limit=100, filename="output.txt"):
         self.insert_all(limit=limit)
         self.dump(filename=filename)
+
     def dump(self, filename="output.txt"):
         fh = open(filename, "w")
         newlines_before_next_obj_requested = 0
@@ -7234,7 +7440,7 @@ def list_things_in_bank(bank):
     objects = []
     for blah in script_parse_table.items():
         object = blah[1]
-        if hasattr(object, "address") and calculate_bank(object.address) == bank:
+        if hasattr(object, "address") and pointers.calculate_bank(object.address) == bank:
             objects.append(object)
     return objects
 
@@ -7251,7 +7457,7 @@ def list_texts_in_bank(bank):
 
     texts = []
     for text in all_texts:
-        if calculate_bank(text.address) == bank:
+        if pointers.calculate_bank(text.address) == bank:
             texts.append(text)
 
     return texts
@@ -7268,7 +7474,7 @@ def list_movements_in_bank(bank):
 
     movements = []
     for movement in all_movements:
-        if calculate_bank(movement.address) == bank:
+        if pointers.calculate_bank(movement.address) == bank:
             movements.append(movement)
     return movements
 
@@ -7295,7 +7501,7 @@ def dump_asm_for_texts_in_bank(bank, start=50, end=100):
     # start dumping
     asm.dump()
 
-    print "done dumping texts for bank $%.2x" % (bank)
+    logging.info("done dumping texts for bank {banked}".format(banked="$%.2x" % bank))
 
 def dump_asm_for_movements_in_bank(bank, start=0, end=100):
     if rom == None or len(rom) <= 4:
@@ -7307,7 +7513,7 @@ def dump_asm_for_movements_in_bank(bank, start=0, end=100):
     asm = Asm()
     asm.insert_with_dependencies(movements)
     asm.dump()
-    print "done dumping movements for bank $%.2x" % (bank)
+    logging.info("done dumping movements for bank {banked}".format(banked="$%.2x" % bank))
 
 def dump_things_in_bank(bank, start=50, end=100):
     """
@@ -7329,12 +7535,7 @@ def dump_things_in_bank(bank, start=50, end=100):
     # start dumping
     asm.dump()
 
-    print "done dumping things for bank $%.2x" % (bank)
-
-def index(seq, f):
-    """return the index of the first item in seq
-    where f(item) == True."""
-    return next((i for i in xrange(len(seq)) if f(seq[i])), None)
+    logging.info("done dumping things for bank {banked}".format(banked="$%.2x" % bank))
 
 def analyze_intervals():
     """find the largest baserom.gbc intervals"""
@@ -7358,13 +7559,12 @@ def write_all_labels(all_labels, filename="labels.json"):
     fh.close()
     return True
 
-from wram import wram_labels
 def get_ram_label(address):
     """
     returns a label assigned to a particular ram address
     """
-    if address in wram_labels.keys():
-        return wram_labels[address][-1]
+    if address in wram.wram_labels.keys():
+        return wram.wram_labels[address][-1]
     return None
 
 def get_label_for(address):
@@ -7498,9 +7698,9 @@ def find_labels_without_addresses():
     """scans the asm source and finds labels that are unmarked"""
     without_addresses = []
     for (line_number, line) in enumerate(asm):
-        if line_has_label(line):
-            label = get_label_from_line(line)
-            if not line_has_comment_address(line):
+        if labels.line_has_label(line):
+            label = labels.get_label_from_line(line)
+            if not labels.line_has_comment_address(line):
                 without_addresses.append({"line_number": line_number, "line": line, "label": label})
     return without_addresses
 
@@ -7519,16 +7719,16 @@ def get_labels_between(start_line_id, end_line_id, bank):
     sublines = asm[start_line_id : end_line_id + 1]
     for (current_line_offset, line) in enumerate(sublines):
         # skip lines without labels
-        if not line_has_label(line): continue
+        if not labels.line_has_label(line): continue
         # reset some variables
         line_id = start_line_id + current_line_offset
-        line_label = get_label_from_line(line)
+        line_label = labels.get_label_from_line(line)
         address = None
         offset = None
         # setup a place to store return values from line_has_comment_address
         returnable = {}
         # get the address from the comment
-        has_comment = line_has_comment_address(line, returnable=returnable, bank=bank)
+        has_comment = labels.line_has_comment_address(line, returnable=returnable, bank=bank)
         # skip this line if it has no address in the comment
         if not has_comment: continue
         # parse data from line_has_comment_address
@@ -7575,9 +7775,9 @@ def scan_for_predefined_labels(debug=False):
             abbreviation_next = "1"
 
         # calculate the start/stop line numbers for this bank
-        start_line_id = index(asm, lambda line: "\"bank" + abbreviation.lower() + "\"" in line.lower())
+        start_line_id = helpers.index(asm, lambda line: "\"bank" + abbreviation.lower() + "\"" in line.lower())
         if bank_id != 0x7F:
-            end_line_id = index(asm, lambda line: "\"bank" + abbreviation_next.lower() + "\"" in line.lower())
+            end_line_id = helpers.index(asm, lambda line: "\"bank" + abbreviation_next.lower() + "\"" in line.lower())
             end_line_id += 1
         else:
             end_line_id = len(asm) - 1
@@ -7587,7 +7787,7 @@ def scan_for_predefined_labels(debug=False):
             output += str(start_line_id)
             output += " to "
             output += str(end_line_id)
-            print output
+            logging.debug(output)
 
         # store the start/stop line number for this bank
         bank_intervals[bank_id] = {"start": start_line_id,
@@ -7630,6 +7830,5 @@ def run_main():
 # just a helpful alias
 main = run_main
 
-# when you load the module.. parse everything
 if __name__ == "crystal":
     pass
