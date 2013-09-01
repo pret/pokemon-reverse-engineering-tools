@@ -21,12 +21,7 @@ import string
 if not hasattr(json, "dumps"):
     json.dumps = json.write
 
-from labels import (
-    line_has_comment_address,
-    line_has_label,
-    get_label_from_line,
-    get_address_from_line_comment
-)
+import labels
 
 spacing = "\t"
 
@@ -7206,9 +7201,9 @@ class Asm:
                 bank = thing.bank_id
             else:
                 thing = AsmLine(line, bank=bank)
-                label = get_label_from_line(line)
+                label = labels.get_label_from_line(line)
                 if label:
-                    laddress = get_address_from_line_comment(line)
+                    laddress = labels.get_address_from_line_comment(line)
                     thing.label = Label(name=label, address=laddress, object=thing, add_to_globals=False)
                     self.labels.append(thing.label)
             self.parts.append(thing)
@@ -7721,9 +7716,9 @@ def find_labels_without_addresses():
     """scans the asm source and finds labels that are unmarked"""
     without_addresses = []
     for (line_number, line) in enumerate(asm):
-        if line_has_label(line):
-            label = get_label_from_line(line)
-            if not line_has_comment_address(line):
+        if labels.line_has_label(line):
+            label = labels.get_label_from_line(line)
+            if not labels.line_has_comment_address(line):
                 without_addresses.append({"line_number": line_number, "line": line, "label": label})
     return without_addresses
 
@@ -7742,16 +7737,16 @@ def get_labels_between(start_line_id, end_line_id, bank):
     sublines = asm[start_line_id : end_line_id + 1]
     for (current_line_offset, line) in enumerate(sublines):
         # skip lines without labels
-        if not line_has_label(line): continue
+        if not labels.line_has_label(line): continue
         # reset some variables
         line_id = start_line_id + current_line_offset
-        line_label = get_label_from_line(line)
+        line_label = labels.get_label_from_line(line)
         address = None
         offset = None
         # setup a place to store return values from line_has_comment_address
         returnable = {}
         # get the address from the comment
-        has_comment = line_has_comment_address(line, returnable=returnable, bank=bank)
+        has_comment = labels.line_has_comment_address(line, returnable=returnable, bank=bank)
         # skip this line if it has no address in the comment
         if not has_comment: continue
         # parse data from line_has_comment_address
