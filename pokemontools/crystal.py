@@ -65,12 +65,7 @@ import re
 
 from interval_map import IntervalMap
 
-from pksv import (
-    pksv_gs,
-    pksv_crystal,
-    pksv_crystal_unknowns,
-    pksv_crystal_more_enders
-)
+import pksv
 
 # ---- script_parse_table explanation ----
 # This is an IntervalMap that keeps track of previously parsed scripts, texts
@@ -2892,7 +2887,7 @@ def create_command_classes(debug=False):
     klasses = [GivePoke]
     for (byte, cmd) in pksv_crystal_more.items():
         cmd_name = cmd[0].replace(" ", "_")
-        params = {"id": byte, "size": 1, "end": byte in pksv_crystal_more_enders, "macro_name": cmd_name}
+        params = {"id": byte, "size": 1, "end": byte in pksv.pksv_crystal_more_enders, "macro_name": cmd_name}
         params["param_types"] = {}
         if len(cmd) > 1:
             param_types = cmd[1:]
@@ -3238,7 +3233,8 @@ def pretty_print_pksv_no_names():
     use this to keep track of commands without pksv names
     pksv_no_names is created in parse_script_engine_script_at"""
     for (command_byte, addresses) in pksv_no_names.items():
-        if command_byte in pksv_crystal_unknowns: continue
+        if command_byte in pksv.pksv_crystal_unknowns:
+            continue
         print hex(command_byte) + " appearing in these scripts: "
         for address in addresses:
             print "    " + hex(address)
@@ -3318,8 +3314,8 @@ class Script:
         items = []
         if type(self.commands) == dict:
             for (id, command) in self.commands.items():
-                if command["type"] in pksv_crystal:
-                    items.append(pksv_crystal[command["type"]])
+                if command["type"] in pksv.pksv_crystal:
+                    items.append(pksv.pksv_crystal[command["type"]])
                 else:
                     items.append(hex(command["type"]))
         else:
@@ -3507,7 +3503,7 @@ def compare_script_parsing_methods(address):
         errors += 1
     for (id, oldcommand) in oldscript.commands.items():
         newcommand = newscript.commands[id]
-        oldcommand_pksv_name = pksv_crystal[oldcommand["type"]].replace(" ", "_")
+        oldcommand_pksv_name = pksv.pksv_crystal[oldcommand["type"]].replace(" ", "_")
         if oldcommand["start_address"] != newcommand.address:
             logging.debug(
                 "The two address (command id={id}) do not match old={old} new={new}"
