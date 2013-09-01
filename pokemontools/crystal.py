@@ -59,6 +59,7 @@ import trainers
 import pokemon_constants
 import item_constants
 import wram
+import exceptions
 
 # ---- script_parse_table explanation ----
 # This is an IntervalMap that keeps track of previously parsed scripts, texts
@@ -2097,7 +2098,11 @@ class ApplyMovementData:
         address = self.address
 
         # i feel like checking myself
-        assert is_valid_address(address), "ApplyMovementData.parse must be given a valid address"
+        if not is_valid_address(address):
+            raise exceptions.AddressException(
+                "ApplyMovementData.parse must be given a valid address (but got {0})."
+                .format(hex(address))
+            )
 
         current_address = copy(self.address)
         start_address = copy(current_address)
@@ -3639,7 +3644,11 @@ class ItemFragment(Command):
     }
 
     def __init__(self, address=None, bank=None, map_group=None, map_id=None, debug=False, label=None):
-        assert is_valid_address(address), "ItemFragment must be given a valid address"
+        if not is_valid_address(address):
+            raise exceptions.AddressException(
+                "ItemFragment must be given a valid address (but got {0})."
+                .format(hex(address))
+            )
         self.address = address
         self.last_address = address + self.size
         self.bank = bank
@@ -4399,7 +4408,11 @@ class PeopleEvent(Command):
         return output
 
     def __init__(self, address, id, bank=None, map_group=None, map_id=None, debug=False, label=None, force=False):
-        assert is_valid_address(address), "PeopleEvent must be given a valid address"
+        if not is_valid_address(address):
+            raise exceptions.AddressException(
+                "PeopleEvent must be given a valid address (but got {0})."
+                .format(hex(address))
+            )
         self.address = address
         self.last_address = address + people_event_byte_size
         self.id = id
