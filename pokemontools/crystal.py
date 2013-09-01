@@ -2352,7 +2352,8 @@ class MainText(TextCommand):
 
             # $4f, $51 and $55 can end a line
             if byte in [0x4f, 0x51, 0x55]:
-                assert not new_line, "can't have $4f, $51, $55 as the first character on a newline"
+                if new_line:
+                    raise exceptions.TextScriptException("can't have $4f, $51, $55 as the first character on a newline")
 
                 if in_quotes:
                     output += "\", $%.2x\n" % (byte)
