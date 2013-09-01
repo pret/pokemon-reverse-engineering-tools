@@ -3498,29 +3498,43 @@ def compare_script_parsing_methods(address):
     load_rom()
     separator = "################ compare_script_parsing_methods"
     # first do it the old way
-    print separator
-    print "parsing the script at " + hex(address) + " using the old method"
+    logging.debug(separator)
+    logging.debug("parsing the script at {address} using the old method".format(address=hex(address)))
     oldscript = Script(address, debug=True, force=True, origin=True, use_old_parse=True)
     # and now the old way
-    print separator
-    print "parsing the script at " + hex(address) + " using the new method"
+    logging.debug(separator)
+    logging.debug("parsing the script at {address} using the new method".format(address=hex(address)))
     newscript = Script(address, debug=True, force=True, origin=True)
     # let the comparison begin..
     errors = 0
-    print separator + " COMPARISON RESULTS"
+    logging.debug("{0} COMPARISON RESULTS".format(separator))
     if not len(oldscript.commands.keys()) == len(newscript.commands):
-        print "the two scripts don't have the same number of commands"
+        logging.debug("the two scripts don't have the same number of commands")
         errors += 1
     for (id, oldcommand) in oldscript.commands.items():
         newcommand = newscript.commands[id]
         oldcommand_pksv_name = pksv_crystal[oldcommand["type"]].replace(" ", "_")
         if oldcommand["start_address"] != newcommand.address:
-            print "the two addresses (command id="+str(id)+") do not match old="+hex(oldcommand["start_address"]) + " new="+hex(newcommand.address)
+            logging.debug(
+                "The two address (command id={id}) do not match old={old} new={new}"
+                .format(
+                    id=id,
+                    old=hex(oldcommand["start_address"]),
+                    new=hex(newcommand.address),
+                )
+            )
             errors += 1
         if oldcommand_pksv_name != newcommand.macro_name:
-            print "the two commands (id="+str(id)+") do not have the same name old="+oldcommand_pksv_name+" new="+newcommand.macro_name
+            logging.debug(
+                "The two commands (id={id}) do not have the same name old={old} new={new}"
+                .format(
+                    id=id,
+                    old=oldcommand_pksv_name,
+                    new=newcommand.macro_name,
+                )
+            )
             errors += 1
-    print "total comparison errors: " + str(errors)
+    logging.info("total comparison errors: {0}".format(errors))
     return oldscript, newscript
 
 
@@ -3633,7 +3647,10 @@ def old_parse_xy_trigger_bytes(some_bytes, bank=None, map_group=None, map_id=Non
         script = None
         if bank:
             script_address = calculate_pointer(script_ptr, bank)
-            print "******* parsing xy trigger byte scripts... x=" + str(x) + " y=" + str(y)
+            logging.debug(
+                "parsing xy trigger byte scripts.. x={x} y={y}"
+                .format(x=x, y=y)
+            )
             script = parse_script_engine_script_at(script_address, map_group=map_group, map_id=map_id)
 
         triggers.append({
@@ -3736,7 +3753,7 @@ class TrainerFragment(Command):
 
     def __init__(self, *args, **kwargs):
         address = kwargs["address"]
-        print "TrainerFragment address=" + hex(address)
+        logging.debug("TrainerFragment address={0}".format(hex(address)))
         self.address = address
         self.last_address = self.address + self.size
         if not is_valid_address(address) or address in [0x26ef]:
@@ -4281,8 +4298,8 @@ def report_unreferenced_trainer_ids():
             output += " (min="+str(min_id)+", max="+str(max_id)+")"
             output += " has "+str(len(unreferenced))+" unreferenced trainer ids"
             output += ": " + str(unreferenced)
-            print output
-    print "total unreferenced trainers: " + str(total_unreferenced_trainers)
+            logging.info(output)
+    logging.info("total unreferenced trainers: {0}".format(total_unreferenced_trainers))
 
 def check_script_has_trainer_data(script):
     """
@@ -4571,7 +4588,14 @@ def old_parse_people_event_bytes(some_bytes, address=None, map_group=None, map_i
         if bank:
             ptr_address = calculate_pointer(script_pointer, bank)
             if is_regular_script:
-                print "parsing a person-script at x=" + str(x-4) + " y=" + str(y-4) + " address="+hex(ptr_address)
+                logging.debug(
+                    "parsing a person-script at x={x} y={y} address={address}"
+                    .format(
+                        x=(x-4),
+                        y=(y-4),
+                        address=hex(ptr_address),
+                    )
+                )
                 script = parse_script_engine_script_at(ptr_address, map_group=map_group, map_id=map_id)
                 extra_portion = {
                     "script_address": ptr_address,
@@ -4579,7 +4603,7 @@ def old_parse_people_event_bytes(some_bytes, address=None, map_group=None, map_i
                     "event_type": "script",
                 }
             if is_give_item:
-                print "... not parsing give item event... [item id][quantity]"
+                logging.debug("not parsing give item event.. [item id][quantity]")
                 extra_portion = {
                     "event_type": "give_item",
                     "give_item_data_address": ptr_address,
@@ -4587,7 +4611,10 @@ def old_parse_people_event_bytes(some_bytes, address=None, map_group=None, map_i
                     "item_qty": ord(rom[ptr_address+1]),
                 }
             if is_trainer:
-                print "parsing a trainer (person-event) at x=" + str(x) + " y=" + str(y)
+                logging.debug(
+                    "parsing a trainer (person-event) at x={x} y={y}"
+                    .format(x=x, y=y)
+                )
                 parsed_trainer = parse_trainer_header_at(ptr_address, map_group=map_group, map_id=map_id)
                 extra_portion = {
                     "event_type": "trainer",
@@ -4829,7 +4856,7 @@ class Signpost(Command):
 
             script_address = calculate_pointer(script_pointer, bank)
             output += " script@"+hex(script_address)
-            print output
+            logging.debug(output)
 
             param = ScriptPointerLabelParam(address=self.address+3, map_group=self.map_group, map_id=self.map_id, debug=self.debug, force=False)
             self.params.append(param)
@@ -4852,7 +4879,7 @@ class Signpost(Command):
             script_address = calculate_pointer_from_bytes_at(address+2, bank=bank)
 
             output += " remote_chunk@"+hex(address)+" remote_script@"+hex(script_address)
-            print output
+            logging.debug(output)
 
             r1 = SignpostRemoteScriptChunk(address, signpost=self, \
                    bank=self.bank, map_group=self.map_group, map_id=self.map_id, \
@@ -4878,7 +4905,7 @@ class Signpost(Command):
 
             item_id         = ord(rom[address+2])
             output += " item_id="+str(item_id)
-            print output
+            logging.debug(output)
 
             r1 = SignpostRemoteItemChunk(address, signpost=self, \
                    bank=self.bank, map_group=self.map_group, map_id=self.map_id, \
@@ -4901,7 +4928,7 @@ class Signpost(Command):
             address = calculate_pointer(pointer, bank)
 
             output += " remote unknown chunk at="+hex(address)
-            print output
+            logging.debug(output)
 
             r1 = SignpostRemoteUnknownChunk(address, signpost=self, \
                    bank=self.bank, map_group=self.map_group, map_id=self.map_id, \
@@ -4955,7 +4982,10 @@ def old_parse_signpost_bytes(some_bytes, bank=None, map_group=None, map_id=None,
 
         additional = {}
         if func in [0, 1, 2, 3, 4]:
-            print "******* parsing signpost script.. signpost is at: x=" + str(x) + " y=" + str(y)
+            logging.debug(
+                "parsing signpost script.. signpost is at x={x} y={y}"
+                .format(x=x, y=y)
+            )
             script_ptr_byte1 = int(bytes[3], 16)
             script_ptr_byte2 = int(bytes[4], 16)
             script_pointer = script_ptr_byte1 + (script_ptr_byte2 << 8)
@@ -4973,7 +5003,11 @@ def old_parse_signpost_bytes(some_bytes, bank=None, map_group=None, map_id=None,
             "script": script,
             }
         elif func in [5, 6]:
-            print "******* parsing signpost script.. signpost is at: x=" + str(x) + " y=" + str(y)
+            logging.debug(
+                "parsing signpost script.. signpost is at x={x} y={y}"
+                .format(x=x, y=y)
+            )
+
             ptr_byte1 = int(bytes[3], 16)
             ptr_byte2 = int(bytes[4], 16)
             pointer = ptr_byte1 + (ptr_byte2 << 8)
@@ -4993,7 +5027,7 @@ def old_parse_signpost_bytes(some_bytes, bank=None, map_group=None, map_id=None,
             "script": script,
             }
         else:
-            print ".. type 7 or 8 signpost not parsed yet."
+            logging.debug(".. type 7 or 8 signpost not parsed yet.")
 
         spost = {
             "y": y,
@@ -5009,7 +5043,10 @@ class MapHeader:
     base_label = "MapHeader_"
 
     def __init__(self, address, map_group=None, map_id=None, debug=True, label=None, bank=0x25):
-        print "creating a MapHeader at "+hex(address)+" map_group="+str(map_group)+" map_id="+str(map_id)
+        logging.debug(
+            "creating a MapHeader at {address} map_group={map_group} map_id={map_id}"
+            .format(address=hex(address), map_group=map_group, map_id=map_id)
+        )
         self.address = address
         self.map_group = map_group
         self.map_id = map_id
@@ -5027,7 +5064,7 @@ class MapHeader:
 
     def parse(self):
         address = self.address
-        print "parsing a MapHeader at " + hex(address)
+        logging.debug("parsing a MapHeader at {0}".format(hex(address)))
         self.bank = HexByte(address=address)
         self.tileset = HexByte(address=address+1)
         self.permission = DecimalParam(address=address+2)
@@ -5063,14 +5100,14 @@ class MapHeader:
 all_map_headers = []
 def parse_map_header_at(address, map_group=None, map_id=None, debug=True):
     """parses an arbitrary map header at some address"""
-    print "parsing a map header at: " + hex(address)
+    logging.debug("parsing a map header at {0}".format(hex(address)))
     map_header = MapHeader(address, map_group=map_group, map_id=map_id, debug=debug)
     all_map_headers.append(map_header)
     return map_header
 
 def old_parse_map_header_at(address, map_group=None, map_id=None, debug=True):
     """parses an arbitrary map header at some address"""
-    print "parsing a map header at: " + hex(address)
+    logging.debug("parsing a map header at {0}".format(hex(address)))
     bytes = rom_interval(address, map_header_byte_size, strings=False, debug=debug)
     bank = bytes[0]
     tileset = bytes[1]
@@ -5092,7 +5129,7 @@ def old_parse_map_header_at(address, map_group=None, map_id=None, debug=True):
         "time_of_day": time_of_day,
         "fishing": fishing_group,
     }
-    print "second map header address is: " + hex(second_map_header_address)
+    logging.debug("second map header address is {0}".format(hex(second_map_header_address)))
     map_header["second_map_header"] = old_parse_second_map_header_at(second_map_header_address, debug=debug)
     event_header_address = map_header["second_map_header"]["event_address"]
     script_header_address = map_header["second_map_header"]["script_address"]
@@ -5128,7 +5165,7 @@ class SecondMapHeader:
     base_label = "SecondMapHeader_"
 
     def __init__(self, address, map_group=None, map_id=None, debug=True, bank=None, label=None):
-        print "creating a SecondMapHeader at " + hex(address)
+        logging.debug("creating a SecondMapHeader at {0}".format(hex(address)))
         self.address = address
         self.map_group = map_group
         self.map_id = map_id
@@ -5412,7 +5449,7 @@ class Connection:
                     p += (h * connected_map_width) - (connected_map_width * 3) + (connected_map_width - 1) - 2
                     method = "west1"
                 elif ((p + connected_map_width - 3)%0x4000)+0x4000 == strip_pointer:
-                    print "west h <= 0"
+                    logging.debug("west h <= 0")
                     # lin's method:
                     #   p += otherMap.width - 3
                     p += connected_map_width - 3
@@ -5429,7 +5466,7 @@ class Connection:
                     # do nothing
                     method = "west5"
             elif ldirection == "south":
-                print "south.. dunno what to do?"
+                logging.debug("south.. dunno what to do?")
 
                 if (p%0x4000)+0x4000 == strip_pointer:
                     # do nothing
@@ -5489,23 +5526,43 @@ class Connection:
             strip_pointer_data.append(data)
 
             if p != strip_pointer:
-                print "method: " + method + " direction: " + ldirection
-                print "other map blockdata address: " + hex(connected_second_map_header.blockdata.address)
-                print "h = " + str(h)
-                print "initial p = " + hex(connected_second_map_header.blockdata.address)
-                print "intermediate p = " + hex(intermediate_p)
-                print "final p = " + hex(p)
-                print "connection length = " + str(connection_strip_length)
-                print "strip_pointer = " + hex(strip_pointer)
-                print "other map height = " + str(connected_map_height)
-                print "other map width = " + str(connected_map_width)
-                o = "other map group_id="+hex(connected_map_group_id) + " map_id="+hex(connected_map_id)+" "+map_names[connected_map_group_id][connected_map_id]["label"] + " smh="+hex(connected_second_map_header.address)
-                o += " width="+str(connected_second_map_header.width.byte)+" height="+str(connected_second_map_header.height.byte)
-                print o
+                wowparams = {
+                    "method": method,
+                    "direction": ldirection,
+                    "other map blockdata address": hex(connected_second_map_header.blockdata.address),
+                    "h": h,
+                    "initial p": hex(connected_second_map_header.blockdata.address),
+                    "intermediate p": hex(intermediate_p),
+                    "final p": hex(p),
+                    "connection length": connection_strip_length,
+                    "strip_pointer": hex(strip_pointer),
+                    "other map height": connected_map_height,
+                    "other map width": connected_map_width,
+                }
 
-                o = "current map group_id="+hex(self.map_group)+" map_id="+hex(self.map_id)+" "+map_names[self.map_group][self.map_id]["label"]+" smh="+hex(self.smh.address)
-                o += " width="+str(self.smh.width.byte)+" height="+str(self.smh.height.byte)
-                print o
+                logging.debug(wowparams)
+
+                whatparams = {
+                    "other map group_id": hex(connected_map_group_id),
+                    "other map map_id": hex(connected_map_id),
+                    "other map name": +map_names[connected_map_group_id][connected_map_id]["label"],
+                    "smh": hex(connected_second_map_header.address),
+                    "width": connected_second_map_header.width.byte,
+                    "height": connected_second_map_header.height.byte,
+                }
+
+                logging.debug(whatparams)
+
+                curparams = {
+                    "current map group_id": hex(self.map_group),
+                    "current map map_id": hex(self.map_id),
+                    "current map name": map_names[self.map_group][self.map_id]["label"],
+                    "smh": hex(self.smh.address),
+                    "width": self.smh.width.byte,
+                    "height": self.smh.height.byte,
+                }
+
+                logging.debug(curparams)
 
                 if ldirection == "east":
                     wrong_easts.append(data)
@@ -5537,24 +5594,36 @@ class Connection:
             #   (depending on the connection's direction)
             if ldirection == "north":
                 x_movement_of_the_connection_strip_in_blocks = strip_destination - 0xC703
-                print "(north) x_movement_of_the_connection_strip_in_blocks is: " + str(x_movement_of_the_connection_strip_in_blocks)
+                logging.debug(
+                    "(north) x_movement_of_the_connection_strip_in_blocks is: {0}"
+                    .format(x_movement_of_the_connection_strip_in_blocks)
+                )
                 if x_movement_of_the_connection_strip_in_blocks < 0:
                     raise Exception("x_movement_of_the_connection_strip_in_blocks is wrong? " + str(x_movement_of_the_connection_strip_in_blocks))
             elif ldirection == "south":
                 # strip_destination =
                 # 0xc703 + (current_map_height + 3) * (current_map_width + 6) + x_movement_of_the_connection_strip_in_blocks
                 x_movement_of_the_connection_strip_in_blocks = strip_destination - (0xc703 + (current_map_height + 3) * (current_map_width + 6))
-                print "(south) x_movement_of_the_connection_strip_in_blocks is: " + str(x_movement_of_the_connection_strip_in_blocks)
+                logging.debug(
+                    "(south) x_movement_of_the_connection_strip_in_blocks is: {0}"
+                    .format(x_movement_of_the_connection_strip_in_blocks)
+                )
             elif ldirection == "east":
                 # strip_destination =
                 #   0xc700 + (current_map_width + 6) * (y_movement_of_the_connection_strip_in_blocks + 3)
                 y_movement_of_the_connection_strip_in_blocks = (strip_destination - 0xc700) / (current_map_width + 6) - 3
-                print "(east) y_movement_of_the_connection_strip_in_blocks is: " + str(y_movement_of_the_connection_strip_in_blocks)
+                logging.debug(
+                    "(east) y_movement_of_the_connection_strip_in_blocks is {0}"
+                    .format(y_movement_of_the_connection_strip_in_blocks)
+                )
             elif ldirection == "west":
                 # strip_destination =
                 #   0xc6fd + (current_map_width + 6) * (y_movement_of_the_connection_strip_in_blocks + 4)
                 y_movement_of_the_connection_strip_in_blocks = (strip_destination - 0xc6fd) / (current_map_width + 6) - 4
-                print "(west) y_movement_of_the_connection_strip_in_blocks is: " + str(y_movement_of_the_connection_strip_in_blocks)
+                logging.debug(
+                    "(west) y_movement_of_the_connection_strip_in_blocks is {0}"
+                    .format(y_movement_of_the_connection_strip_in_blocks)
+                )
 
             # let's also check the window equations
             # tauwasser calls this "window" and lin calls this "memoryCurrentPointer"
@@ -5700,7 +5769,7 @@ class Connection:
                 this_part = "((" + h_out + " * " + map_constant_label + "_WIDTH) - (" + map_constant_label + "_WIDTH * 3) + (" + map_constant_label + "_WIDTH - 1) - 2)"
                 output += "(" + get_label_for(connected_second_map_header.blockdata.address) + " + " + this_part + ")"
             elif ((p + connected_map_width - 3)%0x4000)+0x4000 == strip_pointer:
-                print "west h <= 0"
+                logging.debug("west h <= 0")
                 # lin's method:
                 #   p += otherMap.width - 3
                 p += connected_map_width - 3
@@ -5981,7 +6050,14 @@ class MapEventHeader:
     base_label = "MapEventHeader_"
 
     def __init__(self, address, map_group=None, map_id=None, debug=True, bank=None, label=None):
-        print "making a MapEventHeader at "+hex(address)+" map_group="+str(map_group)+" map_id="+str(map_id)
+        logging.debug(
+            "making a MapEventHeader at {address} map_group={map_group} map_id={map_id}"
+            .format(
+                address=hex(address),
+                map_group=map_group,
+                map_id=map_id,
+            )
+        )
         self.address = address
         self.map_group = map_group
         self.map_id = map_id
@@ -6000,7 +6076,7 @@ class MapEventHeader:
         map_group, map_id, debug = self.map_group, self.map_id, self.debug
         address = self.address
         bank = calculate_bank(self.address) # or use self.bank
-        print "event header address is: " + hex(address)
+        logging.debug("event header address is {0}".format(hex(address)))
 
         filler1 = ord(rom[address])
         filler2 = ord(rom[address+1])
@@ -6115,7 +6191,7 @@ def old_parse_map_event_header_at(address, map_group=None, map_id=None, debug=Tr
 
     bank = calculate_bank(address)
 
-    print "event header address is: " + hex(address)
+    logging.debug("event header address is {0}".format(hex(address)))
     filler1 = ord(rom[address])
     filler2 = ord(rom[address+1])
     returnable.update({"1": filler1, "2": filler2})
@@ -6206,7 +6282,14 @@ class MapScriptHeader:
     base_label = "MapScriptHeader_"
 
     def __init__(self, address, map_group=None, map_id=None, debug=True, bank=None, label=None):
-        print "creating a MapScriptHeader at " + hex(address) + " map_group="+str(map_group)+" map_id="+str(map_id)
+        logging.debug(
+            "creating a MapScriptHeader at {address} map_group={map_group} map_id={map_id}"
+            .format(
+                address=hex(address),
+                map_group=map_group,
+                map_id=map_id,
+            )
+        )
         self.address = address
         self.map_group = map_group
         self.map_id = map_id
@@ -6233,7 +6316,14 @@ class MapScriptHeader:
         groups = grouper(rom_interval(address+1, self.trigger_count * ptr_line_size, strings=False), count=ptr_line_size)
         current_address = address+1
         for (index, trigger_bytes) in enumerate(groups):
-            print "parsing a map trigger script at "+hex(current_address)+" map_group="+str(map_group)+" map_id="+str(map_id)
+            logging.debug(
+                "parsing a map trigger script at {address} map_group={map_group} map_id={map_id}"
+                .format(
+                    address=hex(current_address),
+                    map_group=map_group,
+                    map_id=map_id,
+                )
+            )
             script = ScriptPointerLabelParam(address=current_address, map_group=map_group, map_id=map_id, debug=debug)
             extra_bytes = MultiByteParam(address=current_address+2, map_group=map_group, map_id=map_id, debug=debug)
             self.triggers.append([script, extra_bytes])
@@ -6246,13 +6336,23 @@ class MapScriptHeader:
         current_address += 1
         self.callbacks = []
         for index in range(self.callback_count):
-            print "parsing a callback script at "+hex(current_address)+" map_group="+str(map_group)+" map_id="+str(map_id)
+            logging.debug(
+                "parsing a callback script at {address} map_group={map_group} map_id={map_id}"
+                .format(
+                    address=hex(current_address),
+                    map_group=map_group,
+                    map_id=map_id,
+                )
+            )
             hook_byte = HexByte(address=current_address)
             callback = ScriptPointerLabelParam(address=current_address+1, map_group=map_group, map_id=map_id, debug=debug)
             self.callbacks.append({"hook": hook_byte, "callback": callback})
             current_address += 3 # i think?
         self.last_address = current_address
-        print "done parsing a MapScriptHeader map_group="+str(map_group)+" map_id="+str(map_id)
+        logging.debug(
+            "done parsing a MapScriptHeader map_group={map_group} map_id={map_id}"
+            .format(map_group=map_group, map_id=map_id)
+        )
         return True
 
     def get_dependencies(self, recompute=False, global_dependencies=set()):
@@ -6292,14 +6392,14 @@ def parse_map_script_header_at(address, map_group=None, map_id=None, debug=True)
     return evv
 
 def old_parse_map_script_header_at(address, map_group=None, map_id=None, debug=True):
-    print "starting to parse the map's script header.."
+    logging.debug("starting to parse the map's script header..")
     #[[Number1 of pointers] Number1 * [2byte pointer to script][00][00]]
     ptr_line_size = 4 #[2byte pointer to script][00][00]
     trigger_ptr_cnt = ord(rom[address])
     trigger_pointers = grouper(rom_interval(address+1, trigger_ptr_cnt * ptr_line_size, strings=False), count=ptr_line_size)
     triggers = {}
     for index, trigger_pointer in enumerate(trigger_pointers):
-        print "parsing a trigger header..."
+        logging.debug("parsing a trigger header...")
         byte1 = trigger_pointer[0]
         byte2 = trigger_pointer[1]
         ptr   = byte1 + (byte2 << 8)
@@ -6321,7 +6421,7 @@ def old_parse_map_script_header_at(address, map_group=None, map_id=None, debug=T
     callback_pointers = {}
     callbacks = {}
     for index, callback_line in enumerate(callback_ptrs):
-        print "parsing a callback header..."
+        logging.debug("parsing a callback header..")
         hook_byte = callback_line[0] # 1, 2, 3, 4, 5
         callback_byte1 = callback_line[1]
         callback_byte2 = callback_line[2]
@@ -6361,14 +6461,14 @@ def old_parse_trainer_header_at(address, map_group=None, map_id=None, debug=True
         script_when_lost_ptr = 0
         script_when_lost = None
     else:
-        print "parsing script-when-lost"
+        logging.debug("parsing script-when-lost")
         script_when_lost_ptr = calculate_pointer_from_bytes_at(address+8, bank=bank)
         script_when_lost = None
         silver_avoids = [0xfa53]
         if script_when_lost_ptr > 0x4000 and not script_when_lost_ptr in silver_avoids:
             script_when_lost = parse_script_engine_script_at(script_when_lost_ptr, map_group=map_group, map_id=map_id, debug=debug)
 
-    print "parsing script-talk-again" # or is this a text?
+    logging.debug("parsing script-talk-again") # or is this a text?
     script_talk_again_ptr = calculate_pointer_from_bytes_at(address+10, bank=bank)
     script_talk_again = None
     if script_talk_again_ptr > 0x4000:
@@ -6445,7 +6545,10 @@ def old_parse_people_event_bytes(some_bytes, address=None, map_group=None, map_i
         if bank:
             ptr_address = calculate_pointer(script_pointer, bank)
             if is_regular_script:
-                print "parsing a person-script at x=" + str(x-4) + " y=" + str(y-4) + " address="+hex(ptr_address)
+                logging.debug(
+                    "parsing a person-script at x={x} y={y} address={address}"
+                    .format(x=(x-4), y=(y-4), address=hex(ptr_address))
+                )
                 script = parse_script_engine_script_at(ptr_address, map_group=map_group, map_id=map_id)
                 extra_portion = {
                     "script_address": ptr_address,
@@ -6453,7 +6556,7 @@ def old_parse_people_event_bytes(some_bytes, address=None, map_group=None, map_i
                     "event_type": "script",
                 }
             if is_give_item:
-                print "... not parsing give item event... [item id][quantity]"
+                logging.debug("not parsing give item event.. [item id][quantity]")
                 extra_portion = {
                     "event_type": "give_item",
                     "give_item_data_address": ptr_address,
@@ -6461,7 +6564,7 @@ def old_parse_people_event_bytes(some_bytes, address=None, map_group=None, map_i
                     "item_qty": ord(rom[ptr_address+1]),
                 }
             if is_trainer:
-                print "parsing a trainer (person-event) at x=" + str(x) + " y=" + str(y)
+                logging.debug("parsing a trainer (person-event) at x={x} y={y}".format(x=x, y=y))
                 parsed_trainer = old_parse_trainer_header_at(ptr_address, map_group=map_group, map_id=map_id)
                 extra_portion = {
                     "event_type": "trainer",
