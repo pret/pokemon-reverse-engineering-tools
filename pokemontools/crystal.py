@@ -3860,7 +3860,7 @@ class TrainerGroupTable:
     """
 
     def __init__(self):
-        assert 0x43 in trainer_group_maximums.keys(), "TrainerGroupTable should onyl be created after all the trainers have been found"
+        assert 0x43 in trainer_group_maximums.keys(), "TrainerGroupTable should only be created after all the trainers have been found"
         self.address = trainers.trainer_group_pointer_table_address
         self.bank = pointers.calculate_bank(trainers.trainer_group_pointer_table_address)
         self.label = Label(name="TrainerGroupPointerTable", address=self.address, object=self)
