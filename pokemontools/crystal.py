@@ -47,12 +47,6 @@ texts = []
 # this doesn't do anything but is still used in TextScript
 constant_abbreviation_bytes = {}
 
-from trainers import (
-    trainer_group_pointer_table_address,    # 0x39999
-    trainer_group_pointer_table_address_gs, # 0x3993E
-    trainer_group_names,
-)
-
 import chars
 import labels
 import pksv
@@ -60,6 +54,7 @@ import romstr
 import move_constants
 import pointers
 import interval_map
+import trainers
 
 # ---- script_parse_table explanation ----
 # This is an IntervalMap that keeps track of previously parsed scripts, texts
@@ -1641,16 +1636,16 @@ class TrainerIdParam(SingleByteParam):
         trainer_group_id = self.parent.params[foundit].byte
 
         # check the rule to see whether to use an id or not
-        if ("uses_numeric_trainer_ids" in trainer_group_names[trainer_group_id].keys()) or \
-           (not "trainer_names" in trainer_group_names[trainer_group_id].keys()):
+        if ("uses_numeric_trainer_ids" in trainers.trainer_group_names[trainer_group_id].keys()) or \
+           (not "trainer_names" in trainers.trainer_group_names[trainer_group_id].keys()):
             return str(self.byte)
         else:
-            return trainer_group_names[trainer_group_id]["trainer_names"][self.byte-1]
+            return trainers.trainer_group_names[trainer_group_id]["trainer_names"][self.byte-1]
 
 class TrainerGroupParam(SingleByteParam):
     def to_asm(self):
         trainer_group_id = self.byte
-        return trainer_group_names[trainer_group_id]["constant"]
+        return trainers.trainer_group_names[trainer_group_id]["constant"]
 
 class MoveParam(SingleByteParam):
     def to_asm(self):
@@ -3771,15 +3766,15 @@ class TrainerFragment(Command):
 
         # give this object a possibly better label
         label = "Trainer"
-        if ("uses_numeric_trainer_ids" in trainer_group_names[trainer_group].keys()) \
-           or ("trainer_names" not in trainer_group_names[trainer_group].keys()):
-            label += string.capwords(trainer_group_names[trainer_group]["constant"])
-            if "trainer_names" in trainer_group_names[trainer_group].keys() \
-               and len(trainer_group_names[trainer_group]["trainer_names"]) > 1:
+        if ("uses_numeric_trainer_ids" in trainers.trainer_group_names[trainer_group].keys()) \
+           or ("trainer_names" not in trainers.trainer_group_names[trainer_group].keys()):
+            label += string.capwords(trainers.trainer_group_names[trainer_group]["constant"])
+            if "trainer_names" in trainers.trainer_group_names[trainer_group].keys() \
+               and len(trainers.trainer_group_names[trainer_group]["trainer_names"]) > 1:
                 label += str(trainer_id)
         else:
-            label += string.capwords(trainer_group_names[trainer_group]["constant"]) + \
-                     string.capwords(trainer_group_names[trainer_group]["trainer_names"][trainer_id-1])
+            label += string.capwords(trainers.trainer_group_names[trainer_group]["constant"]) + \
+                     string.capwords(trainers.trainer_group_names[trainer_group]["trainer_names"][trainer_id-1])
 
         label = label.replace("Gruntm", "GruntM").replace("Gruntf", "GruntF").replace("Lt_surge", "LtSurge")
 
@@ -3858,8 +3853,8 @@ class TrainerGroupTable:
 
     def __init__(self):
         assert 0x43 in trainer_group_maximums.keys(), "TrainerGroupTable should onyl be created after all the trainers have been found"
-        self.address = trainer_group_pointer_table_address
-        self.bank = pointers.calculate_bank(trainer_group_pointer_table_address)
+        self.address = trainers.trainer_group_pointer_table_address
+        self.bank = pointers.calculate_bank(trainers.trainer_group_pointer_table_address)
         self.label = Label(name="TrainerGroupPointerTable", address=self.address, object=self)
         self.size = None
         self.last_address = None
@@ -3880,16 +3875,16 @@ class TrainerGroupTable:
 
     def parse(self):
         size = 0
-        for (key, kvalue) in trainer_group_names.items():
+        for (key, kvalue) in trainers.trainer_group_names.items():
             # calculate the location of this trainer group header from its pointer
             pointer_bytes_location = kvalue["pointer_address"]
             parsed_address = calculate_pointer_from_bytes_at(pointer_bytes_location, bank=self.bank)
-            trainer_group_names[key]["parsed_address"] = parsed_address
+            trainers.trainer_group_names[key]["parsed_address"] = parsed_address
 
             # parse the trainer group header at this location
             name = kvalue["name"]
             trainer_group_header = TrainerGroupHeader(address=parsed_address, group_id=key, group_name=name)
-            trainer_group_names[key]["header"] = trainer_group_header
+            trainers.trainer_group_names[key]["header"] = trainer_group_header
             self.headers.append(trainer_group_header)
 
             # keep track of the size of this pointer table
@@ -4036,7 +4031,7 @@ class TrainerHeader:
                 x = 2
             else:
                 x = 1
-            seed = trainer_group_names[self.trainer_group_id]["name"]+"_"+seed[-x:]
+            seed = trainers.trainer_group_names[self.trainer_group_id]["name"]+"_"+seed[-x:]
         elif self.trainer_group_id == 0x1f and "EXECUTIVE" in seed:
             seed = "GRUNT_"+seed
         elif self.trainer_group_id == 0x2d and "BENNY" in seed.upper():
@@ -4268,7 +4263,7 @@ def report_unreferenced_trainer_ids():
 
         if len(unreferenced) > 0:
             total_unreferenced_trainers += len(unreferenced)
-            output = "trainer group "+hex(key)+" (\""+trainer_group_names[key]["name"]+"\")"
+            output = "trainer group "+hex(key)+" (\""+trainers.trainer_group_names[key]["name"]+"\")"
             output += " (min="+str(min_id)+", max="+str(max_id)+")"
             output += " has "+str(len(unreferenced))+" unreferenced trainer ids"
             output += ": " + str(unreferenced)
@@ -4311,7 +4306,7 @@ def trainer_group_report():
     output = ""
     total = 0
     for trainer_group_id in trainer_group_maximums.keys():
-        group_name = trainer_group_names[trainer_group_id]["name"]
+        group_name = trainers.trainer_group_names[trainer_group_id]["name"]
         first_name = trainer_name_from_group(trainer_group_id).replace("\n", "")
         trainers = len(trainer_group_maximums[trainer_group_id])
         total += trainers
@@ -4324,7 +4319,7 @@ def trainer_group_report():
 
 def make_trainer_group_name_trainer_ids(trainer_group_table, debug=True):
     """
-    Edits trainer_group_names and sets the trainer names.
+    Edits trainers.trainer_group_names and sets the trainer names.
     For instance, "AMY & MAY" becomes "AMY_AND_MAY1" and "AMY_AND_MAY2"
 
     This should only be used after TrainerGroupTable.parse has been called.
@@ -4353,8 +4348,8 @@ def make_trainer_group_name_trainer_ids(trainer_group_table, debug=True):
                     culprit.seed_constant_name = culprit.name.replace("@", "") + str(id+1)
                     culprit.constant_name = culprit.make_constant_name()
 
-        # now add the trainer names to trainer_group_names
-        trainer_group_names[i]["trainer_names"] = [theader.make_constant_name() for theader in header.individual_trainer_headers]
+        # now add the trainer names to trainers.trainer_group_names
+        trainers.trainer_group_names[i]["trainer_names"] = [theader.make_constant_name() for theader in header.individual_trainer_headers]
 
         i += 1
 
@@ -4368,12 +4363,12 @@ def pretty_print_trainer_id_constants():
     make_trainer_group_name_trainer_ids must be called prior to this.
     """
     assert trainer_group_table != None, "must make trainer_group_table first"
-    assert trainer_group_names != None, "must have trainer_group_names available"
-    assert "trainer_names" in trainer_group_names[1].keys(), "trainer_names must be set in trainer_group_names"
+    assert trainers.trainer_group_names != None, "must have trainers.trainer_group_names available"
+    assert "trainer_names" in trainers.trainer_group_names[1].keys(), "trainer_names must be set in trainers.trainer_group_names"
 
     output = ""
-    for (key, value) in trainer_group_names.items():
-        if "uses_numeric_trainer_ids" in trainer_group_names[key].keys():
+    for (key, value) in trainers.trainer_group_names.items():
+        if "uses_numeric_trainer_ids" in trainers.trainer_group_names[key].keys():
             continue
         id = key
         group = value
