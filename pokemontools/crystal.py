@@ -17,10 +17,6 @@ import string
 if not hasattr(json, "dumps"):
     json.dumps = json.write
 
-# New versions of json don't have read anymore.
-if not hasattr(json, "read"):
-    json.read = json.loads
-
 from labels import (
     remove_quoted_text,
     line_has_comment_address,
