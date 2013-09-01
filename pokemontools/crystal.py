@@ -372,8 +372,15 @@ class TextScript:
             logging.debug("cls.last_address is {0}".format(hex(cls.last_address)))
             logging.debug("self.last_address is {0}".format(hex(self.last_address)))
 
-        assert self.last_address == (cls.address + cls.size), "the last address should equal the last command's (address + size)"
-        assert self.last_address == cls.last_address, "the last address of the TextScript should be the last_address of its last command"
+        if self.last_address != (cls.address + cls.size):
+            raise exceptions.TextScriptException(
+                "the last address should equal the last command's (address + size)"
+            )
+
+        if self.last_address != cls.last_address:
+            raise exceptions.TextScriptException(
+                "the last address of the TextScript should be the last_address of its last command"
+            )
 
         # just some debugging..
         if self.debug:
