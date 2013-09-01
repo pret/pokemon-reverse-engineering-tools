@@ -61,6 +61,8 @@ import item_constants
 import wram
 import exceptions
 
+from map_names import map_names
+
 # ---- script_parse_table explanation ----
 # This is an IntervalMap that keeps track of previously parsed scripts, texts
 # and other objects. Anything that has a location in the ROM should be mapped
@@ -6729,8 +6731,6 @@ class PokedexEntry:
     {3}
     {4}""".format(self.species, self.weight, self.height, self.page1.to_asm(), self.page2.to_asm())
         return output
-
-from map_names import map_names
 
 # map names with no labels will be generated
 # generate labels for each map name
