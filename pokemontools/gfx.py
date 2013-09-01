@@ -5,13 +5,12 @@ import sys
 import png
 from math import sqrt, floor, ceil
 
-from crystal import load_rom
-
-from pokemon_constants import pokemon_constants
-from trainers import trainer_group_names
+import crystal
+import pokemon_constants
+import trainers
 
 if __name__ != "__main__":
-    rom = load_rom()
+    rom = crystal.load_rom()
 
 def mkdir_p(path):
     """
@@ -1122,7 +1121,7 @@ def dump_monster_pals():
     pal_length = 0x4
     for mon in range(251):
 
-        name     = pokemon_constants[mon+1].title().replace('_','')
+        name     = pokemon_constants.pokemon_constants[mon+1].title().replace('_','')
         num      = str(mon+1).zfill(3)
         dir      = 'gfx/pics/'+num+'/'
 
@@ -1160,7 +1159,7 @@ def dump_trainer_pals():
     pal_length = 0x4
     for trainer in range(67):
 
-        name = trainer_group_names[trainer+1]['constant'].title().replace('_','')
+        name = trainers.trainer_group_names[trainer+1]['constant'].title().replace('_','')
         num  = str(trainer).zfill(3)
         dir  = 'gfx/trainers/'
 
