@@ -321,7 +321,7 @@ class TestMultiByteParam(unittest.TestCase):
                      }]
         self.assertEqual(self.cls.to_asm(), "poop")
 
-class TestPostParsing: #(unittest.TestCase):
+class TestPostParsing(unittest.TestCase):
     """tests that must be run after parsing all maps"""
     def test_signpost_counts(self):
         self.assertEqual(len(map_names[1][1]["signposts"]), 0)
