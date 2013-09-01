@@ -7026,6 +7026,7 @@ class AsmLine:
     def __init__(self, line, bank=None):
         self.line = line
         self.bank = bank
+
     def to_asm(self):
         return self.line
 
@@ -7036,6 +7037,7 @@ class Incbin:
         self.replace_me = False
         self.debug = debug
         self.parse()
+
     def parse(self):
         incbin = self.line
         partial_start = incbin[21:]
@@ -7067,11 +7069,13 @@ class Incbin:
         self.end_address = end
         self.last_address = end
         self.interval = interval
+
     def to_asm(self):
         if self.interval > 0:
             return self.line
         else:
             return ""
+
     def split(self, start_address, byte_count):
         """splits this incbin into three separate incbins"""
         if start_address < self.start_address or start_address > self.end_address:
@@ -7118,6 +7122,7 @@ class AsmSection:
         self.bank_id = None
         self.line = line
         self.parse()
+
     def parse(self):
         line    = self.line
 
@@ -7140,6 +7145,7 @@ class AsmSection:
         # although it could be argued that lines should exist under this object
         #self.address  = self.start_address = start_address
         #self.last_address = self.end_address = end_address
+
     def to_asm(self):
         return self.line
 
@@ -7159,6 +7165,7 @@ class Asm:
         self.filename = filename
         self.debug = debug
         self.load_and_parse()
+
     def load_and_parse(self):
         self.parts = []
         asm = open(self.filename, "r").read().split("\n")
@@ -7178,11 +7185,13 @@ class Asm:
                     thing.label = Label(name=label, address=laddress, object=thing, add_to_globals=False)
                     self.labels.append(thing.label)
             self.parts.append(thing)
+
     def is_label_name_in_file(self, label_name):
         for llabel in self.labels:
             if llabel.name == label_name:
                 return llabel
         return False
+
     def does_address_have_label(self, address):
         """
         Checks if an address has a label.
@@ -7197,6 +7206,7 @@ class Asm:
                 return part.label
 
         return None
+
     def insert(self, new_object):
         if isinstance(new_object, ScriptPointerLabelParam):
             # its' probably being injected in some get_dependencies() somewhere
@@ -7315,6 +7325,7 @@ class Asm:
             raise Exception("unable to insert object into Asm")
         self.labels.append(new_object.label)
         return True
+
     def insert_with_dependencies(self, input):
         if type(input) == list:
             input_objects = input
@@ -7347,10 +7358,13 @@ class Asm:
                 #    raise Exception("debugging...")
                 #elif object.label.name == "UnknownScript_0x60011":
                 #    raise Exception("debugging.. dependencies are: " + str(object.dependencies) + " versus: " + str(object.get_dependencies()))
+
     def insert_single_with_dependencies(self, object):
         self.insert_with_dependencies(object)
+
     def insert_multiple_with_dependencies(self, objects):
         self.insert_with_dependencies(objects)
+
     def insert_all(self, limit=100):
         count = 0
         for each in script_parse_table.items():
@@ -7359,9 +7373,11 @@ class Asm:
             if type(object) == str: continue
             self.insert_single_with_dependencies(object)
             count += 1
+
     def insert_and_dump(self, limit=100, filename="output.txt"):
         self.insert_all(limit=limit)
         self.dump(filename=filename)
+
     def dump(self, filename="output.txt"):
         fh = open(filename, "w")
         newlines_before_next_obj_requested = 0
