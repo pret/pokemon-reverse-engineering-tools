@@ -63,6 +63,7 @@ from interval_map import IntervalMap
 import chars
 import labels
 import pksv
+import romstr
 
 # ---- script_parse_table explanation ----
 # This is an IntervalMap that keeps track of previously parsed scripts, texts
@@ -105,18 +106,13 @@ def map_name_cleaner(input):
                  replace("hooh", "HoOh").\
                  replace(" ", "")
 
-from romstr import (
-    RomStr,
-    AsmList,
-)
-
-rom = RomStr(None)
+rom = romstr.RomStr(None)
 
 def direct_load_rom(filename="../baserom.gbc"):
     """loads bytes into memory"""
     global rom
     file_handler = open(filename, "rb")
-    rom = RomStr(file_handler.read())
+    rom = romstr.RomStr(file_handler.read())
     file_handler.close()
     return rom
 
@@ -124,9 +120,9 @@ def load_rom(filename="../baserom.gbc"):
     """checks that the loaded rom matches the path
     and then loads the rom if necessary."""
     global rom
-    if rom != RomStr(None) and rom != None:
+    if rom != romstr.RomStr(None) and rom != None:
         return rom
-    if not isinstance(rom, RomStr):
+    if not isinstance(rom, romstr.RomStr):
         return direct_load_rom(filename=filename)
     elif os.lstat(filename).st_size != len(rom):
         return direct_load_rom(filename)
@@ -134,7 +130,7 @@ def load_rom(filename="../baserom.gbc"):
 def direct_load_asm(filename="../main.asm"):
     """returns asm source code (AsmList) from a file"""
     asm = open(filename, "r").read().split("\n")
-    asm = AsmList(asm)
+    asm = romstr.AsmList(asm)
     return asm
 
 def load_asm(filename="../main.asm"):
@@ -7184,7 +7180,7 @@ class Asm:
     def load_and_parse(self):
         self.parts = []
         asm = open(self.filename, "r").read().split("\n")
-        asm_list = AsmList(asm)
+        asm_list = romstr.AsmList(asm)
         bank = 0
         for line in asm_list:
             if (line[0:6] == "INCBIN" or line[1:6] == "INCBIN") and not any([contaminant+"\"" in line for contaminant in [".2bpp", ".1bpp", ".asm", ".lz"]]):
