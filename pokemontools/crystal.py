@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
-# utilities to help disassemble pokémon crystal
+"""
+utilities to help disassemble pokémon crystal
+"""
+
 import os
 import sys
 import inspect
