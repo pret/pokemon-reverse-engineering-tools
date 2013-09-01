@@ -3445,8 +3445,9 @@ class Script:
 
     def old_parse(self, *args, **kwargs):
         """included from old_parse_scripts"""
-from old_parse_scripts import old_parse
-Script.old_parse = old_parse
+
+import old_parse_scripts
+Script.old_parse = old_parse_scripts.old_parse
 
 def parse_script_engine_script_at(address, map_group=None, map_id=None, force=False, debug=True, origin=True):
     if is_script_already_parsed_at(address) and not force:
