@@ -849,6 +849,4 @@ if __name__ == "__main__":
     extract_maps.load_map_pointers()
     extract_maps.read_all_map_headers()
 
-    #0x18f96 is PalletTownText1
-    #0x19B5D is BluesHouseText1
     print output_bank_opcodes(int(sys.argv[1], 16))[0]
