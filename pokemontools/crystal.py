@@ -6785,21 +6785,6 @@ def to_asm(some_object, use_asm_rules=False):
     asm += "\n; " + hex(last_address)
     return asm
 
-def flattener(x):
-    "flattens a list of sublists into just one list (generator)"
-    try:
-        it = iter(x)
-    except TypeError:
-        yield x
-    else:
-        for i in it:
-            for j in flattener(i):
-                yield j
-
-def flatten(x):
-    "flattens a list of sublists into just one list"
-    return list(flattener(x))
-
 def get_dependencies_for(some_object, recompute=False, global_dependencies=set()):
     """
     calculates which labels need to be satisfied for an object

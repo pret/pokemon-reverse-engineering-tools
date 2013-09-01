@@ -12,3 +12,18 @@ def grouper(some_list, count=2):
     given: [1, 2, 3, 4]
     returns: [[1, 2], [3, 4]]"""
     return [some_list[i:i+count] for i in range(0, len(some_list), count)]
+
+def flattener(x):
+    "flattens a list of sublists into just one list (generator)"
+    try:
+        it = iter(x)
+    except TypeError:
+        yield x
+    else:
+        for i in it:
+            for j in flattener(i):
+                yield j
+
+def flatten(x):
+    "flattens a list of sublists into just one list"
+    return list(flattener(x))
