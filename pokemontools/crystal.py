@@ -1655,8 +1655,7 @@ class MoveParam(SingleByteParam):
             return str(self.byte)
 
 class MenuDataPointerParam(PointerLabelParam):
-    # read menu data at the target site
-    pass
+    """read menu data at the target site"""
 
 
 string_to_text_texts = []
