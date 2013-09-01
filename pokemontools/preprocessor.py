@@ -599,7 +599,7 @@ def read_line(l, macro_table):
     asm, comment = separate_comment(l)
 
     # export all labels
-    if ':' in asm[:asm.find('"')]:
+    if ':' in asm[:asm.find('"')] and "macro" not in asm.lower():
         sys.stdout.write('GLOBAL ' + asm.split(':')[0] + '\n')
 
     # expect preprocessed .asm files
