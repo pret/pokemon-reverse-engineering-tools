@@ -3,10 +3,7 @@
 Various label/line-related functions.
 """
 
-from pointers import (
-    calculate_pointer,
-    calculate_bank,
-)
+import pointers
 
 def remove_quoted_text(line):
     """get rid of content inside quotes
@@ -125,10 +122,10 @@ def line_has_comment_address(line, returnable={}, bank=None):
     if offset == None and bank == None:
         return False
     if bank == None:
-        bank = calculate_bank(offset)
+        bank = pointers.calculate_bank(offset)
     returnable["bank"] = bank
     returnable["offset"] = offset
-    returnable["address"] = calculate_pointer(offset, bank=bank)
+    returnable["address"] = pointers.calculate_pointer(offset, bank=bank)
     return True
 
 def get_address_from_line_comment(line, bank=None):
