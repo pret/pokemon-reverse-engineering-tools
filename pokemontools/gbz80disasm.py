@@ -6,6 +6,7 @@ from copy import copy, deepcopy
 from ctypes import c_int8
 import random
 import json
+
 from wram import *
 
 # New versions of json don't have read anymore.
