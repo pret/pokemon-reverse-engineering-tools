@@ -53,9 +53,6 @@ from trainers import (
     trainer_group_names,
 )
 
-# for fixing trainer_group_names
-import re
-
 import chars
 import labels
 import pksv
