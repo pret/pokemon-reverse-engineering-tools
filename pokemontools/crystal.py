@@ -63,6 +63,7 @@ import labels
 import pksv
 import romstr
 import move_constants
+import pointers
 
 # ---- script_parse_table explanation ----
 # This is an IntervalMap that keeps track of previously parsed scripts, texts
@@ -182,11 +183,6 @@ def load_map_group_offsets():
         map_group_offsets.append(offset)
     return map_group_offsets
 
-from pointers import (
-    calculate_bank,
-    calculate_pointer,
-)
-
 def calculate_pointer_from_bytes_at(address, bank=False):
     """calculates a pointer from 2 bytes at a location
     or 3-byte pointer [bank][2-byte pointer] if bank=True"""
@@ -194,7 +190,7 @@ def calculate_pointer_from_bytes_at(address, bank=False):
         bank = ord(rom[address])
         address += 1
     elif bank == False or bank == None:
-        bank = calculate_bank(address)
+        bank = pointers.calculate_bank(address)
     elif bank == "reverse" or bank == "reversed":
         bank = ord(rom[address+2])
     elif type(bank) == int:
@@ -206,7 +202,7 @@ def calculate_pointer_from_bytes_at(address, bank=False):
     temp  = byte1 + (byte2 << 8)
     if temp == 0:
         return None
-    return calculate_pointer(temp, bank)
+    return pointers.calculate_pointer(temp, bank)
 
 def clean_up_long_info(long_info):
     """cleans up some data from parse_script_engine_script_at formatting issues"""
@@ -488,7 +484,7 @@ class OldTextScript:
                     # dump this into script
                     script = trigger["script"]
                     # find all text pointers in script
-                    texts = find_all_text_pointers_in_script_engine_script(script, calculate_bank(trigger["address"]))
+                    texts = find_all_text_pointers_in_script_engine_script(script, pointers.calculate_bank(trigger["address"]))
                     # dump these addresses in
                     addresses.update(texts)
                 # callback scripts
@@ -498,7 +494,7 @@ class OldTextScript:
                     # dump this into script
                     script = callback["script"]
                     # find all text pointers in script
-                    texts = find_all_text_pointers_in_script_engine_script(script, calculate_bank(callback["address"]))
+                    texts = find_all_text_pointers_in_script_engine_script(script, pointers.calculate_bank(callback["address"]))
                     # dump these addresses in
                     addresses.update(texts)
                 # people-events
@@ -516,7 +512,7 @@ class OldTextScript:
                         trainer_data = event["trainer_data"]
                         addresses.update([trainer_data["text_when_seen_ptr"]])
                         addresses.update([trainer_data["text_when_trainer_beaten_ptr"]])
-                        trainer_bank = calculate_bank(event["trainer_data_address"])
+                        trainer_bank = pointers.calculate_bank(event["trainer_data_address"])
                         script1 = trainer_data["script_talk_again"]
                         texts1 = find_all_text_pointers_in_script_engine_script(script1, trainer_bank)
                         addresses.update(texts1)
@@ -970,7 +966,7 @@ class EncodedText:
         if bank:
             self.bank = bank
         else:
-            self.bank = calculate_bank(address)
+            self.bank = pointers.calculate_bank(address)
         self.map_group, self.map_id, self.debug = map_group, map_id, debug
         if not label:
             label = self.base_label + hex(address)
@@ -1434,10 +1430,10 @@ class PointerLabelParam(MultiByteParam):
             else:
                 if "$" in label:
                     if 0x4000 <= caddress <= 0x7FFF:
-                        #bank_part = "$%.2x" % (calculate_bank(self.parent.parent.address))
+                        #bank_part = "$%.2x" % (pointers.calculate_bank(self.parent.parent.address))
                         bank_part = "1"
                     else:
-                        bank_part = "$%.2x" % (calculate_bank(caddress))
+                        bank_part = "$%.2x" % (pointers.calculate_bank(caddress))
                 else:
                     bank_part = "BANK("+label+")"
             # return the asm based on the order the bytes were specified to be in
@@ -1678,7 +1674,7 @@ class RawTextPointerLabelParam(PointerLabelParam):
     # not sure if these are always to a text script or raw text?
     def parse(self):
         PointerLabelParam.parse(self)
-        #bank = calculate_bank(self.address)
+        #bank = pointers.calculate_bank(self.address)
         address = calculate_pointer_from_bytes_at(self.address, bank=False)
         self.calculated_address = address
         #self.text = parse_text_at3(address, map_group=self.map_group, map_id=self.map_id, debug=self.debug)
@@ -3628,7 +3624,7 @@ def old_parse_xy_trigger_bytes(some_bytes, bank=None, map_group=None, map_id=Non
         script_address = None
         script = None
         if bank:
-            script_address = calculate_pointer(script_ptr, bank)
+            script_address = pointers.calculate_pointer(script_ptr, bank)
             logging.debug(
                 "parsing xy trigger byte scripts.. x={x} y={y}"
                 .format(x=x, y=y)
@@ -3867,7 +3863,7 @@ class TrainerGroupTable:
     def __init__(self):
         assert 0x43 in trainer_group_maximums.keys(), "TrainerGroupTable should onyl be created after all the trainers have been found"
         self.address = trainer_group_pointer_table_address
-        self.bank = calculate_bank(trainer_group_pointer_table_address)
+        self.bank = pointers.calculate_bank(trainer_group_pointer_table_address)
         self.label = Label(name="TrainerGroupPointerTable", address=self.address, object=self)
         self.size = None
         self.last_address = None
@@ -4306,7 +4302,7 @@ def check_script_has_trainer_data(script):
 
 def trainer_name_from_group(group_id, trainer_id=0):
     """This doesn't actually work for trainer_id > 0."""
-    bank = calculate_bank(0x39999)
+    bank = pointers.calculate_bank(0x39999)
     ptr_address = 0x39999 + ((group_id - 1)*2)
     address = calculate_pointer_from_bytes_at(ptr_address, bank=bank)
     text = parse_text_at2(address, how_many_until(chr(0x50), address))
@@ -4532,7 +4528,7 @@ def old_parse_people_event_bytes(some_bytes, address=None, map_group=None, map_i
     # address is not actually required for this function to work...
     bank = None
     if address:
-        bank = calculate_bank(address)
+        bank = pointers.calculate_bank(address)
 
     people_events = []
     for bytes in grouper(some_bytes, count=people_event_byte_size):
@@ -4568,7 +4564,7 @@ def old_parse_people_event_bytes(some_bytes, address=None, map_group=None, map_i
         # but what if it's not in the same bank?
         extra_portion = {}
         if bank:
-            ptr_address = calculate_pointer(script_pointer, bank)
+            ptr_address = pointers.calculate_pointer(script_pointer, bank)
             if is_regular_script:
                 logging.debug(
                     "parsing a person-script at x={x} y={y} address={address}"
@@ -4836,7 +4832,7 @@ class Signpost(Command):
             script_ptr_byte2 = int(bytes[4], 16)
             script_pointer = script_ptr_byte1 + (script_ptr_byte2 << 8)
 
-            script_address = calculate_pointer(script_pointer, bank)
+            script_address = pointers.calculate_pointer(script_pointer, bank)
             output += " script@"+hex(script_address)
             logging.debug(output)
 
@@ -4852,7 +4848,7 @@ class Signpost(Command):
             ptr_byte1 = int(bytes[3], 16)
             ptr_byte2 = int(bytes[4], 16)
             pointer = ptr_byte1 + (ptr_byte2 << 8)
-            address = calculate_pointer(pointer, bank)
+            address = pointers.calculate_pointer(pointer, bank)
 
             bit_table_byte1 = ord(rom[address])
             bit_table_byte2 = ord(rom[address+1])
@@ -4883,7 +4879,7 @@ class Signpost(Command):
             ptr_byte1 = int(bytes[3], 16)
             ptr_byte2 = int(bytes[4], 16)
             pointer = ptr_byte1 + (ptr_byte2 << 8)
-            address = calculate_pointer(pointer, bank)
+            address = pointers.calculate_pointer(pointer, bank)
 
             item_id         = ord(rom[address+2])
             output += " item_id="+str(item_id)
@@ -4907,7 +4903,7 @@ class Signpost(Command):
             ptr_byte1 = int(bytes[3], 16)
             ptr_byte2 = int(bytes[4], 16)
             pointer = ptr_byte1 + (ptr_byte2 << 8)
-            address = calculate_pointer(pointer, bank)
+            address = pointers.calculate_pointer(pointer, bank)
 
             output += " remote unknown chunk at="+hex(address)
             logging.debug(output)
@@ -4975,7 +4971,7 @@ def old_parse_signpost_bytes(some_bytes, bank=None, map_group=None, map_id=None,
             script_address = None
             script = None
 
-            script_address = calculate_pointer(script_pointer, bank)
+            script_address = pointers.calculate_pointer(script_pointer, bank)
             script = parse_script_engine_script_at(script_address, map_group=map_group, map_id=map_id)
 
             additional = {
@@ -4993,7 +4989,7 @@ def old_parse_signpost_bytes(some_bytes, bank=None, map_group=None, map_id=None,
             ptr_byte1 = int(bytes[3], 16)
             ptr_byte2 = int(bytes[4], 16)
             pointer = ptr_byte1 + (ptr_byte2 << 8)
-            address = calculate_pointer(pointer, bank)
+            address = pointers.calculate_pointer(pointer, bank)
             bit_table_byte1 = ord(rom[address])
             bit_table_byte2 = ord(rom[address+1])
             script_ptr_byte1 = ord(rom[address+2])
@@ -5050,7 +5046,7 @@ class MapHeader:
         self.bank = HexByte(address=address)
         self.tileset = HexByte(address=address+1)
         self.permission = DecimalParam(address=address+2)
-        self.second_map_header_address = calculate_pointer(ord(rom[address+3])+(ord(rom[address+4])<<8), self.bank.byte)
+        self.second_map_header_address = pointers.calculate_pointer(ord(rom[address+3])+(ord(rom[address+4])<<8), self.bank.byte)
         # TODO: is the bank really supposed to be 0x25 all the time ??
         self.second_map_header = SecondMapHeader(self.second_map_header_address, map_group=self.map_group, map_id=self.map_id, debug=self.debug)
         all_second_map_headers.append(self.second_map_header)
@@ -5094,7 +5090,7 @@ def old_parse_map_header_at(address, map_group=None, map_id=None, debug=True):
     bank = bytes[0]
     tileset = bytes[1]
     permission = bytes[2]
-    second_map_header_address = calculate_pointer(bytes[3] + (bytes[4] << 8), 0x25)
+    second_map_header_address = pointers.calculate_pointer(bytes[3] + (bytes[4] << 8), 0x25)
     location_on_world_map = bytes[5] # pokegear world map location
     music = bytes[6]
     time_of_day = bytes[7]
@@ -5957,13 +5953,13 @@ def old_parse_second_map_header_at(address, map_group=None, map_id=None, debug=T
     width = bytes[2]
     blockdata_bank = bytes[3]
     blockdata_pointer = bytes[4] + (bytes[5] << 8)
-    blockdata_address = calculate_pointer(blockdata_pointer, blockdata_bank)
+    blockdata_address = pointers.calculate_pointer(blockdata_pointer, blockdata_bank)
     script_bank = bytes[6]
     script_pointer = bytes[7] + (bytes[8] << 8)
-    script_address = calculate_pointer(script_pointer, script_bank)
+    script_address = pointers.calculate_pointer(script_pointer, script_bank)
     event_bank = script_bank
     event_pointer = bytes[9] + (bytes[10] << 8)
-    event_address = calculate_pointer(event_pointer, event_bank)
+    event_address = pointers.calculate_pointer(event_pointer, event_bank)
     connections = bytes[11]
     return {
         "border_block": border_block,
@@ -6057,7 +6053,7 @@ class MapEventHeader:
     def parse(self):
         map_group, map_id, debug = self.map_group, self.map_id, self.debug
         address = self.address
-        bank = calculate_bank(self.address) # or use self.bank
+        bank = pointers.calculate_bank(self.address) # or use self.bank
         logging.debug("event header address is {0}".format(hex(address)))
 
         filler1 = ord(rom[address])
@@ -6094,7 +6090,7 @@ class MapEventHeader:
         people_event_byte_count = people_event_byte_size * people_event_count
         # people_events_bytes = rom_interval(after_signposts+1, people_event_byte_count)
         # people_events = parse_people_event_bytes(people_events_bytes, address=after_signposts+1, map_group=map_group, map_id=map_id)
-        people_events = parse_people_events(after_signposts+1, people_event_count, bank=calculate_bank(after_signposts+2), map_group=map_group, map_id=map_id, debug=debug)
+        people_events = parse_people_events(after_signposts+1, people_event_count, bank=pointers.calculate_bank(after_signposts+2), map_group=map_group, map_id=map_id, debug=debug)
         self.people_event_count = people_event_count
         self.people_events = people_events
 
@@ -6171,7 +6167,7 @@ def old_parse_map_event_header_at(address, map_group=None, map_id=None, debug=Tr
     """parse crystal map event header byte structure thing"""
     returnable = {}
 
-    bank = calculate_bank(address)
+    bank = pointers.calculate_bank(address)
 
     logging.debug("event header address is {0}".format(hex(address)))
     filler1 = ord(rom[address])
@@ -6385,7 +6381,7 @@ def old_parse_map_script_header_at(address, map_group=None, map_id=None, debug=T
         byte1 = trigger_pointer[0]
         byte2 = trigger_pointer[1]
         ptr   = byte1 + (byte2 << 8)
-        trigger_address = calculate_pointer(ptr, calculate_bank(address))
+        trigger_address = pointers.calculate_pointer(ptr, pointers.calculate_bank(address))
         trigger_script  = parse_script_engine_script_at(trigger_address, map_group=map_group, map_id=map_id)
         triggers[index] = {
             "script": trigger_script,
@@ -6408,7 +6404,7 @@ def old_parse_map_script_header_at(address, map_group=None, map_id=None, debug=T
         callback_byte1 = callback_line[1]
         callback_byte2 = callback_line[2]
         callback_ptr = callback_byte1 + (callback_byte2 << 8)
-        callback_address = calculate_pointer(callback_ptr, calculate_bank(address))
+        callback_address = pointers.calculate_pointer(callback_ptr, pointers.calculate_bank(address))
         callback_script = parse_script_engine_script_at(callback_address)
         callback_pointers[len(callback_pointers.keys())] = [hook_byte, callback_ptr]
         callbacks[index] = {
@@ -6429,7 +6425,7 @@ def old_parse_map_script_header_at(address, map_group=None, map_id=None, debug=T
     }
 
 def old_parse_trainer_header_at(address, map_group=None, map_id=None, debug=True):
-    bank = calculate_bank(address)
+    bank = pointers.calculate_bank(address)
     bytes = rom_interval(address, 12, strings=False)
     bit_number = bytes[0] + (bytes[1] << 8)
     trainer_group = bytes[2]
@@ -6489,7 +6485,7 @@ def old_parse_people_event_bytes(some_bytes, address=None, map_group=None, map_i
     # address is not actually required for this function to work...
     bank = None
     if address:
-        bank = calculate_bank(address)
+        bank = pointers.calculate_bank(address)
 
     people_events = []
     for bytes in grouper(some_bytes, count=people_event_byte_size):
@@ -6525,7 +6521,7 @@ def old_parse_people_event_bytes(some_bytes, address=None, map_group=None, map_i
         # but what if it's not in the same bank?
         extra_portion = {}
         if bank:
-            ptr_address = calculate_pointer(script_pointer, bank)
+            ptr_address = pointers.calculate_pointer(script_pointer, bank)
             if is_regular_script:
                 logging.debug(
                     "parsing a person-script at x={x} y={y} address={address}"
@@ -6642,7 +6638,7 @@ class PokedexEntryPointerTable:
 
     def __init__(self):
         self.address = 0x44378
-        self.target_bank = calculate_bank(0x181695)
+        self.target_bank = pointers.calculate_bank(0x181695)
         self.label = Label(name="PokedexDataPointerTable", address=self.address, object=self)
         self.size = None
         self.last_address = None
@@ -7440,7 +7436,7 @@ def list_things_in_bank(bank):
     objects = []
     for blah in script_parse_table.items():
         object = blah[1]
-        if hasattr(object, "address") and calculate_bank(object.address) == bank:
+        if hasattr(object, "address") and pointers.calculate_bank(object.address) == bank:
             objects.append(object)
     return objects
 
@@ -7457,7 +7453,7 @@ def list_texts_in_bank(bank):
 
     texts = []
     for text in all_texts:
-        if calculate_bank(text.address) == bank:
+        if pointers.calculate_bank(text.address) == bank:
             texts.append(text)
 
     return texts
@@ -7474,7 +7470,7 @@ def list_movements_in_bank(bank):
 
     movements = []
     for movement in all_movements:
-        if calculate_bank(movement.address) == bank:
+        if pointers.calculate_bank(movement.address) == bank:
             movements.append(movement)
     return movements
 
