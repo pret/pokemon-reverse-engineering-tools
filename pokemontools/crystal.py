@@ -47,9 +47,6 @@ texts = []
 # this doesn't do anything but is still used in TextScript
 constant_abbreviation_bytes = {}
 
-# Import the characters from its module.
-from chars import chars, jap_chars
-
 from trainers import (
     trainer_group_pointer_table_address,    # 0x39999
     trainer_group_pointer_table_address_gs, # 0x3993E
@@ -63,6 +60,7 @@ import re
 
 from interval_map import IntervalMap
 
+import chars
 import labels
 import pksv
 
@@ -903,7 +901,7 @@ class OldTextScript:
                     if byte in [0x58, 0x57]:
                         had_text_end_byte_57_58 = True
 
-                    if byte in chars:
+                    if byte in chars.chars:
                         if not quotes_open and not first_byte: # start text
                             output += ", \""
                             quotes_open = True
@@ -911,7 +909,7 @@ class OldTextScript:
                         if not quotes_open and first_byte: # start text
                             output += "\""
                             quotes_open = True
-                        output += chars[byte]
+                        output += chars.chars[byte]
                     elif byte in constant_abbreviation_bytes:
                         if quotes_open:
                             output += "\""
@@ -1048,8 +1046,8 @@ class EncodedText:
     def from_bytes(bytes, debug=True, japanese=False):
         """assembles a string based on bytes looked up in the chars table"""
         line = ""
-        if japanese: charset = jap_chars
-        else: charset = chars
+        if japanese: charset = chars.jap_chars
+        else: charset = chars.chars
         for byte in bytes:
             if type(byte) != int:
                 byte = ord(byte)
@@ -2426,9 +2424,9 @@ class MainText(TextCommand):
                 # so this is pretty useless overall...
                 if byte == 0x58:
                     self.end = True
-            elif byte in chars.keys():
+            elif byte in chars.chars.keys():
                 # figure out what the character actually is
-                char = chars[byte]
+                char = chars.chars[byte]
 
                 # oh wait.. quotes isn't a valid character in the first place :(
                 if char == "\"":
