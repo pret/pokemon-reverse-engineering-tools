@@ -21,8 +21,6 @@ import string
 if not hasattr(json, "dumps"):
     json.dumps = json.write
 
-import labels
-
 spacing = "\t"
 
 lousy_dragon_shrine_hack = [0x18d079, 0x18d0a9, 0x18d061, 0x18d091]
@@ -65,6 +63,7 @@ import re
 
 from interval_map import IntervalMap
 
+import labels
 import pksv
 
 # ---- script_parse_table explanation ----
