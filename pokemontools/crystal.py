@@ -1192,6 +1192,7 @@ def transform_wildmons(asm):
 
 def parse_script_asm_at(*args, **kwargs):
     # XXX TODO
+    logging.debug("TODO: parse_script_asm_at")
     return None
 
 def find_all_text_pointers_in_script_engine_script(script, bank=None, debug=False):
