@@ -220,7 +220,7 @@ def clean_up_long_info(long_info):
 
 def get_pokemon_constant_by_id(id):
     if id == 0:
-            return None
+        return None
     else:
         return pokemon_constants.pokemon_constants[id]
 
