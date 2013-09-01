@@ -56,14 +56,13 @@ from trainers import (
 # for fixing trainer_group_names
 import re
 
-from interval_map import IntervalMap
-
 import chars
 import labels
 import pksv
 import romstr
 import move_constants
 import pointers
+import interval_map
 
 # ---- script_parse_table explanation ----
 # This is an IntervalMap that keeps track of previously parsed scripts, texts
@@ -77,7 +76,7 @@ import pointers
 # keys are intervals "500..555" of byte addresses for each script
 # last byte is not inclusive(?) really? according to who??
 # this is how to make sure scripts are not recalculated
-script_parse_table = IntervalMap()
+script_parse_table = interval_map.IntervalMap()
 
 def is_script_already_parsed_at(address):
     """looks up whether or not a script is parsed at a certain address"""
