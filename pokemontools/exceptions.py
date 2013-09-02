@@ -11,3 +11,8 @@ class TextScriptException(Exception):
     """
     TextScript encountered an inconsistency or problem.
     """
+
+class ConfigException(Exception):
+    """
+    Configuration error. Maybe a missing config variable.
+    """
