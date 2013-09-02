@@ -5,7 +5,7 @@ and insert all scripting commands.
 """
 
 import crystal
-from gbz80disasm import output_bank_opcodes
+import gbz80disasm
 
 rom = crystal.load_rom()
 roml = [ord(x) for x in rom]
@@ -78,7 +78,7 @@ class DisassembledScriptCommand():
             max_byte_count = 86
 
         # disassemble and laso get the last address
-        (asm, last_address, last_hl_address, last_a_address, used_3d97) = output_bank_opcodes(address, max_byte_count=max_byte_count, stop_at=command_pointers, include_last_address=False)
+        (asm, last_address, last_hl_address, last_a_address, used_3d97) = gbz80disasm.output_bank_opcodes(address, max_byte_count=max_byte_count, stop_at=command_pointers, include_last_address=False)
 
         # remove indentation
         asm = asm.replace("\n\t", "\n")

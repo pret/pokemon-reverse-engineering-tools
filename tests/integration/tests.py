@@ -37,6 +37,11 @@ from pokemontools.labels import (
     get_label_from_line,
 )
 
+from pokemontools.helpers import (
+    grouper,
+    index,
+)
+
 from pokemontools.crystal import (
     rom,
     load_rom,
@@ -69,9 +74,7 @@ from pokemontools.crystal import (
     load_asm,
     asm,
     is_valid_address,
-    index,
     how_many_until,
-    grouper,
     get_pokemon_constant_by_id,
     generate_map_constant_labels,
     get_map_constant_label_by_id,
@@ -321,7 +324,7 @@ class TestMultiByteParam(unittest.TestCase):
                      }]
         self.assertEqual(self.cls.to_asm(), "poop")
 
-class TestPostParsing: #(unittest.TestCase):
+class TestPostParsing(unittest.TestCase):
     """tests that must be run after parsing all maps"""
     def test_signpost_counts(self):
         self.assertEqual(len(map_names[1][1]["signposts"]), 0)
