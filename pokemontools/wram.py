@@ -72,7 +72,7 @@ def read_wram_sections():
 
 wram_sections = read_wram_sections()
 
-def make_wram_labels():
+def make_wram_labels(wram_sections):
     wram_labels = {}
     for section in wram_sections:
         for label in section['labels']:
@@ -81,7 +81,7 @@ def make_wram_labels():
             wram_labels[label['address']] += [label['label']]
     return wram_labels
 
-wram_labels = make_wram_labels()
+wram_labels = make_wram_labels(wram_sections)
 
 def constants_to_dict(constants):
     return dict((eval(constant[constant.find('EQU')+3:constant.find(';')].replace('$','0x')), constant[:constant.find('EQU')].strip()) for constant in constants)
