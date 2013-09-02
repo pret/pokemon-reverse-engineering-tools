@@ -7,7 +7,12 @@ from ctypes import c_int8
 import random
 import json
 
-from wram import *
+import config
+import wram
+
+conf = config.Config()
+wramp = wram.WRAMProcessor(conf)
+wramp.initialize()
 
 # New versions of json don't have read anymore.
 if not hasattr(json, "read"):
@@ -593,9 +598,9 @@ def find_label(local_address, bank_id=0):
             if get_local_address(label_entry["address"]) == local_address:
                 if label_entry["bank"] == bank_id or label_entry["bank"] == 0:
                     return label_entry["label"]
-    if local_address in wram_labels.keys():
-        return wram_labels[local_address][-1]
-    for constants in [gbhw_constants, hram_constants]:
+    if local_address in wramp.wram_labels.keys():
+        return wramp.wram_labels[local_address][-1]
+    for constants in [wramp.gbhw_constants, wramp.hram_constants]:
         if local_address in constants.keys() and local_address >= 0xff00:
             return constants[local_address]
     return None
