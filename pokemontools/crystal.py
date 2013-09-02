@@ -7706,7 +7706,7 @@ def find_labels_without_addresses():
 
 label_errors = ""
 def get_labels_between(start_line_id, end_line_id, bank):
-    labels = []
+    foundlabels = []
     #label = {
     #   "line_number": 15,
     #   "bank": 32,
@@ -7744,8 +7744,8 @@ def get_labels_between(start_line_id, end_line_id, bank):
             "address": address,
         }
         # store this structure
-        labels.append(label)
-    return labels
+        foundlabels.append(label)
+    return foundlabels
 
 def scan_for_predefined_labels(debug=False):
     """looks through the asm file for labels at specific addresses,
