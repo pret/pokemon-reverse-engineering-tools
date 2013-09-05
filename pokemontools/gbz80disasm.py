@@ -1,4 +1,7 @@
 # -*- coding: utf-8 -*-
+"""
+GBC disassembler
+"""
 
 import os
 import sys
@@ -7,21 +10,14 @@ from ctypes import c_int8
 import random
 import json
 
-from wram import *
+import config
+import crystal
+import labels
+import wram
 
 # New versions of json don't have read anymore.
 if not hasattr(json, "read"):
     json.read = json.loads
-
-def load_rom(filename="../baserom.gbc"):
-    """
-    Load the specified rom.
-
-    If no rom is given, load "../baserom.gbc".
-    """
-    global rom
-    rom = bytearray(open(filename,'rb').read())
-    return rom
 
 spacing = "\t"
 
@@ -563,49 +559,6 @@ relative_unconditional_jumps = [0xc3, 0x18]
 
 call_commands = [0xdc, 0xd4, 0xc4, 0xcc, 0xcd]
 
-all_labels = {}
-def load_labels(filename="labels.json"):
-    """
-    Load labels from specified file.
-
-    If no filename is given, loads 'labels.json'.
-    """
-    global all_labels
-
-    # don't re-load labels each time
-    if all_labels != {}:
-        return
-
-    if os.path.exists(filename):
-        all_labels = json.read(open(filename, "r").read())
-    else:
-        print "You must run crystal.scan_for_predefined_labels() to create \"labels.json\". Trying..."
-        import crystal
-        crystal.scan_for_predefined_labels()
-
-def find_label(local_address, bank_id=0):
-    # keep an integer
-    if type(local_address) == str:
-        local_address = int(local_address.replace("$", "0x"), 16)
-
-    if local_address < 0x8000:
-        for label_entry in all_labels:
-            if get_local_address(label_entry["address"]) == local_address:
-                if label_entry["bank"] == bank_id or label_entry["bank"] == 0:
-                    return label_entry["label"]
-    if local_address in wram_labels.keys():
-        return wram_labels[local_address][-1]
-    for constants in [gbhw_constants, hram_constants]:
-        if local_address in constants.keys() and local_address >= 0xff00:
-            return constants[local_address]
-    return None
-
-def find_address_from_label(label):
-    for label_entry in all_labels:
-        if label == label_entry["label"]:
-            return label_entry["address"]
-    return None
-
 def asm_label(address):
     """
     Return the ASM label using the address.
@@ -627,290 +580,6 @@ def get_global_address(address, bank):
 
     return ".ASM_" + hex(address)[2:]
 
-def output_bank_opcodes(original_offset, max_byte_count=0x4000, include_last_address=True, stop_at=[], debug=False):
-    """
-    Output bank opcodes.
-
-    fs = current_address
-    b = bank_byte
-    in = input_data  -- rom
-    bank_size = byte_count
-    i = offset
-    ad = end_address
-    a, oa = current_byte_number
-
-    stop_at can be used to supply a list of addresses to not disassemble
-    over. This is useful if you know in advance that there are a lot of
-    fall-throughs.
-    """
-
-    load_labels()
-    load_rom()
-
-    bank_id = original_offset / 0x4000
-    if debug: print "bank id is: " + str(bank_id)
-
-    last_hl_address = None #for when we're scanning the main map script
-    last_a_address = None
-    used_3d97 = False
-
-    global rom
-    offset = original_offset
-    current_byte_number = 0 #start from the beginning
-
-    #we don't actually have an end address, but we'll just say $4000
-    end_address = original_offset + max_byte_count
-
-    byte_labels = {}
-    data_tables = {}
-
-    first_loop = True
-    output = ""
-    keep_reading = True
-    is_data = False
-    while offset <= end_address and keep_reading:
-        current_byte = rom[offset]
-        maybe_byte = current_byte
-
-        # stop at any address
-        if not first_loop and offset in stop_at:
-            keep_reading = False
-            break
-
-        #first check if this byte already has a label
-        #if it does, use the label
-        #if not, generate a new label
-        if offset in byte_labels.keys():
-            line_label = byte_labels[offset]["name"]
-            byte_labels[offset]["usage"] += 1
-            output += "\n"
-        else:
-            line_label = asm_label(offset)
-            byte_labels[offset] = {}
-            byte_labels[offset]["name"] = line_label
-            byte_labels[offset]["usage"] = 0
-        byte_labels[offset]["definition"] = True
-        output += line_label + "\n" #" ; " + hex(offset) + "\n"
-
-        #find out if there's a two byte key like this
-        temp_maybe = maybe_byte
-        temp_maybe += ( rom[offset+1] << 8)
-        if not is_data and temp_maybe in opt_table.keys() and rom[offset+1]!=0:
-            opstr = opt_table[temp_maybe][0].lower()
-
-            if "x" in opstr:
-                for x in range(0, opstr.count("x")):
-                    insertion = rom[offset + 1]
-                    insertion = "$" + hex(insertion)[2:]
-
-                    opstr = opstr[:opstr.find("x")].lower() + insertion + opstr[opstr.find("x")+1:].lower()
-
-                    current_byte += 1
-                    offset += 1
-            if "?" in opstr:
-                for y in range(0, opstr.count("?")):
-                    byte1 = rom[offset + 1]
-                    byte2 = rom[offset + 2]
-
-                    number = byte1
-                    number += byte2 << 8;
-
-                    insertion = "$%.4x" % (number)
-
-                    opstr = opstr[:opstr.find("?")].lower() + insertion + opstr[opstr.find("?")+1:].lower()
-
-                    current_byte_number += 2
-                    offset += 2
-
-            output += spacing + opstr #+ " ; " + hex(offset)
-            output += "\n"
-
-            current_byte_number += 2
-            offset += 2
-        elif not is_data and maybe_byte in opt_table.keys():
-            op_code = opt_table[maybe_byte]
-            op_code_type = op_code[1]
-            op_code_byte = maybe_byte
-
-            #type = -1 when it's the E op
-            #if op_code_type != -1:
-            if   op_code_type == 0 and rom[offset] == op_code_byte:
-                op_str = op_code[0].lower()
-
-                output += spacing + op_code[0].lower() #+ " ; " + hex(offset)
-                output += "\n"
-
-                offset += 1
-                current_byte_number += 1
-            elif op_code_type == 1 and rom[offset] == op_code_byte:
-                oplen = len(op_code[0])
-                opstr = copy(op_code[0])
-                xes = op_code[0].count("x")
-                include_comment = False
-                for x in range(0, xes):
-                    insertion = rom[offset + 1]
-                    insertion = "$" + hex(insertion)[2:]
-
-                    if current_byte == 0x18 or current_byte==0x20 or current_byte in relative_jumps: #jr or jr nz
-                        #generate a label for the byte we're jumping to
-                        target_address = offset + 2 + c_int8(rom[offset + 1]).value
-                        if target_address in byte_labels.keys():
-                            byte_labels[target_address]["usage"] = 1 + byte_labels[target_address]["usage"]
-                            line_label2 = byte_labels[target_address]["name"]
-                        else:
-                            line_label2 = asm_label(target_address)
-                            byte_labels[target_address] = {}
-                            byte_labels[target_address]["name"] = line_label2
-                            byte_labels[target_address]["usage"] = 1
-                            byte_labels[target_address]["definition"] = False
-
-                        insertion = line_label2
-                        if has_outstanding_labels(byte_labels) and all_outstanding_labels_are_reverse(byte_labels, offset):
-                            include_comment = True
-                    elif current_byte == 0x3e:
-                        last_a_address = rom[offset + 1]
-
-                    opstr = opstr[:opstr.find("x")].lower() + insertion + opstr[opstr.find("x")+1:].lower()
-
-                    # because the $ff00+$ff syntax is silly
-                    if opstr.count("$") > 1 and "+" in opstr:
-                        first_orig = opstr[opstr.find("$"):opstr.find("+")]
-                        first_val = eval(first_orig.replace("$","0x"))
-
-                        second_orig = opstr[opstr.find("+$")+1:opstr.find("]")]
-                        second_val = eval(second_orig.replace("$","0x"))
-
-                        combined_val = "$%.4x" % (first_val + second_val)
-                        result = find_label(combined_val, bank_id)
-                        if result != None:
-                            combined_val = result
-
-                        replacetron = "[%s+%s]" % (first_orig, second_orig)
-                        opstr = opstr.replace(replacetron, "[%s]" % combined_val)
-
-                    output += spacing + opstr
-                    if include_comment:
-                        output += " ; " + hex(offset)
-                        if current_byte in relative_jumps:
-                            output += " $" + hex(rom[offset + 1])[2:]
-                    output += "\n"
-
-                    current_byte_number += 1
-                    offset += 1
-                    insertion = ""
-
-                current_byte_number += 1
-                offset += 1
-                include_comment = False
-            elif op_code_type == 2 and rom[offset] == op_code_byte:
-                oplen = len(op_code[0])
-                opstr = copy(op_code[0])
-                qes = op_code[0].count("?")
-                for x in range(0, qes):
-                    byte1 = rom[offset + 1]
-                    byte2 = rom[offset + 2]
-
-                    number = byte1
-                    number += byte2 << 8
-
-                    if current_byte not in call_commands + discrete_jumps + relative_jumps:
-                        pointer = get_global_address(number, bank_id)
-                        if pointer not in data_tables.keys():
-                            data_tables[pointer] = {}
-                            data_tables[pointer]['usage'] = 0
-                        else:
-                            data_tables[pointer]['usage'] += 1
-
-                    insertion = "$%.4x" % (number)
-                    result = find_label(insertion, bank_id)
-                    if result != None:
-                        insertion = result
-
-                    opstr = opstr[:opstr.find("?")].lower() + insertion + opstr[opstr.find("?")+1:].lower()
-                    output += spacing + opstr #+ " ; " + hex(offset)
-                    output += "\n"
-
-                    current_byte_number += 2
-                    offset += 2
-
-                current_byte_number += 1
-                offset += 1
-
-                if current_byte == 0x21:
-                    last_hl_address = byte1 + (byte2 << 8)
-                if current_byte == 0xcd:
-                    if number == 0x3d97: used_3d97 = True
-
-                #duck out if this is jp $24d7
-                if current_byte == 0xc3 or current_byte in relative_unconditional_jumps:
-                    if current_byte == 0xc3:
-                        if number == 0x3d97: used_3d97 = True
-                    #if number == 0x24d7: #jp
-                    if not has_outstanding_labels(byte_labels) or all_outstanding_labels_are_reverse(byte_labels, offset):
-                        keep_reading = False
-                        is_data = False
-                        break
-            else:
-                is_data = True
-        else:
-        #if is_data and keep_reading:
-            output += spacing + "db $" + hex(rom[offset])[2:] #+ " ; " + hex(offset)
-            output += "\n"
-            offset += 1
-            current_byte_number += 1
-            if offset in byte_labels.keys():
-                is_data = False
-                keep_reading = True
-        #else the while loop would have spit out the opcode
-
-        #these two are done prior
-        #offset += 1
-        #current_byte_number += 1
-
-        if not is_data and current_byte in relative_unconditional_jumps + end_08_scripts_with:
-            #stop reading at a jump, relative jump or return
-            if not has_outstanding_labels(byte_labels) or all_outstanding_labels_are_reverse(byte_labels, offset):
-                keep_reading = False
-                is_data = False #cleanup
-                break
-            elif offset not in byte_labels.keys() and offset in data_tables.keys():
-                is_data = True
-                keep_reading = True
-            else:
-                is_data = False
-                keep_reading = True
-            output += "\n"
-        elif is_data and offset not in byte_labels.keys():
-            is_data = True
-            keep_reading = True
-        else:
-            is_data = False
-            keep_reading = True
-
-        if offset in data_tables.keys():
-            output = output.replace('$%x' % (get_local_address(offset)), data_label(offset))
-            output += data_label(offset) + '\n'
-            is_data = True
-            keep_reading = True
-
-        first_loop = False
-
-    #clean up unused labels
-    for label_line in byte_labels.keys():
-        address = label_line
-        label_line = byte_labels[label_line]
-        if label_line["usage"] == 0:
-            output = output.replace((label_line["name"] + "\n"), "")
-
-    #tone down excessive spacing
-    output = output.replace("\n\n\n","\n\n")
-
-    #add the offset of the final location
-    if include_last_address:
-        output += "; " + hex(offset)
-
-    return (output, offset, last_hl_address, last_a_address, used_3d97)
-
 def has_outstanding_labels(byte_labels):
     """
     Check whether a label is used once in the asm output.
@@ -929,18 +598,351 @@ def all_outstanding_labels_are_reverse(byte_labels, offset):
             if not label_id < offset: return False
     return True
 
+class Disassembler(object):
+    """
+    GBC disassembler
+    """
 
+    def __init__(self, config):
+        """
+        Setup the class instance.
+        """
+        self.config = config
+
+        self.wram = wram.WRAMProcessor(self.config)
+        self.labels = labels.Labels(self.config)
+
+    def initialize(self):
+        """
+        Setup the disassembler.
+        """
+        self.wram.initialize()
+        self.labels.initialize()
+
+        # TODO: fix how ROM is handled throughout the project.
+        rom_path = os.path.join(self.config.path, "baserom.gbc")
+        self.rom = bytearray(open(rom_path, "rb").read())
+
+    def find_label(self, local_address, bank_id=0):
+        # keep an integer
+        if type(local_address) == str:
+            local_address = int(local_address.replace("$", "0x"), 16)
+
+        if local_address < 0x8000:
+            for label_entry in self.labels.labels:
+                if get_local_address(label_entry["address"]) == local_address:
+                    if label_entry["bank"] == bank_id or label_entry["bank"] == 0:
+                        return label_entry["label"]
+        if local_address in self.wram.wram_labels.keys():
+            return self.wram.wram_labels[local_address][-1]
+        for constants in [self.wram.gbhw_constants, self.wram.hram_constants]:
+            if local_address in constants.keys() and local_address >= 0xff00:
+                return constants[local_address]
+        return None
+
+    def find_address_from_label(self, label):
+        for label_entry in self.labels.labels:
+            if label == label_entry["label"]:
+                return label_entry["address"]
+        return None
+
+    def output_bank_opcodes(self, original_offset, max_byte_count=0x4000, include_last_address=True, stop_at=[], debug=False):
+        """
+        Output bank opcodes.
+
+        fs = current_address
+        b = bank_byte
+        in = input_data  -- rom
+        bank_size = byte_count
+        i = offset
+        ad = end_address
+        a, oa = current_byte_number
+
+        stop_at can be used to supply a list of addresses to not disassemble
+        over. This is useful if you know in advance that there are a lot of
+        fall-throughs.
+        """
+
+        bank_id = original_offset / 0x4000
+        if debug: print "bank id is: " + str(bank_id)
+
+        last_hl_address = None #for when we're scanning the main map script
+        last_a_address = None
+        used_3d97 = False
+
+        rom = self.rom
+
+        offset = original_offset
+        current_byte_number = 0 #start from the beginning
+
+        #we don't actually have an end address, but we'll just say $4000
+        end_address = original_offset + max_byte_count
+
+        byte_labels = {}
+        data_tables = {}
+
+        first_loop = True
+        output = ""
+        keep_reading = True
+        is_data = False
+        while offset <= end_address and keep_reading:
+            current_byte = rom[offset]
+            maybe_byte = current_byte
+
+            # stop at any address
+            if not first_loop and offset in stop_at:
+                keep_reading = False
+                break
+
+            #first check if this byte already has a label
+            #if it does, use the label
+            #if not, generate a new label
+            if offset in byte_labels.keys():
+                line_label = byte_labels[offset]["name"]
+                byte_labels[offset]["usage"] += 1
+                output += "\n"
+            else:
+                line_label = asm_label(offset)
+                byte_labels[offset] = {}
+                byte_labels[offset]["name"] = line_label
+                byte_labels[offset]["usage"] = 0
+            byte_labels[offset]["definition"] = True
+            output += line_label + "\n" #" ; " + hex(offset) + "\n"
+
+            #find out if there's a two byte key like this
+            temp_maybe = maybe_byte
+            temp_maybe += ( rom[offset+1] << 8)
+            if not is_data and temp_maybe in opt_table.keys() and rom[offset+1]!=0:
+                opstr = opt_table[temp_maybe][0].lower()
+
+                if "x" in opstr:
+                    for x in range(0, opstr.count("x")):
+                        insertion = rom[offset + 1]
+                        insertion = "$" + hex(insertion)[2:]
+
+                        opstr = opstr[:opstr.find("x")].lower() + insertion + opstr[opstr.find("x")+1:].lower()
+
+                        current_byte += 1
+                        offset += 1
+                if "?" in opstr:
+                    for y in range(0, opstr.count("?")):
+                        byte1 = rom[offset + 1]
+                        byte2 = rom[offset + 2]
+
+                        number = byte1
+                        number += byte2 << 8;
+
+                        insertion = "$%.4x" % (number)
+
+                        opstr = opstr[:opstr.find("?")].lower() + insertion + opstr[opstr.find("?")+1:].lower()
+
+                        current_byte_number += 2
+                        offset += 2
+
+                output += spacing + opstr #+ " ; " + hex(offset)
+                output += "\n"
+
+                current_byte_number += 2
+                offset += 2
+            elif not is_data and maybe_byte in opt_table.keys():
+                op_code = opt_table[maybe_byte]
+                op_code_type = op_code[1]
+                op_code_byte = maybe_byte
+
+                #type = -1 when it's the E op
+                #if op_code_type != -1:
+                if   op_code_type == 0 and rom[offset] == op_code_byte:
+                    op_str = op_code[0].lower()
+
+                    output += spacing + op_code[0].lower() #+ " ; " + hex(offset)
+                    output += "\n"
+
+                    offset += 1
+                    current_byte_number += 1
+                elif op_code_type == 1 and rom[offset] == op_code_byte:
+                    oplen = len(op_code[0])
+                    opstr = copy(op_code[0])
+                    xes = op_code[0].count("x")
+                    include_comment = False
+                    for x in range(0, xes):
+                        insertion = rom[offset + 1]
+                        insertion = "$" + hex(insertion)[2:]
+
+                        if current_byte == 0x18 or current_byte==0x20 or current_byte in relative_jumps: #jr or jr nz
+                            #generate a label for the byte we're jumping to
+                            target_address = offset + 2 + c_int8(rom[offset + 1]).value
+                            if target_address in byte_labels.keys():
+                                byte_labels[target_address]["usage"] = 1 + byte_labels[target_address]["usage"]
+                                line_label2 = byte_labels[target_address]["name"]
+                            else:
+                                line_label2 = asm_label(target_address)
+                                byte_labels[target_address] = {}
+                                byte_labels[target_address]["name"] = line_label2
+                                byte_labels[target_address]["usage"] = 1
+                                byte_labels[target_address]["definition"] = False
+
+                            insertion = line_label2
+                            if has_outstanding_labels(byte_labels) and all_outstanding_labels_are_reverse(byte_labels, offset):
+                                include_comment = True
+                        elif current_byte == 0x3e:
+                            last_a_address = rom[offset + 1]
+
+                        opstr = opstr[:opstr.find("x")].lower() + insertion + opstr[opstr.find("x")+1:].lower()
+
+                        # because the $ff00+$ff syntax is silly
+                        if opstr.count("$") > 1 and "+" in opstr:
+                            first_orig = opstr[opstr.find("$"):opstr.find("+")]
+                            first_val = eval(first_orig.replace("$","0x"))
+
+                            second_orig = opstr[opstr.find("+$")+1:opstr.find("]")]
+                            second_val = eval(second_orig.replace("$","0x"))
+
+                            combined_val = "$%.4x" % (first_val + second_val)
+                            result = self.find_label(combined_val, bank_id)
+                            if result != None:
+                                combined_val = result
+
+                            replacetron = "[%s+%s]" % (first_orig, second_orig)
+                            opstr = opstr.replace(replacetron, "[%s]" % combined_val)
+
+                        output += spacing + opstr
+                        if include_comment:
+                            output += " ; " + hex(offset)
+                            if current_byte in relative_jumps:
+                                output += " $" + hex(rom[offset + 1])[2:]
+                        output += "\n"
+
+                        current_byte_number += 1
+                        offset += 1
+                        insertion = ""
+
+                    current_byte_number += 1
+                    offset += 1
+                    include_comment = False
+                elif op_code_type == 2 and rom[offset] == op_code_byte:
+                    oplen = len(op_code[0])
+                    opstr = copy(op_code[0])
+                    qes = op_code[0].count("?")
+                    for x in range(0, qes):
+                        byte1 = rom[offset + 1]
+                        byte2 = rom[offset + 2]
+
+                        number = byte1
+                        number += byte2 << 8
+
+                        if current_byte not in call_commands + discrete_jumps + relative_jumps:
+                            pointer = get_global_address(number, bank_id)
+                            if pointer not in data_tables.keys():
+                                data_tables[pointer] = {}
+                                data_tables[pointer]['usage'] = 0
+                            else:
+                                data_tables[pointer]['usage'] += 1
+
+                        insertion = "$%.4x" % (number)
+                        result = self.find_label(insertion, bank_id)
+                        if result != None:
+                            insertion = result
+
+                        opstr = opstr[:opstr.find("?")].lower() + insertion + opstr[opstr.find("?")+1:].lower()
+                        output += spacing + opstr #+ " ; " + hex(offset)
+                        output += "\n"
+
+                        current_byte_number += 2
+                        offset += 2
+
+                    current_byte_number += 1
+                    offset += 1
+
+                    if current_byte == 0x21:
+                        last_hl_address = byte1 + (byte2 << 8)
+                    if current_byte == 0xcd:
+                        if number == 0x3d97: used_3d97 = True
+
+                    #duck out if this is jp $24d7
+                    if current_byte == 0xc3 or current_byte in relative_unconditional_jumps:
+                        if current_byte == 0xc3:
+                            if number == 0x3d97: used_3d97 = True
+                        #if number == 0x24d7: #jp
+                        if not has_outstanding_labels(byte_labels) or all_outstanding_labels_are_reverse(byte_labels, offset):
+                            keep_reading = False
+                            is_data = False
+                            break
+                else:
+                    is_data = True
+            else:
+            #if is_data and keep_reading:
+                output += spacing + "db $" + hex(rom[offset])[2:] #+ " ; " + hex(offset)
+                output += "\n"
+                offset += 1
+                current_byte_number += 1
+                if offset in byte_labels.keys():
+                    is_data = False
+                    keep_reading = True
+            #else the while loop would have spit out the opcode
+
+            #these two are done prior
+            #offset += 1
+            #current_byte_number += 1
+
+            if not is_data and current_byte in relative_unconditional_jumps + end_08_scripts_with:
+                #stop reading at a jump, relative jump or return
+                if not has_outstanding_labels(byte_labels) or all_outstanding_labels_are_reverse(byte_labels, offset):
+                    keep_reading = False
+                    is_data = False #cleanup
+                    break
+                elif offset not in byte_labels.keys() and offset in data_tables.keys():
+                    is_data = True
+                    keep_reading = True
+                else:
+                    is_data = False
+                    keep_reading = True
+                output += "\n"
+            elif is_data and offset not in byte_labels.keys():
+                is_data = True
+                keep_reading = True
+            else:
+                is_data = False
+                keep_reading = True
+
+            if offset in data_tables.keys():
+                output = output.replace('$%x' % (get_local_address(offset)), data_label(offset))
+                output += data_label(offset) + '\n'
+                is_data = True
+                keep_reading = True
+
+            first_loop = False
+
+        #clean up unused labels
+        for label_line in byte_labels.keys():
+            address = label_line
+            label_line = byte_labels[label_line]
+            if label_line["usage"] == 0:
+                output = output.replace((label_line["name"] + "\n"), "")
+
+        #tone down excessive spacing
+        output = output.replace("\n\n\n","\n\n")
+
+        #add the offset of the final location
+        if include_last_address:
+            output += "; " + hex(offset)
+
+        return (output, offset, last_hl_address, last_a_address, used_3d97)
 
 if __name__ == "__main__":
-    load_labels()
+    conf = config.Config()
+    disasm = Disassembler(conf)
+    disasm.initialize()
+
     addr = sys.argv[1]
     if ":" in addr:
         addr = addr.split(":")
         addr = int(addr[0], 16)*0x4000+(int(addr[1], 16)%0x4000)
     else:
-        label_addr = find_address_from_label(addr)
+        label_addr = disasm.find_address_from_label(addr)
         if label_addr:
             addr = label_addr
         else:
             addr = int(addr, 16)
-    print output_bank_opcodes(addr)[0]
+
+    output = disasm.output_bank_opcodes(addr)[0]
+    print output
