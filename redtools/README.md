@@ -5,15 +5,16 @@ The `redtools` are mostly python files that were removed from the
 
 # Why was this removed from pokered?
 
-Originally, `extras/` was where all tools where put in the pokered project.
-These utilities and tools were for disassembling the ROM, extracting data, and
-prettifying text. When the
-[pokecrystal](https://github.com/kanzure/pokecrystal) project started, many of
-these tools were copied into pokecrystal. This was a mistake because it meant
-that there were two copies of the same python source code in two places. This
-causes all sorts of problems because if a bug is found in one repository, it's
-really hard to figure out if the bug applies to the other project, or to keep
-track of where the bugs have been fixed or not fixed. The effects are
+Originally, `extras/` was where all tools were put in the pokered project.
+These utilities and tools are for disassembling the ROM, extracting data, and
+prettifying text.
+
+When the [pokecrystal](https://github.com/kanzure/pokecrystal) project started,
+many of these tools were copied into pokecrystal. This was a mistake because it
+meant that there were two copies of the same python source code in two places.
+This causes all sorts of problems because if a bug is found in one repository,
+it's really hard to figure out if the bug applies to the other project, or to
+keep track of where the bugs have been fixed or not fixed. The effects are
 duplication of effort, less progress overall, and so on.
 
 # Moving forward
@@ -36,5 +37,7 @@ builds. But there will be some lost effort, like the pretty text inserter.
 
 * romviz and romvisualizer - makes an animated gif of progress removing
   INCBINs. Needs to be rewritten to follow INCLUDEs.
+
+* redrle.c - pokered town maps tool
 
 * maybe other things
