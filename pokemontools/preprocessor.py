@@ -5,13 +5,8 @@ Basic preprocessor for both pokecrystal and pokered.
 
 import sys
 
-from crystal import (
-    DataByteWordMacro,
-)
-
-default_macros = [
-    DataByteWordMacro,
-]
+import exceptions
+import crystal
 
 chars = {
 "ガ": 0x05,
@@ -278,16 +273,6 @@ chars = {
 "9": 0xFF
 }
 
-class PreprocessorException(Exception):
-    """
-    There was a problem in the preprocessor.
-    """
-
-class MacroException(PreprocessorException):
-    """
-    There was a problem with a macro.
-    """
-
 def separate_comment(l):
     """
     Separates asm and comments on a single line.
@@ -299,7 +284,10 @@ def separate_comment(l):
                 break
         if l[i] == "\"":
             in_quotes = not in_quotes
-    return l[:i], l[i:] or None
+    return (l[:i], l[i:]) or None
+
+def make_macro_table(macros):
+    return dict(((macro.macro_name, macro) for macro in macros))
 
 def quote_translator(asm):
     """
@@ -387,38 +375,7 @@ def quote_translator(asm):
 
     return output
 
-def extract_token(asm):
-    return asm.split(" ")[0].strip()
-
-def make_macro_table(macros):
-    return dict(((macro.macro_name, macro) for macro in macros))
-
-def macro_test(asm, macro_table):
-    """
-    Returns a matching macro, or None/False.
-    """
-    # macros are determined by the first symbol on the line
-    token = extract_token(asm)
-
-    # skip db and dw since rgbasm handles those and they aren't macros
-    if token is not None and token not in ["db", "dw"] and token in macro_table:
-        return (macro_table[token], token)
-    else:
-        return (None, None)
-
-def is_based_on(something, base):
-    """
-    Checks whether or not 'something' is a class that is a subclass of a class
-    by name. This is a terrible hack but it removes a direct dependency on
-    existing macros.
-
-    Used by macro_translator.
-    """
-    options = [str(klass.__name__) for klass in something.__bases__]
-    options += [something.__name__]
-    return (base in options)
-
-def check_macro_sanity(params, macro, original_line):
+def check_macro_sanity(self, params, macro, original_line):
     """
     Checks whether or not the correct number of arguments are being passed to a
     certain macro. There are a number of possibilities based on the types of
@@ -441,12 +398,12 @@ def check_macro_sanity(params, macro, original_line):
             elif param_klass.size == 3:
                 allowed_length += 2 # bank and label
             else:
-                raise MacroException(
+                raise exceptions.MacroException(
                     "dunno what to do with a macro param with a size > 3 (size={size})"
                     .format(size=param_klass.size)
                 )
         else:
-            raise MacroException(
+            raise exceptions.MacroException(
                 "dunno what to do with this non db/dw macro param: {klass} in line {line}"
                 .format(klass=param_klass, line=original_line)
             )
@@ -461,7 +418,7 @@ def check_macro_sanity(params, macro, original_line):
     params_len = len(params)
 
     if params_len not in allowed_lengths:
-        raise PreprocessorException(
+        raise exceptions.PreprocessorException(
             "mismatched number of parameters ({count}, instead of any of {allowed}) on this line: {line}"
             .format(
                 count=params_len,
@@ -472,170 +429,223 @@ def check_macro_sanity(params, macro, original_line):
 
     return True
 
-def macro_translator(macro, token, line, show_original_lines=False, do_macro_sanity_check=False):
+def extract_token(asm):
+    return asm.split(" ")[0].strip()
+
+def is_based_on(something, base):
     """
-    Converts a line with a macro into a rgbasm-compatible line.
+    Checks whether or not 'something' is a class that is a subclass of a class
+    by name. This is a terrible hack but it removes a direct dependency on
+    existing macros.
 
-    @param show_original_lines: show lines before preprocessing in stdout
-    @param do_macro_sanity_check: helpful for debugging macros
+    Used by macro_translator.
     """
-    if macro.macro_name != token:
-        raise MacroException("macro/token mismatch")
+    options = [str(klass.__name__) for klass in something.__bases__]
+    options += [something.__name__]
+    return (base in options)
 
-    original_line = line
+class Preprocessor(object):
+    """
+    A wrapper around the actual preprocessing step. Because rgbasm can't handle
+    many of these macros.
+    """
 
-    # remove trailing newline
-    if line[-1] == "\n":
-        line = line[:-1]
-    else:
-        original_line += "\n"
+    default_macros = [
+        crystal.DataByteWordMacro,
+    ]
 
-    # remove first tab
-    has_tab = False
-    if line[0] == "\t":
-        has_tab = True
-        line = line[1:]
+    def __init__(self, config, macros=None):
+        """
+        Setup the preprocessor.
+        """
+        self.config = config
 
-    # remove duplicate whitespace (also trailing)
-    line = " ".join(line.split())
+        if macros == None:
+            macros = Preprocessor.default_macros
 
-    params = []
+        self.macros = macros
+        self.macro_table = make_macro_table(self.macros)
 
-    # check if the line has params
-    if " " in line:
-        # split the line into separate parameters
-        params = line.replace(token, "").split(",")
+    def preprocess(self, lines=None):
+        """
+        Run the preprocessor against stdin.
+        """
+        if not lines:
+            # read each line from stdin
+            lines = (sys.stdin.readlines())
+        elif not isinstance(lines, list):
+            # split up the input into individual lines
+            lines = lines.split("\n")
 
-        # check if there are no params (redundant)
-        if len(params) == 1 and params[0] == "":
-            raise MacroException("macro has no params?")
+        for l in lines:
+            self.read_line(l)
 
-    # write out a comment showing the original line
-    if show_original_lines:
-        sys.stdout.write("; original_line: " + original_line)
+    def read_line(self, l):
+        """
+        Preprocesses a given line of asm.
+        """
 
-    # rgbasm can handle "db" so no preprocessing is required, plus this wont be
-    # reached because of earlier checks in macro_test.
-    if macro.macro_name in ["db", "dw"]:
-        sys.stdout.write(original_line)
-        return
+        if l in ["\n", ""] or l[0] == ";":
+            sys.stdout.write(l)
+            return # jump out early
 
-    # certain macros don't need an initial byte written
-    # do: all scripting macros
-    # don't: signpost, warp_def, person_event, xy_trigger
-    if not macro.override_byte_check:
-        sys.stdout.write("db ${0:02X}\n".format(macro.id))
+        # strip comments from asm
+        asm, comment = separate_comment(l)
 
-    # Does the number of parameters on this line match any allowed number of
-    # parameters that the macro expects?
-    if do_macro_sanity_check:
-        check_macro_sanity(params, macro, original_line)
+        # export all labels
+        if ':' in asm[:asm.find('"')] and "macro" not in asm.lower():
+            sys.stdout.write('GLOBAL ' + asm.split(':')[0] + '\n')
 
-    # used for storetext
-    correction = 0
-
-    output = ""
-
-    index = 0
-    while index < len(params):
-        param_type  = macro.param_types[index - correction]
-        description = param_type["name"]
-        param_klass = param_type["class"]
-        byte_type   = param_klass.byte_type # db or dw
-        size        = param_klass.size
-        param       = params[index].strip()
-
-        # param_klass.to_asm() won't work here because it doesn't
-        # include db/dw.
-
-        # some parameters are really multiple types of bytes
-        if (byte_type == "dw" and size != 2) or \
-           (byte_type == "db" and size != 1):
-
-            output += ("; " + description + "\n")
-
-            if   size == 3 and is_based_on(param_klass, "PointerLabelBeforeBank"):
-                # write the bank first
-                output += ("db " + param + "\n")
-                # write the pointer second
-                output += ("dw " + params[index+1].strip() + "\n")
-                index += 2
-                correction += 1
-            elif size == 3 and is_based_on(param_klass, "PointerLabelAfterBank"):
-                # write the pointer first
-                output += ("dw " + param + "\n")
-                # write the bank second
-                output += ("db " + params[index+1].strip() + "\n")
-                index += 2
-                correction += 1
-            elif size == 3 and "from_asm" in dir(param_klass):
-                output += ("db " + param_klass.from_asm(param) + "\n")
-                index += 1
-            else:
-                raise MacroException(
-                    "dunno what to do with this macro param ({klass}) in line: {line}"
-                    .format(
-                        klass=param_klass,
-                        line=original_line,
-                    )
-                )
-
-        # or just print out the byte
-        else:
-            output += (byte_type + " " + param + " ; " + description + "\n")
-
-            index += 1
-
-    sys.stdout.write(output)
-
-def read_line(l, macro_table):
-    """Preprocesses a given line of asm."""
-
-    if l in ["\n", ""] or l[0] == ";":
-        sys.stdout.write(l)
-        return # jump out early
-
-    # strip comments from asm
-    asm, comment = separate_comment(l)
-
-    # export all labels
-    if ':' in asm[:asm.find('"')] and "macro" not in asm.lower():
-        sys.stdout.write('GLOBAL ' + asm.split(':')[0] + '\n')
-
-    # expect preprocessed .asm files
-    if "INCLUDE" in asm:
-        asm = asm.replace('.asm','.tx')
-        sys.stdout.write(asm)
-
-    # ascii string macro preserves the bytes as ascii (skip the translator)
-    elif len(asm) > 6 and ("ascii " == asm[:6] or "\tascii " == asm[:7]):
-        asm = asm.replace("ascii", "db", 1)
-        sys.stdout.write(asm)
-
-    # convert text to bytes when a quote appears (not in a comment)
-    elif "\"" in asm:
-        sys.stdout.write(quote_translator(asm))
-
-    # check against other preprocessor features
-    else:
-        macro, token = macro_test(asm, macro_table)
-        if macro:
-            macro_translator(macro, token, asm)
-        else:
+        # expect preprocessed .asm files
+        if "INCLUDE" in asm:
+            asm = asm.replace('.asm','.tx')
             sys.stdout.write(asm)
 
-    if comment:
-        sys.stdout.write(comment)
+        # ascii string macro preserves the bytes as ascii (skip the translator)
+        elif len(asm) > 6 and ("ascii " == asm[:6] or "\tascii " == asm[:7]):
+            asm = asm.replace("ascii", "db", 1)
+            sys.stdout.write(asm)
 
-def preprocess(macro_table, lines=None):
-    """Main entry point for the preprocessor."""
+        # convert text to bytes when a quote appears (not in a comment)
+        elif "\"" in asm:
+            sys.stdout.write(quote_translator(asm))
 
-    if not lines:
-        # read each line from stdin
-        lines = (sys.stdin.readlines())
-    elif not isinstance(lines, list):
-        # split up the input into individual lines
-        lines = lines.split("\n")
+        # check against other preprocessor features
+        else:
+            macro, token = self.macro_test(asm)
+            if macro:
+                self.macro_translator(macro, token, asm)
+            else:
+                sys.stdout.write(asm)
 
-    for l in lines:
-        read_line(l, macro_table)
+        if comment:
+            sys.stdout.write(comment)
+
+    def macro_translator(self, macro, token, line, show_original_lines=False, do_macro_sanity_check=False):
+        """
+        Converts a line with a macro into a rgbasm-compatible line.
+
+        @param show_original_lines: show lines before preprocessing in stdout
+        @param do_macro_sanity_check: helpful for debugging macros
+        """
+        if macro.macro_name != token:
+            raise exceptions.MacroException("macro/token mismatch")
+
+        original_line = line
+
+        # remove trailing newline
+        if line[-1] == "\n":
+            line = line[:-1]
+        else:
+            original_line += "\n"
+
+        # remove first tab
+        has_tab = False
+        if line[0] == "\t":
+            has_tab = True
+            line = line[1:]
+
+        # remove duplicate whitespace (also trailing)
+        line = " ".join(line.split())
+
+        params = []
+
+        # check if the line has params
+        if " " in line:
+            # split the line into separate parameters
+            params = line.replace(token, "").split(",")
+
+            # check if there are no params (redundant)
+            if len(params) == 1 and params[0] == "":
+                raise exceptions.MacroException("macro has no params?")
+
+        # write out a comment showing the original line
+        if show_original_lines:
+            sys.stdout.write("; original_line: " + original_line)
+
+        # rgbasm can handle "db" so no preprocessing is required, plus this wont be
+        # reached because of earlier checks in macro_test.
+        if macro.macro_name in ["db", "dw"]:
+            sys.stdout.write(original_line)
+            return
+
+        # certain macros don't need an initial byte written
+        # do: all scripting macros
+        # don't: signpost, warp_def, person_event, xy_trigger
+        if not macro.override_byte_check:
+            sys.stdout.write("db ${0:02X}\n".format(macro.id))
+
+        # Does the number of parameters on this line match any allowed number of
+        # parameters that the macro expects?
+        if do_macro_sanity_check:
+            self.check_macro_sanity(params, macro, original_line)
+
+        # used for storetext
+        correction = 0
+
+        output = ""
+
+        index = 0
+        while index < len(params):
+            param_type  = macro.param_types[index - correction]
+            description = param_type["name"]
+            param_klass = param_type["class"]
+            byte_type   = param_klass.byte_type # db or dw
+            size        = param_klass.size
+            param       = params[index].strip()
+
+            # param_klass.to_asm() won't work here because it doesn't
+            # include db/dw.
+
+            # some parameters are really multiple types of bytes
+            if (byte_type == "dw" and size != 2) or \
+               (byte_type == "db" and size != 1):
+
+                output += ("; " + description + "\n")
+
+                if   size == 3 and is_based_on(param_klass, "PointerLabelBeforeBank"):
+                    # write the bank first
+                    output += ("db " + param + "\n")
+                    # write the pointer second
+                    output += ("dw " + params[index+1].strip() + "\n")
+                    index += 2
+                    correction += 1
+                elif size == 3 and is_based_on(param_klass, "PointerLabelAfterBank"):
+                    # write the pointer first
+                    output += ("dw " + param + "\n")
+                    # write the bank second
+                    output += ("db " + params[index+1].strip() + "\n")
+                    index += 2
+                    correction += 1
+                elif size == 3 and "from_asm" in dir(param_klass):
+                    output += ("db " + param_klass.from_asm(param) + "\n")
+                    index += 1
+                else:
+                    raise exceptions.MacroException(
+                        "dunno what to do with this macro param ({klass}) in line: {line}"
+                        .format(
+                            klass=param_klass,
+                            line=original_line,
+                        )
+                    )
+
+            # or just print out the byte
+            else:
+                output += (byte_type + " " + param + " ; " + description + "\n")
+
+                index += 1
+
+        sys.stdout.write(output)
+
+    def macro_test(self, asm):
+        """
+        Returns a matching macro, or None/False.
+        """
+        # macros are determined by the first symbol on the line
+        token = extract_token(asm)
+
+        # skip db and dw since rgbasm handles those and they aren't macros
+        if token is not None and token not in ["db", "dw"] and token in self.macro_table:
+            return (self.macro_table[token], token)
+        else:
+            return (None, None)

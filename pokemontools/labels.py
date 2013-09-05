@@ -3,7 +3,37 @@
 Various label/line-related functions.
 """
 
+import os
+import json
+
 import pointers
+import crystal
+
+class Labels(object):
+    """
+    Store all labels.
+    """
+    filename = "labels.json"
+
+    def __init__(self, config):
+        """
+        Setup the instance.
+        """
+        self.config = config
+        self.path = os.path.join(self.config.path, Labels.filename)
+
+    def initialize(self):
+        """
+        Handle anything requiring file-loading and such.
+        """
+        if not os.path.exists(self.path):
+            logging.info(
+                "Running crystal.scan_for_predefined_labels to create \"{0}\". Trying.."
+                .format(Labels.filename)
+            )
+            crystal.scan_for_predefined_labels()
+
+        self.labels = json.read(open(self.path, "r").read())
 
 def remove_quoted_text(line):
     """get rid of content inside quotes
