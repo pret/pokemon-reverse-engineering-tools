@@ -5,6 +5,7 @@ Various label/line-related functions.
 
 import os
 import json
+import logging
 
 import pointers
 import crystal
