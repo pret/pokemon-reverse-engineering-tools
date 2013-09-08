@@ -758,36 +758,6 @@ class crystal:
     """
 
     @staticmethod
-    def better_text_wait(limit=500):
-        """
-        Try to get out of text.
-        """
-        done = False
-
-        while not done:
-            if limit == 0:
-                raise Exception("limit reached")
-
-            press("a", holdsteps=10, aftersteps=1)
-
-            stack = get_stack()
-
-            # PrintLetterDelay
-            pld = range(0x313d, 0x318c)
-
-            delayframes = range(0x468, 0x46f)
-
-            if any([address in stack for address in [0xaef] + pld + delayframes + range(0xa35, 0xa46)]):
-                press("a", holdsteps=10, aftersteps=1)
-            else:
-                print str([hex(x) for x in stack])
-                break
-
-            limit = limit - 1
-
-        print "limit is: " + str(limit)
-
-    @staticmethod
     def text_wait(step_size=1, max_wait=200, sfx_limit=0, debug=False, callback=None):
         """
         Presses the "A" button when text is done being drawn to screen.
@@ -1169,32 +1139,6 @@ class crystal:
         #while memory[0xd043] in [0, 1, 2, 3] or memory[0xd042] != 0x3e:
             nstep(10)
             memory = get_memory()
-
-    @staticmethod
-    def bad_move_d042(cmd, limit=1000):
-        """
-        Move until not moving.
-        """
-        press(cmd, holdsteps=10, aftersteps=0)
-        press([])
-
-        # still standing? probably at a wall or something.
-        if get_memory()[0xd042] == 0x3e:
-            return
-
-        counter = 0
-
-        # this doesn't work because sometimes 0xd042 happens more/less times
-        while counter <= 6:
-            # check MovementAnimation
-            if get_memory()[0xd042] != 0x3e:
-                print "0xd042 is not 0x3e"
-                counter += 1
-
-            # make the emulator state advance one frame or w/e
-            step()
-
-        print "counter: " + str(counter)
 
 class TestEmulator(unittest.TestCase):
     try:
