@@ -19,6 +19,9 @@ def main():
     # walk to mom and handle her text
     handle_mom()
 
+    # walk outside into new bark town
+    walk_into_new_bark_town()
+
     # walk to elm and do whatever he wants
     handle_elm("totodile")
 
@@ -62,6 +65,7 @@ def skip_intro():
     """
     Skip the game boot intro sequence.
     """
+
     # copyright sequence
     vba.nstep(400)
 
@@ -76,79 +80,42 @@ def skip_intro():
     # click "new game"
     vba.press("a", holdsteps=50, aftersteps=1)
 
-    # Are you a boy? Or are you a girl?
-    vba.nstep(145)
+    # skip text up to "Are you a boy? Or are you a girl?"
+    vba.crystal.text_wait()
 
-    # pick "boy"
+    # select "Boy"
     vba.press("a", holdsteps=50, aftersteps=1)
 
-    # ....
+    # text until "What time is it?"
     vba.crystal.text_wait()
 
-    vba.crystal.text_wait()
-
-    # What time is it?
-    vba.crystal.text_wait()
-
-    # DAY 10 o'clock
+    # select 10 o'clock
     vba.press("a", holdsteps=50, aftersteps=1)
 
-    # WHAT? DAY 10 o'clock? YES/NO.
+    # yes i mean it
     vba.press("a", holdsteps=50, aftersteps=1)
 
-    # How many minutes? 0 min.
+    # "How many minutes?" 0 min.
     vba.press("a", holdsteps=50, aftersteps=1)
 
-    # Whoa! 0 min.? YES/NO.
+    # "Who! 0 min.?" yes/no select yes
     vba.press("a", holdsteps=50, aftersteps=1)
 
-    vba.crystal.text_wait()
-    vba.crystal.text_wait()
-
-    # People call me
-    vba.crystal.text_wait()
+    # read text until name selection
     vba.crystal.text_wait()
 
-    # tures that we call
-    vba.crystal.text_wait()
-
-    vba.crystal.text_wait()
-    vba.crystal.text_wait()
-
-    vba.crystal.text_wait()
-    vba.crystal.text_wait()
-
-    vba.crystal.text_wait()
-
-    # everything about pokemon yet.
-    vba.crystal.text_wait()
-    vba.crystal.text_wait()
-
-    vba.crystal.text_wait()
-    vba.crystal.text_wait()
-    vba.crystal.text_wait()
-    vba.crystal.text_wait()
-
-    # Now, what did you say your name was?
-    vba.crystal.text_wait()
-
-    # move down to "CHRIS"
-    vba.press("d")
-    vba.nstep(50)
-
+    # select "Chris"
+    vba.press("d", holdsteps=10, aftersteps=1)
     vba.press("a", holdsteps=50, aftersteps=1)
 
-    vba.crystal.text_wait()
-    vba.crystal.text_wait()
-    vba.crystal.text_wait()
-    vba.crystal.text_wait()
-    vba.crystal.text_wait()
-    vba.crystal.text_wait()
-    vba.crystal.text_wait()
+    def overworldcheck():
+        """
+        A basic check for when the game starts.
+        """
+        return vba.get_memory_at(0xcfb1) != 0
 
-    # wait until playable
-    # could be 150, but it sometimes takes longer??
-    vba.nstep(200)
+    # go until the introduction is done
+    vba.crystal.text_wait(callback=overworldcheck)
 
     return
 
@@ -157,75 +124,71 @@ def handle_mom():
     """
     Walk to mom. Handle her speech and questions.
     """
-    vba.press("r"); vba.nstep(50)
-    vba.press("r"); vba.nstep(50)
-    vba.press("r"); vba.nstep(50)
-    vba.press("r"); vba.nstep(50)
-    vba.press("r"); vba.nstep(50)
-    vba.press("u"); vba.nstep(50)
-    vba.press("u"); vba.nstep(50)
-    vba.press("u"); vba.nstep(50)
-    vba.press("u"); vba.nstep(50)
 
-    # wait for next map to load
-    vba.nstep(50)
+    vba.crystal.move("r")
+    vba.crystal.move("r")
+    vba.crystal.move("r")
+    vba.crystal.move("r")
 
-    vba.press("d"); vba.nstep(50)
-    vba.press("d"); vba.nstep(50)
-    vba.press("d"); vba.nstep(50)
+    vba.crystal.move("u")
+    vba.crystal.move("u")
+    vba.crystal.move("u")
 
-    # walk into mom's line of sight
-    vba.press("d"); vba.nstep(50)
+    vba.crystal.move("d")
+    vba.crystal.move("d")
 
-    vba.nstep(50)
-    vba.crystal.text_wait()
-    vba.crystal.text_wait()
-    vba.crystal.text_wait()
-    vba.crystal.text_wait()
-    vba.crystal.text_wait()
-    vba.crystal.text_wait()
-    vba.crystal.text_wait()
-    vba.crystal.text_wait()
-    vba.crystal.text_wait()
-    vba.crystal.text_wait()
-    vba.crystal.text_wait()
+    # move into mom's line of sight
+    vba.crystal.move("d")
+
+    # let mom talk until "What day is it?"
     vba.crystal.text_wait()
 
-    # What day is it? SUNDAY.
-    vba.press("a", holdsteps=50, aftersteps=1)
-
-    # SUNDAY, is it? YES/NO
-    vba.press("a", holdsteps=50, aftersteps=1)
-
-    vba.nstep(200)
-
-    # is it DST now? YES/NO.
-    vba.press("a", holdsteps=50, aftersteps=1)
-
-    # 10:06 AM DST, is that OK? YES/NO.
-    vba.press("a", holdsteps=50, aftersteps=1)
+    # "What day is it?" Sunday
+    vba.press("a", holdsteps=10) # Sunday
 
     vba.crystal.text_wait()
-    vba.crystal.text_wait()
-    vba.crystal.text_wait()
 
-    # know how to use the PHONE? YES/NO.
-    vba.press("a", holdsteps=50, aftersteps=1)
+    # "SUNDAY, is it?" yes/no
+    vba.press("a", holdsteps=10) # yes
 
     vba.crystal.text_wait()
-    vba.crystal.text_wait()
-    vba.crystal.text_wait()
+
+    # "Is it Daylight Saving Time now?" yes/no
+    vba.press("a", holdsteps=10) # yes
+
     vba.crystal.text_wait()
 
-    vba.press("a", holdsteps=50, aftersteps=1)
+    # "AM DST, is that OK?" yes/no
+    vba.press("a", holdsteps=10) # yes
 
-    # have to wait for her to move back :(
-    vba.nstep(50)
+    # text until "know how to use the PHONE?" yes/no
+    vba.crystal.text_wait()
 
-    # face down
-    vba.press("d"); vba.nstep(50)
+    # press yes
+    vba.press("a", holdsteps=10)
+
+    # wait until mom is done talking
+    vba.crystal.text_wait()
+
+    # wait until the script is done running
+    vba.crystal.wait_for_script_running()
 
     return
+
+@skippable
+def walk_into_new_bark_town():
+    """
+    Walk outside after talking with mom.
+    """
+
+    vba.crystal.move("d")
+    vba.crystal.move("d")
+    vba.crystal.move("d")
+    vba.crystal.move("l")
+    vba.crystal.move("l")
+
+    # walk outside
+    vba.crystal.move("d")
 
 @skippable
 def handle_elm(starter_choice):
@@ -233,204 +196,123 @@ def handle_elm(starter_choice):
     Walk to Elm's Lab and get a starter.
     """
 
-    # walk down
-    vba.press("d"); vba.nstep(50)
-    vba.press("d"); vba.nstep(50)
+    # walk to the lab
+    vba.crystal.move("l")
+    vba.crystal.move("l")
+    vba.crystal.move("l")
+    vba.crystal.move("l")
+    vba.crystal.move("l")
+    vba.crystal.move("l")
+    vba.crystal.move("l")
+    vba.crystal.move("u")
+    vba.crystal.move("u")
 
-    # face left
-    vba.press("l"); vba.nstep(50)
+    # walk into the lab
+    vba.crystal.move("u")
 
-    # walk left
-    vba.press("l"); vba.nstep(50)
-    vba.press("l"); vba.nstep(50)
-
-    # face down
-    vba.press("d"); vba.nstep(50)
-
-    # walk down
-    vba.press("d"); vba.nstep(50)
-
-    # walk down to warp to outside
-    vba.press("d"); vba.nstep(50)
-    vba.nstep(10)
-
-    vba.press("l", holdsteps=10, aftersteps=50)
-    vba.press("l", holdsteps=10, aftersteps=50)
-    vba.press("l", holdsteps=10, aftersteps=50)
-
-    vba.press("l", holdsteps=10, aftersteps=50)
-    vba.press("l", holdsteps=10, aftersteps=50)
-    vba.press("l", holdsteps=10, aftersteps=50)
-    vba.press("l", holdsteps=10, aftersteps=50)
-
-    vba.press("u", holdsteps=10, aftersteps=50)
-    vba.press("u", holdsteps=10, aftersteps=50)
-
-    # warp into elm's lab (bottom left warp)
-    vba.press("u", holdsteps=5, aftersteps=50)
-
-    # let the script play
-    vba.nstep(200)
-
+    # talk to elm
     vba.crystal.text_wait()
-    # I needed to ask you a fa
 
+    # "that I recently caught." yes/no
+    vba.press("a", holdsteps=10) # yes
+
+    # talk to elm some more
     vba.crystal.text_wait()
-    vba.crystal.text_wait()
-    vba.crystal.text_wait()
-    vba.crystal.text_wait()
-    vba.crystal.text_wait()
-    vba.crystal.text_wait()
-    vba.crystal.text_wait()
-    vba.crystal.text_wait()
+
+    # talking isn't done yet..
     vba.crystal.text_wait()
     vba.crystal.text_wait()
     vba.crystal.text_wait()
 
-    vba.nstep(50)
+    # wait until the script is done running
+    vba.crystal.wait_for_script_running()
 
-    # YES/NO.
-    vba.press("a")
+    # move toward the pokeballs
+    vba.crystal.move("r")
 
-    vba.crystal.text_wait()
-    vba.crystal.text_wait()
-    vba.crystal.text_wait()
-    vba.crystal.text_wait()
-    vba.crystal.text_wait()
+    # move to cyndaquil
+    vba.crystal.move("r")
 
-    vba.press("a")
+    moves = 0
 
-    vba.crystal.text_wait()
-    vba.crystal.text_wait()
-    vba.press("a")
-    vba.crystal.text_wait()
-    vba.crystal.text_wait()
-
-    vba.crystal.text_wait()
-
-    for x in range(0, 8): # was 15
-        vba.crystal.text_wait()
-
-    vba.nstep(50)
-    vba.press("a")
-    vba.nstep(100)
-
-    vba.crystal.text_wait()
-    vba.crystal.text_wait()
-    vba.crystal.text_wait()
-    vba.crystal.text_wait()
-
-    # Go on! Pick one.
-    vba.nstep(100)
-    vba.press("a"); vba.nstep(50)
-
-    vba.press("r"); vba.nstep(50)
-    vba.press("r"); vba.nstep(50)
-
-    right = 0
-    if starter_choice in [1, "cyndaquil"]:
-        right = 0
-    elif starter_choice in [2, "totodile"]:
-        right = 1
-    elif starter_choice in [3, "chikorita"]:
-        right = 2
+    if starter_choice.lower() == "cyndaquil":
+        moves = 0
+    if starter_choice.lower() == "totodile":
+        moves = 1
     else:
-        raise Exception("bad starter")
+        moves = 2
 
-    for each in range(0, right):
-        vba.press("r"); vba.nstep(50)
+    for each in range(0, moves):
+        vba.crystal.move("r")
 
-    # look up
-    vba.press("u", holdsteps=5, aftersteps=50)
+    # face the pokeball
+    vba.crystal.move("u")
 
-    # get menu
-    vba.press("a", holdsteps=5, aftersteps=50)
+    # select it
+    vba.press("a", holdsteps=10, aftersteps=0)
 
-    # let the image show
-    vba.nstep(100)
+    # wait for the image to pop up
+    vba.crystal.text_wait()
 
+    # wait for the image to close
+    vba.crystal.text_wait()
+
+    # wait for the yes/no box
+    vba.crystal.text_wait()
+
+    # press yes
+    vba.press("a", holdsteps=10, aftersteps=0)
+
+    # wait for elm to talk a bit
+    vba.crystal.text_wait()
+
+    # TODO: why didn't that finish his talking?
+    vba.crystal.text_wait()
+
+    # give a nickname? yes/no
+    vba.press("d", holdsteps=10, aftersteps=0) # move to "no"
+    vba.press("a", holdsteps=10, aftersteps=0) # no
+
+    # TODO: why didn't this wait until he was completely done?
     vba.crystal.text_wait()
     vba.crystal.text_wait()
 
-    # YES/NO.
-    vba.press("a")
+    # get the phone number
+    vba.crystal.text_wait()
 
+    # talk with elm a bit more
+    vba.crystal.text_wait()
+
+    # TODO: and again.. wtf?
+    vba.crystal.text_wait()
+
+    # wait until the script is done running
+    vba.crystal.wait_for_script_running()
+
+    # move down
+    vba.crystal.move("d")
+    vba.crystal.move("d")
+    vba.crystal.move("d")
+    vba.crystal.move("d")
+
+    # move into the researcher's line of sight
+    vba.crystal.move("d")
+
+    # get the potion from the person
     vba.crystal.text_wait()
     vba.crystal.text_wait()
 
-    # received.. music is playing.
-    vba.press("a")
-    vba.crystal.text_wait()
+    # wait for the script to end
+    vba.crystal.wait_for_script_running()
 
-    # YES/NO (nickname)
-    vba.crystal.text_wait()
+    vba.crystal.move("d")
+    vba.crystal.move("d")
+    vba.crystal.move("d")
 
-    vba.press("b")
+    # go outside
+    vba.crystal.move("d")
 
-    # get back to elm
-    vba.nstep(100)
-    vba.nstep(100)
-
-    vba.crystal.text_wait()
-    vba.crystal.text_wait()
-    vba.crystal.text_wait()
-    vba.crystal.text_wait()
-    vba.crystal.text_wait()
-
-    # phone number..
-    vba.press("a")
-    vba.crystal.text_wait()
-    vba.nstep(100)
-    vba.press("a")
-    vba.nstep(300)
-    vba.press("a")
-    vba.nstep(100)
-
-    vba.crystal.text_wait()
-    vba.crystal.text_wait()
-    vba.crystal.text_wait()
-
-    # I'm counting on you!
-    vba.nstep(200)
-    vba.press("a")
-    vba.nstep(50)
-
-    # look down
-    vba.press("d", holdsteps=5, aftersteps=50)
-
-    # walk down
-    vba.press("d", holdsteps=10, aftersteps=50)
-
-    vba.press("d", holdsteps=10, aftersteps=50)
-    vba.press("d", holdsteps=10, aftersteps=50)
-    vba.press("d", holdsteps=10, aftersteps=50)
-    vba.press("d", holdsteps=10, aftersteps=50)
-
-    vba.crystal.text_wait()
-    vba.crystal.text_wait()
-
-    vba.press("a")
-    vba.nstep(50)
-    vba.press("a")
-
-    vba.crystal.text_wait()
-    vba.crystal.text_wait()
-
-    vba.press("a")
-    vba.nstep(50)
-
-    vba.crystal.text_wait()
-    vba.press("a")
-
-    vba.nstep(100)
-
-    vba.press("d", holdsteps=10, aftersteps=50)
-    vba.press("d", holdsteps=10, aftersteps=50)
-    vba.press("d", holdsteps=10, aftersteps=50)
-    vba.press("d", holdsteps=10, aftersteps=50)
-
-    # step outside
-    vba.nstep(40)
+    return
 
 @skippable
 def new_bark_level_grind(level):
@@ -445,24 +327,169 @@ def new_bark_level_grind(level):
     new_bark_level_grind_walk_to_grass(skip=False)
 
     # TODO: walk around in grass, handle battles
-    # TODO: heal at the lab, then repeat entire function
+    walk = ["d", "d", "u", "d", "u", "d"]
+    for direction in walk:
+        vba.crystal.move(direction)
+
+    # wait for wild battle to completely start
+    vba.crystal.text_wait()
+
+    attacks = 5
+
+    while attacks > 0:
+        # FIGHT
+        vba.press("a", holdsteps=10, aftersteps=1)
+
+        # wait to select a move
+        vba.crystal.text_wait()
+
+        # SCRATCH
+        vba.press("a", holdsteps=10, aftersteps=1)
+
+        # wait for the move to be over
+        vba.crystal.text_wait()
+
+        hp = ((vba.get_memory_at(0xd218) << 8) | vba.get_memory_at(0xd217))
+        print "enemy hp is: " + str(hp)
+
+        if hp == 0:
+            print "enemy hp is zero, exiting"
+            break
+        else:
+            print "enemy hp is: " + str(hp)
+
+        attacks = attacks - 1
+
+    while vba.get_memory_at(0xd22d) != 0:
+        vba.press("a", holdsteps=10, aftersteps=1)
+
+    # wait for the map to finish loading
+    vba.nstep(50)
+
+    print "okay, back in the overworld"
+
+    # move up
+    vba.crystal.move("u")
+    vba.crystal.move("u")
+    vba.crystal.move("u")
+    vba.crystal.move("u")
+
+    # move into new bark town
+    vba.crystal.move("r")
+    vba.crystal.move("r")
+    vba.crystal.move("r")
+    vba.crystal.move("r")
+    vba.crystal.move("r")
+    vba.crystal.move("r")
+    vba.crystal.move("r")
+    vba.crystal.move("r")
+    vba.crystal.move("r")
+    vba.crystal.move("r")
+
+    # move up
+    vba.crystal.move("u")
+    vba.crystal.move("u")
+    vba.crystal.move("u")
+    vba.crystal.move("u")
+    vba.crystal.move("u")
+
+    # move to the door
+    vba.crystal.move("r")
+    vba.crystal.move("r")
+    vba.crystal.move("r")
+
+    # walk in
+    vba.crystal.move("u")
+
+    # move up to the healing thing
+    vba.crystal.move("u")
+    vba.crystal.move("u")
+    vba.crystal.move("u")
+    vba.crystal.move("u")
+    vba.crystal.move("u")
+    vba.crystal.move("u")
+    vba.crystal.move("u")
+    vba.crystal.move("u")
+    vba.crystal.move("u")
+    vba.crystal.move("l")
+    vba.crystal.move("l")
+
+    # face it
+    vba.crystal.move("u")
+
+    # interact
+    vba.press("a", holdsteps=10, aftersteps=1)
+
+    # wait for yes/no box
+    vba.crystal.text_wait()
+
+    # press yes
+    vba.press("a", holdsteps=10, aftersteps=1)
+
+    # TODO: when is healing done?
+
+    # wait until the script is done running
+    vba.crystal.wait_for_script_running()
+
+    # wait for it to be really really done
+    vba.nstep(50)
+
+    vba.crystal.move("r")
+    vba.crystal.move("r")
+
+    # move to the door
+    vba.crystal.move("d")
+    vba.crystal.move("d")
+    vba.crystal.move("d")
+    vba.crystal.move("d")
+    vba.crystal.move("d")
+    vba.crystal.move("d")
+    vba.crystal.move("d")
+    vba.crystal.move("d")
+    vba.crystal.move("d")
+
+    # walk out
+    vba.crystal.move("d")
+
+    # check partymon1 level
+    if vba.get_memory_at(0xdcfe) < level:
+        new_bark_level_grind(level, skip=False)
+    else:
+        return
 
 @skippable
-def new_bark_level_grind_travel_to_grass():
+def new_bark_level_grind_walk_to_grass():
     """
-    Move to just above the grass.
+    Move to just above the grass from outside Elm's lab.
     """
-    vba.press("d", holdsteps=10, aftersteps=50)
-    vba.press("d", holdsteps=10, aftersteps=50)
-    vba.press("d", holdsteps=10, aftersteps=50)
 
-    vba.press("l", holdsteps=10, aftersteps=50)
-    vba.press("l", holdsteps=10, aftersteps=50)
-    vba.press("l", holdsteps=10, aftersteps=50)
-    vba.press("l", holdsteps=10, aftersteps=50)
+    vba.crystal.move("d")
+    vba.crystal.move("d")
 
-    vba.press("d", holdsteps=10, aftersteps=50)
-    vba.press("d", holdsteps=10, aftersteps=50)
+    vba.crystal.move("l")
+    vba.crystal.move("l")
+
+    vba.crystal.move("d")
+    vba.crystal.move("d")
+
+    vba.crystal.move("l")
+    vba.crystal.move("l")
+
+    # move to route 29 past the trees
+    vba.crystal.move("l")
+    vba.crystal.move("l")
+    vba.crystal.move("l")
+    vba.crystal.move("l")
+    vba.crystal.move("l")
+    vba.crystal.move("l")
+    vba.crystal.move("l")
+    vba.crystal.move("l")
+    vba.crystal.move("l")
+
+    # move to just above the grass
+    vba.crystal.move("d")
+    vba.crystal.move("d")
+    vba.crystal.move("d")
 
 if __name__ == "__main__":
     main()
