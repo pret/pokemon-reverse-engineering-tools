@@ -115,7 +115,7 @@ except ImportError:
     print "Not loading the keyboard module (which uses networkx)."
 
 if not os.path.exists(rom_path):
-    raise Exception("rom_path is not configured properly; edit vba_config.py?")
+    raise Exception("rom_path is not configured properly; edit vba_config.py? " + str(rom_path))
 
 def _check_java_library_path():
     """
@@ -736,30 +736,112 @@ class cheats:
         """
         Gb.cheatAddGameshark(code, description)
 
-class crystal:
+def get_stack():
+    """
+    Return a list of functions on the stack.
+    """
+    addresses = []
+    sp = registers.sp
 
+    for x in range(0, 11):
+        sp = sp - (2 * x)
+        hi = get_memory_at(sp + 1)
+        lo = get_memory_at(sp)
+        address = ((hi << 8) | lo)
+        addresses.append(address)
+
+    return addresses
+
+class crystal:
     """
     Just a simple namespace to store a bunch of functions for Pokémon Crystal.
     """
 
     @staticmethod
-    def text_wait(step_size=10, max_wait=500):
+    def text_wait(step_size=1, max_wait=200, sfx_limit=0, debug=False, callback=None):
         """
         Presses the "A" button when text is done being drawn to screen.
+
+        The `debug` parameter is only useful when debugging this function. It
+        enables the `max_wait` feature, which causes the function to exit
+        instead of hanging around.
+
+        The `sfx_limit` parameter is useful for when the player is given an
+        item during the text. Set it to 1 to not treat the sound as the end of
+        text. The next loop around it will return to the normal behavior of the
+        function.
 
         :param step_size: number of steps per wait loop
         :param max_wait: number of wait loops to perform
         """
-        for x in range(0, max_wait):
+        while max_wait > 0:
             hi = get_memory_at(registers.sp + 1)
             lo = get_memory_at(registers.sp)
             address = ((hi << 8) | lo)
-            if address == 0xaef:
-                break
-            else:
-                nstep(step_size)
 
-        press("a", holdsteps=50, aftersteps=1)
+            if address in range(0xa1b, 0xa46) + range(0xaaf, 0xaf5): #  0xaef:
+                print "pressing, then breaking.. address is: " + str(hex(address))
+
+                # set CurSFX
+                set_memory_at(0xc2bf, 0)
+
+                press("a", holdsteps=10, aftersteps=1)
+
+                # check if CurSFX is SFX_READ_TEXT_2
+                if get_memory_at(0xc2bf) == 0x8:
+                    print "cursfx is set to SFX_READ_TEXT_2, looping.."
+                    return crystal.text_wait(step_size=step_size, max_wait=max_wait, debug=debug, callback=callback, sfx_limit=sfx_limit)
+                else:
+                    if sfx_limit > 0:
+                        sfx_limit = sfx_limit - 1
+                        print "decreasing sfx_limit"
+                    else:
+                        # probably the last textbox in a sequence
+                        print "cursfx is not set to SFX_READ_TEXT_2, so: breaking"
+
+                        break
+            else:
+                stack = get_stack()
+
+                # yes/no box or the name selection box
+                if address in range(0xa46, 0xaaf):
+                    print "probably at a yes/no box.. exiting."
+                    break
+
+                # date/time box (day choice)
+                # 0x47ab is the one from the intro, 0x49ab is the one from mom.
+                elif 0x47ab in stack or 0x49ab in stack: # was any([x in stack for x in range(0x46EE, 0x47AB)])
+                    print "probably at a date/time box ? exiting."
+                    break
+
+                # "How many minutes?" selection box
+                elif 0x4826 in stack:
+                    print "probably at a \"How many minutes?\" box ? exiting."
+                    break
+
+                else:
+                    nstep(step_size)
+
+            # if there is a callback, then call the callback and exit when the
+            # callback returns True. This is especially useful during the
+            # OakSpeech intro where textboxes are running constantly, and then
+            # suddenly the player can move around. One way to detect that is to
+            # set callback to a function that returns
+            # "vba.get_memory_at(0xcfb1) != 0".
+            if callback != None:
+                result = callback()
+                if result == True:
+                    print "callback returned True, exiting"
+                    return
+
+            # only useful when debugging. When this is left on, text that
+            # takes a while to print to screen will cause this function to
+            # exit.
+            if debug == True:
+                max_wait = max_wait - 1
+
+        if max_wait == 0:
+            print "max_wait was hit"
 
     @staticmethod
     def walk_through_walls_slow():
@@ -1024,6 +1106,39 @@ class crystal:
         memory[0xdd34] = 0x40
 
         set_memory(memory)
+
+    @staticmethod
+    def wait_for_script_running(debug=False, limit=1000):
+        """
+        Wait until ScriptRunning isn't -1.
+        """
+        while limit > 0:
+            if get_memory_at(0xd438) != 255:
+                print "script is done executing"
+                return
+            else:
+                step()
+
+            if debug:
+                limit = limit - 1
+
+        if limit == 0:
+            print "limit ran out"
+
+    @staticmethod
+    def move(cmd):
+        """
+        Attempt to move the player.
+        """
+        press(cmd, holdsteps=10, aftersteps=0)
+        press([])
+
+        memory = get_memory()
+        #while memory[0xd4e1] == 2 and memory[0xd042] != 0x3e:
+        while memory[0xd043] in [0, 1, 2, 3]:
+        #while memory[0xd043] in [0, 1, 2, 3] or memory[0xd042] != 0x3e:
+            nstep(10)
+            memory = get_memory()
 
 class TestEmulator(unittest.TestCase):
     try:
