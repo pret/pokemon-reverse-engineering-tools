@@ -106,9 +106,14 @@ import com.aurellem.gb.Gb as Gb
 # load the vba-clojure library
 Gb.loadVBA()
 
-from vba_config import *
-
 import keyboard
+
+# just use a default config for now until the globals are removed completely
+import pokemontools.config as conf
+config = conf.Config()
+project_path = config.path
+save_state_path = config.save_state_path
+rom_path = config.rom_path
 
 if not os.path.exists(rom_path):
     raise Exception("rom_path is not configured properly; edit vba_config.py? " + str(rom_path))
