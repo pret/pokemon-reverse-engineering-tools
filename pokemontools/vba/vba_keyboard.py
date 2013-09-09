@@ -10,7 +10,8 @@ import networkx
 graph = networkx.DiGraph()
 
 # load graph data from file
-graph_data = open("keyboard.data", "r").read()
+data_path = os.path.join(os.path.abspath(__file__), "keyboard.data")
+graph_data = open(data_path, "r").read()
 
 for line in graph_data.split("\n"):
     if line == "":
