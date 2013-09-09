@@ -11,7 +11,7 @@ import networkx
 graph = networkx.DiGraph()
 
 # load graph data from file
-data_path = os.path.join(os.path.abspath(__file__), "keyboard.data")
+data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "keyboard.data")
 graph_data = open(data_path, "r").read()
 
 for line in graph_data.split("\n"):
