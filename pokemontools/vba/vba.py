@@ -1,4 +1,3 @@
-#!/usr/bin/jython
 # -*- encoding: utf-8 -*-
 """
 vba-clojure (but really it's jython/python/jvm)

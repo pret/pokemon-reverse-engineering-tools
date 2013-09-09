@@ -1,4 +1,3 @@
-#!/usr/bin/jython
 # -*- encoding: utf-8 -*-
 import os
 
