@@ -4,12 +4,12 @@ Tests for VBA automation tools
 
 import unittest
 
-import vba
+import pokemontools.vba.vba as vba
 
 try:
-    import vba_autoplayer
+    import pokemontools.vba.vba_autoplayer
 except ImportError:
-    import autoplayer as vba_autoplayer
+    import pokemontools.vba.autoplayer as vba_autoplayer
 
 vba_autoplayer.vba = vba
 
