@@ -66,15 +66,6 @@ Usage (in jython, not python):
     vba.get_memory_at(0xDCDA)
     vba.set_memory_at(0xDCDB, 0xFF)
     vba.get_memory_range(0xDCDA, 10)
-
-TOOD:
-    [ ] set a specific register
-    [ ] get a specific register
-    [ ] breakpoints
-    [ ] vgm stuff
-    [ ] gbz80disasm integration
-    [ ] pokecrystal.extras integration
-
 """
 
 import os
