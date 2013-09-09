@@ -1,4 +1,4 @@
-# -*- encoding: utf-8 -*-
+# -*- coding: utf-8 -*-
 import os
 
 # by default we assume the user has vba in pokecrystal/extras

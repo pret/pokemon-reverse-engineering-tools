@@ -1,4 +1,4 @@
-# -*- encoding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 vba-clojure (but really it's jython/python/jvm)
 
