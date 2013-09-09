@@ -87,9 +87,9 @@ from copy import copy
 import unittest
 
 # for converting bytes to readable text
-from chars import chars
+from pokemontools.chars import chars
 
-from map_names import map_names
+from pokemontools.map_names import map_names
 
 # for _check_java_library_path
 from java.lang import System
