@@ -1,4 +1,4 @@
-# -*- encoding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 This file constructs a networkx.DiGraph object called graph, which can be used
 to find the shortest path of keypresses on the keyboard to type a word.
