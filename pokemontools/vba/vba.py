@@ -109,10 +109,7 @@ Gb.loadVBA()
 
 from vba_config import *
 
-try:
-    import vba_keyboard as keyboard
-except ImportError:
-    print "Not loading the keyboard module (which uses networkx)."
+import keyboard
 
 if not os.path.exists(rom_path):
     raise Exception("rom_path is not configured properly; edit vba_config.py? " + str(rom_path))
