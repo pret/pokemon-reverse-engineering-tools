@@ -631,7 +631,7 @@ class Disassembler(object):
         if local_address < 0x8000:
             for label_entry in self.labels.labels:
                 if get_local_address(label_entry["address"]) == local_address:
-                    if label_entry["bank"] == bank_id or label_entry["bank"] == 0:
+                    if "bank" in label_entry and (label_entry["bank"] == bank_id or label_entry["bank"] == 0):
                         return label_entry["label"]
         if local_address in self.wram.wram_labels.keys():
             return self.wram.wram_labels[local_address][-1]
