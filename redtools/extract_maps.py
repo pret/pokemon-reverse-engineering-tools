@@ -2,6 +2,7 @@
 #date: 2012-01-02
 #url: http://hax.iimarck.us/files/rbheaders.txt
 import json
+import os
 
 #parse hex values as base 16 (see calculate_pointer)
 base = 16
