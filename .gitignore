@@ -36,3 +36,4 @@ png.py
 # python packaging
 pokemontools.egg-info/
 dist/
+build/
