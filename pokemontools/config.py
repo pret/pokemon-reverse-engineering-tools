@@ -31,6 +31,14 @@ class Config(object):
         if "path" not in self._config:
             self._config["path"] = os.getcwd()
 
+        # vba save states go into ./save-states/
+        if "save_state_path" not in self._config:
+            self._config["save_state_path"] = os.path.join(self._config["path"], "save-states/")
+
+        # assume rom is at ./baserom.gbc
+        if "rom" not in self._config:
+            self._config["rom_path"] = os.path.join(self._config["path"], "baserom.gbc")
+
     def __getattr__(self, key):
         """
         Grab the value from the class properties, then check the configuration,
