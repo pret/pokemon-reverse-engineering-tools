@@ -2,12 +2,13 @@
 #date: 2012-01-02
 #url: http://hax.iimarck.us/files/rbheaders.txt
 import json
+import os
 
 #parse hex values as base 16 (see calculate_pointer)
 base = 16
 
-#where to load the rom from
-rom_filename = "../baserom.gbc"
+# TODO: load the rom based on config.rom_path
+rom_filename = os.path.join(os.getcwd(), "baserom.gbc")
 rom = None #load the rom later
 
 #map header pointers start at 0x1AE
