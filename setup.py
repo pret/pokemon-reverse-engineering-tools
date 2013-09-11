@@ -18,6 +18,8 @@ if sys.argv[-1] == 'publish':
 # dependencies.
 requires = [
     "mock",
+    "nose",
+    "vba_wrapper==0.0.2",
 ]
 
 setup(

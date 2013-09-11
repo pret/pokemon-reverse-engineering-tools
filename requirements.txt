@@ -2,3 +2,6 @@
 
 # testing
 mock
+
+# emulation
+vba_wrapper==0.0.2

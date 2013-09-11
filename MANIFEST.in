@@ -1,5 +1,4 @@
 include README.md
-include vba_autoplayer.py vba_config.py vba_keyboard.py vba.py
 
 global-exclude *.pyc
 global-exclude .gitignore
