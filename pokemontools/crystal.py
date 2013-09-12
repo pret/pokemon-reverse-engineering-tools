@@ -7144,12 +7144,9 @@ class AsmSection:
     def to_asm(self):
         return self.line
 
-new_asm = None
-def load_asm2(filename="../main.asm", force=False):
+def load_asm2(filename="../main.asm"):
     """loads the asm source code into memory"""
-    global new_asm
-    if new_asm == None or force:
-        new_asm = Asm(filename=filename)
+    new_asm = Asm(filename=filename)
     return new_asm
 
 class Asm:
@@ -7643,7 +7640,7 @@ class Label:
         entries to the Asm.parts list.
         """
         # assert new_asm != None, "new_asm should be an instance of Asm"
-        load_asm2()
+        new_asm = load_asm2()
         is_in_file = new_asm.is_label_name_in_file(self.name)
         self.is_in_file = is_in_file
         return is_in_file
@@ -7652,7 +7649,7 @@ class Label:
         """
         Checks if the address is in use by another label.
         """
-        load_asm2()
+        new_asm = load_asm2()
         self.address_is_in_file = new_asm.does_address_have_label(self.address)
         return self.address_is_in_file
 
