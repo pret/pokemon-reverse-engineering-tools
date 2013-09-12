@@ -137,6 +137,11 @@ def load_asm(filename="../main.asm"):
     asm = direct_load_asm(filename=filename)
     return asm
 
+def load_asm2(filename="../main.asm"):
+    """loads the asm source code into memory"""
+    new_asm = Asm(filename=filename)
+    return new_asm
+
 def is_valid_address(address):
     """is_valid_rom_address"""
     if address == None:
@@ -7143,11 +7148,6 @@ class AsmSection:
 
     def to_asm(self):
         return self.line
-
-def load_asm2(filename="../main.asm"):
-    """loads the asm source code into memory"""
-    new_asm = Asm(filename=filename)
-    return new_asm
 
 class Asm:
     """controls the overall asm output"""
