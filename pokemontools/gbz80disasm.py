@@ -10,7 +10,7 @@ from ctypes import c_int8
 import random
 import json
 
-import config
+import configuration
 import crystal
 import labels
 import wram
@@ -929,7 +929,7 @@ class Disassembler(object):
         return (output, offset, last_hl_address, last_a_address, used_3d97)
 
 if __name__ == "__main__":
-    conf = config.Config()
+    conf = configuration.Config()
     disasm = Disassembler(conf)
     disasm.initialize()
 
