@@ -7022,14 +7022,8 @@ def apply_diff(diff, try_fixing=True, do_compile=True):
                 os.system("mv ../main1.asm ../main.asm")
             return False
 
-class AsmLine:
-    # TODO: parse label lines
-    def __init__(self, line, bank=None):
-        self.line = line
-        self.bank = bank
-
-    def to_asm(self):
-        return self.line
+import crystalparts.asmline
+AsmLine = crystalparts.asmline.AsmLine
 
 class Incbin:
     def __init__(self, line, bank=None, debug=False):
