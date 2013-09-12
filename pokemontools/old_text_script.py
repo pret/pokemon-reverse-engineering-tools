@@ -2,6 +2,8 @@
 An old implementation of TextScript that may not be useful anymore.
 """
 
+import pokemontools.pointers as pointers
+
 class OldTextScript:
     "a text is a sequence of commands different from a script-engine script"
     base_label = "UnknownText_"
