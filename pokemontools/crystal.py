@@ -7157,16 +7157,6 @@ class Label:
         name = obj.make_label()
         return name
 
-def find_labels_without_addresses():
-    """scans the asm source and finds labels that are unmarked"""
-    without_addresses = []
-    for (line_number, line) in enumerate(asm):
-        if labels.line_has_label(line):
-            label = labels.get_label_from_line(line)
-            if not labels.line_has_comment_address(line):
-                without_addresses.append({"line_number": line_number, "line": line, "label": label})
-    return without_addresses
-
 label_errors = ""
 def get_labels_between(start_line_id, end_line_id, bank):
     foundlabels = []

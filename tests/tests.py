@@ -35,6 +35,7 @@ from pokemontools.labels import (
     line_has_comment_address,
     line_has_label,
     get_label_from_line,
+    find_labels_without_addresses,
 )
 
 from pokemontools.helpers import (
@@ -84,7 +85,6 @@ from pokemontools.crystal import (
     process_incbins,
     get_labels_between,
     generate_diff_insert,
-    find_labels_without_addresses,
     rom_text_at,
     get_label_for,
     split_incbin_line_into_three,
@@ -389,10 +389,10 @@ class TestAsmList(unittest.TestCase):
     def test_find_labels_without_addresses(self):
         global asm
         asm = ["hello_world: ; 0x1", "hello_world2: ;"]
-        labels = find_labels_without_addresses()
+        labels = find_labels_without_addresses(asm)
         self.failUnless(labels[0]["label"] == "hello_world2")
         asm = ["hello world: ;1", "hello_world: ;2"]
-        labels = find_labels_without_addresses()
+        labels = find_labels_without_addresses(asm)
         self.failUnless(len(labels) == 0)
         asm = None
 
