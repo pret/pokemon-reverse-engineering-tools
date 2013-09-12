@@ -8,7 +8,6 @@ import json
 import logging
 
 import pointers
-import crystal
 
 class Labels(object):
     """
@@ -32,6 +31,7 @@ class Labels(object):
                 "Running crystal.scan_for_predefined_labels to create \"{0}\". Trying.."
                 .format(Labels.filename)
             )
+            import crystal
             crystal.scan_for_predefined_labels()
 
         self.labels = json.read(open(self.path, "r").read())
