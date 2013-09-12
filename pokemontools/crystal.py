@@ -155,7 +155,7 @@ def rom_until(offset, byte, strings=True, debug=True):
     global rom
     return rom.until(offset, byte, strings=strings, debug=debug)
 
-def how_many_until(byte, starting):
+def how_many_until(byte, starting, rom):
     index = rom.find(byte, starting)
     return index - starting
 
@@ -548,9 +548,9 @@ class OldTextScript:
             end_address = address + 1
             if  command_byte == 0:
                 # read until $57, $50 or $58
-                jump57 = how_many_until(chr(0x57), offset)
-                jump50 = how_many_until(chr(0x50), offset)
-                jump58 = how_many_until(chr(0x58), offset)
+                jump57 = how_many_until(chr(0x57), offset, rom)
+                jump50 = how_many_until(chr(0x50), offset, rom)
+                jump58 = how_many_until(chr(0x58), offset, rom)
 
                 # whichever command comes first
                 jump = min([jump57, jump50, jump58])
@@ -676,9 +676,9 @@ class OldTextScript:
             elif command_byte == 0x5:
                 # 05 = write text starting at 2nd line of text-box. [05][text][ending command]
                 # read until $57, $50 or $58
-                jump57 = how_many_until(chr(0x57), offset)
-                jump50 = how_many_until(chr(0x50), offset)
-                jump58 = how_many_until(chr(0x58), offset)
+                jump57 = how_many_until(chr(0x57), offset, rom)
+                jump50 = how_many_until(chr(0x50), offset, rom)
+                jump58 = how_many_until(chr(0x58), offset, rom)
 
                 # whichever command comes first
                 jump = min([jump57, jump50, jump58])
@@ -970,9 +970,9 @@ class EncodedText:
         offset = self.address
 
         # read until $57, $50 or $58
-        jump57 = how_many_until(chr(0x57), offset)
-        jump50 = how_many_until(chr(0x50), offset)
-        jump58 = how_many_until(chr(0x58), offset)
+        jump57 = how_many_until(chr(0x57), offset, rom)
+        jump50 = how_many_until(chr(0x50), offset, rom)
+        jump58 = how_many_until(chr(0x58), offset, rom)
 
         # whichever command comes first
         jump = min([jump57, jump50, jump58])
@@ -2263,9 +2263,9 @@ class MainText(TextCommand):
             offset = offset + 1
 
         # read until $50, $57 or $58 (not sure about $58...)
-        jump57 = how_many_until(chr(0x57), offset)
-        jump50 = how_many_until(chr(0x50), offset)
-        jump58 = how_many_until(chr(0x58), offset)
+        jump57 = how_many_until(chr(0x57), offset, rom)
+        jump50 = how_many_until(chr(0x50), offset, rom)
+        jump58 = how_many_until(chr(0x58), offset, rom)
 
         # pick whichever one comes first
         jump = min([jump57, jump50, jump58])
@@ -4062,7 +4062,7 @@ class TrainerHeader:
         address = self.address
 
         # figure out how many bytes until 0x50 "@"
-        jump = how_many_until(chr(0x50), address)
+        jump = how_many_until(chr(0x50), address, rom)
 
         # parse the "@" into the name
         self.name = parse_text_at(address, jump+1)
@@ -4303,7 +4303,7 @@ def trainer_name_from_group(group_id, trainer_id=0):
     bank = pointers.calculate_bank(0x39999)
     ptr_address = 0x39999 + ((group_id - 1)*2)
     address = calculate_pointer_from_bytes_at(ptr_address, bank=bank)
-    text = parse_text_at2(address, how_many_until(chr(0x50), address))
+    text = parse_text_at2(address, how_many_until(chr(0x50), address, rom))
     return text
 
 def trainer_group_report():
@@ -6702,7 +6702,7 @@ class PokedexEntry:
     def parse(self):
         # eww.
         address = self.address
-        jump = how_many_until(chr(0x50), address)
+        jump = how_many_until(chr(0x50), address, rom)
         self.species = parse_text_at(address, jump+1)
         address = address + jump + 1
 
@@ -6710,10 +6710,10 @@ class PokedexEntry:
         self.height = ord(rom[address+2]) + (ord(rom[address+3]) << 8)
         address += 4
 
-        jump = how_many_until(chr(0x50), address)
+        jump = how_many_until(chr(0x50), address, rom)
         self.page1 = PokedexText(address)
         address = address + jump + 1
-        jump = how_many_until(chr(0x50), address)
+        jump = how_many_until(chr(0x50), address, rom)
         self.page2 = PokedexText(address)
 
         self.last_address = address + jump + 1
