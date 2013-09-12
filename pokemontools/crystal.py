@@ -7153,8 +7153,8 @@ class Label:
         """
         Generates a label name based on parents and self.object.
         """
-        object = self.object
-        name = object.make_label()
+        obj = self.object
+        name = obj.make_label()
         return name
 
 def find_labels_without_addresses():
