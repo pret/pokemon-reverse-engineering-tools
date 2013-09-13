@@ -104,5 +104,30 @@ def remove_parentheticals_from_trainer_group_names():
         i += 1
     return trainer_group_names
 
+def pretty_print_trainer_id_constants(trainer_group_table, trainers):
+    """
+    Prints out some constants for trainer ids, for "constants.asm".
+
+    make_trainer_group_name_trainer_ids must be called prior to this.
+    """
+    assert trainer_group_table != None, "must make trainer_group_table first"
+    assert trainers.trainer_group_names != None, "must have trainers.trainer_group_names available"
+    assert "trainer_names" in trainers.trainer_group_names[1].keys(), "trainer_names must be set in trainers.trainer_group_names"
+
+    output = ""
+    for (key, value) in trainers.trainer_group_names.items():
+        if "uses_numeric_trainer_ids" in trainers.trainer_group_names[key].keys():
+            continue
+        id = key
+        group = value
+        header = group["header"]
+        name = group["name"]
+        trainer_names = group["trainer_names"]
+        output += "; " + name + "\n"
+        for (id, name) in enumerate(trainer_names):
+            output += name.upper() + " EQU $%.2x"%(id+1) + "\n"
+        output += "\n"
+    return output
+
 # remove [Blue] from each trainer group name
 remove_parentheticals_from_trainer_group_names()
