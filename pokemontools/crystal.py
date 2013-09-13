@@ -6849,6 +6849,10 @@ all_map_headers = []
 
 trainer_group_maximums = {}
 
+# Some of the commands need a reference to this data. This is a hacky way to
+# get around having a global, and it should be fixed eventually.
+Command.trainer_group_maximums = trainer_group_maximums
+
 def run_main(rom=None):
     if not rom:
         # read the rom and figure out the offsets for maps
