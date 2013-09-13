@@ -3149,7 +3149,6 @@ class ItemFragmentParam(PointerLabelParam):
         global_dependencies.add(self.itemfrag)
         return self.dependencies
 
-trainer_group_maximums = {}
 class TrainerFragment(Command):
     """used by TrainerFragmentParam and PeopleEvent for trainer data
 
@@ -3223,10 +3222,10 @@ class TrainerFragment(Command):
         # get the trainer id
         trainer_id = self.params[2].byte
 
-        if not trainer_group in trainer_group_maximums.keys():
-            trainer_group_maximums[trainer_group] = set([trainer_id])
+        if not trainer_group in self.trainer_group_maximums.keys():
+            self.trainer_group_maximums[trainer_group] = set([trainer_id])
         else:
-            trainer_group_maximums[trainer_group].add(trainer_id)
+            self.trainer_group_maximums[trainer_group].add(trainer_id)
 
         # give this object a possibly better label
         label = "Trainer"
@@ -3315,10 +3314,13 @@ class TrainerGroupTable:
     This should probably be called TrainerGroupPointerTable.
     """
 
-    def __init__(self):
-        assert 0x43 in trainer_group_maximums.keys(), "TrainerGroupTable should only be created after all the trainers have been found"
-        self.address = trainers.trainer_group_pointer_table_address
-        self.bank = pointers.calculate_bank(trainers.trainer_group_pointer_table_address)
+    def __init__(self, trainer_group_maximums=None, trainers=None, script_parse_table=None):
+        self.trainer_group_maximums = trainer_group_maximums
+        self.trainers = trainers
+        self.script_parse_table = script_parse_table
+        assert 0x43 in self.trainer_group_maximums.keys(), "TrainerGroupTable should only be created after all the trainers have been found"
+        self.address = self.trainers.trainer_group_pointer_table_address
+        self.bank = pointers.calculate_bank(self.trainers.trainer_group_pointer_table_address)
         self.label = Label(name="TrainerGroupPointerTable", address=self.address, object=self)
         self.size = None
         self.last_address = None
@@ -3326,7 +3328,7 @@ class TrainerGroupTable:
         self.headers = []
         self.parse()
 
-        script_parse_table[self.address : self.last_address] = self
+        self.script_parse_table[self.address : self.last_address] = self
 
     def get_dependencies(self, recompute=False, global_dependencies=set()):
         global_dependencies.update(self.headers)
@@ -3339,16 +3341,16 @@ class TrainerGroupTable:
 
     def parse(self):
         size = 0
-        for (key, kvalue) in trainers.trainer_group_names.items():
+        for (key, kvalue) in self.trainers.trainer_group_names.items():
             # calculate the location of this trainer group header from its pointer
             pointer_bytes_location = kvalue["pointer_address"]
             parsed_address = calculate_pointer_from_bytes_at(pointer_bytes_location, bank=self.bank)
-            trainers.trainer_group_names[key]["parsed_address"] = parsed_address
+            self.trainers.trainer_group_names[key]["parsed_address"] = parsed_address
 
             # parse the trainer group header at this location
             name = kvalue["name"]
-            trainer_group_header = TrainerGroupHeader(address=parsed_address, group_id=key, group_name=name)
-            trainers.trainer_group_names[key]["header"] = trainer_group_header
+            trainer_group_header = TrainerGroupHeader(address=parsed_address, group_id=key, group_name=name, trainer_group_maximums=self.trainer_group_maximums)
+            self.trainers.trainer_group_names[key]["header"] = trainer_group_header
             self.headers.append(trainer_group_header)
 
             # keep track of the size of this pointer table
@@ -3372,10 +3374,12 @@ class TrainerGroupHeader:
     Data type <0x03>: Pokémon Data is <Level> <Pokémon> <Held Item> <Move1> <Move2> <Move3> <Move4>. Used by a few Cooltrainers.
     """
 
-    def __init__(self, address=None, group_id=None, group_name=None):
+    def __init__(self, address=None, group_id=None, group_name=None, trainer_group_maximums=None):
         assert address!=None, "TrainerGroupHeader requires an address"
         assert group_id!=None, "TrainerGroupHeader requires a group_id"
         assert group_name!=None, "TrainerGroupHeader requires a group_name"
+
+        self.trainer_group_maximums = trainer_group_maximums
 
         self.address = address
         self.group_id = group_id
@@ -3406,14 +3410,14 @@ class TrainerGroupHeader:
         size = 0
         current_address = self.address
 
-        if self.group_id not in trainer_group_maximums.keys():
+        if self.group_id not in self.trainer_group_maximums.keys():
             self.size = 0
             self.last_address = current_address
             return
 
         # create an IndividualTrainerHeader for each id in range(min id, max id + 1)
-        min_id = min(trainer_group_maximums[self.group_id])
-        max_id = max(trainer_group_maximums[self.group_id])
+        min_id = min(self.trainer_group_maximums[self.group_id])
+        max_id = max(self.trainer_group_maximums[self.group_id])
 
         if self.group_id == 0x0C:
             # CAL appears a third time with third-stage evos (meganium, typhlosion, feraligatr)
@@ -3670,7 +3674,7 @@ class TrainerPartyMonParser3(TrainerPartyMonParser):
 
 trainer_party_mon_parsers = [TrainerPartyMonParser0, TrainerPartyMonParser1, TrainerPartyMonParser2, TrainerPartyMonParser3]
 
-def find_trainer_ids_from_scripts():
+def find_trainer_ids_from_scripts(script_parse_table=None, trainer_group_maximums=None):
     """
     Looks through all scripts to find trainer group numbers and trainer numbers.
 
@@ -3683,7 +3687,7 @@ def find_trainer_ids_from_scripts():
     for item in script_parse_table.items():
         object = item[1]
         if isinstance(object, Script):
-            check_script_has_trainer_data(object)
+            check_script_has_trainer_data(object, trainer_group_maximums=trainer_group_maximums)
 
     # make a set of each list of trainer ids to avoid dupes
     # this will be used later in TrainerGroupTable
@@ -3692,7 +3696,7 @@ def find_trainer_ids_from_scripts():
         value = set(item[1])
         trainer_group_maximums[key] = value
 
-def report_unreferenced_trainer_ids():
+def report_unreferenced_trainer_ids(trainer_group_maximums):
     """
     Reports on the number of unreferenced trainer ids in each group.
 
@@ -3734,7 +3738,25 @@ def report_unreferenced_trainer_ids():
             logging.info(output)
     logging.info("total unreferenced trainers: {0}".format(total_unreferenced_trainers))
 
-def check_script_has_trainer_data(script):
+def trainer_group_report(trainer_group_maximums):
+    """
+    Reports how many trainer ids are used in each trainer group.
+    """
+    output = ""
+    total = 0
+    for trainer_group_id in trainer_group_maximums.keys():
+        group_name = trainers.trainer_group_names[trainer_group_id]["name"]
+        first_name = trainer_name_from_group(trainer_group_id).replace("\n", "")
+        trainers = len(trainer_group_maximums[trainer_group_id])
+        total += trainers
+        output += "group "+hex(trainer_group_id)+":\n"
+        output += "\tname: "+group_name+"\n"
+        output += "\tfirst: "+first_name+"\n"
+        output += "\ttrainer count:\t"+str(trainers)+"\n\n"
+    output += "total trainers: " + str(total)
+    return output
+
+def check_script_has_trainer_data(script, trainer_group_maximums=None):
     """
     see find_trainer_ids_from_scripts
     """
@@ -3762,24 +3784,6 @@ def trainer_name_from_group(group_id, trainer_id=0):
     address = calculate_pointer_from_bytes_at(ptr_address, bank=bank)
     text = parse_text_at2(address, how_many_until(chr(0x50), address, rom))
     return text
-
-def trainer_group_report():
-    """
-    Reports how many trainer ids are used in each trainer group.
-    """
-    output = ""
-    total = 0
-    for trainer_group_id in trainer_group_maximums.keys():
-        group_name = trainers.trainer_group_names[trainer_group_id]["name"]
-        first_name = trainer_name_from_group(trainer_group_id).replace("\n", "")
-        trainers = len(trainer_group_maximums[trainer_group_id])
-        total += trainers
-        output += "group "+hex(trainer_group_id)+":\n"
-        output += "\tname: "+group_name+"\n"
-        output += "\tfirst: "+first_name+"\n"
-        output += "\ttrainer count:\t"+str(trainers)+"\n\n"
-    output += "total trainers: " + str(total)
-    return output
 
 def make_trainer_group_name_trainer_ids(trainer_group_table, debug=True):
     """
@@ -6843,6 +6847,8 @@ def scan_for_predefined_labels(debug=False):
 
 all_map_headers = []
 
+trainer_group_maximums = {}
+
 def run_main(rom=None):
     if not rom:
         # read the rom and figure out the offsets for maps
@@ -6859,11 +6865,11 @@ def run_main(rom=None):
 
     # find trainers based on scripts and map headers
     # this can only happen after parsing the entire map and map scripts
-    find_trainer_ids_from_scripts()
+    find_trainer_ids_from_scripts(script_parse_table=script_parse_table, trainer_group_maximums=trainer_group_maximums)
 
     # and parse the main TrainerGroupTable once we know the max number of trainers
     #global trainer_group_table
-    trainer_group_table = TrainerGroupTable()
+    trainer_group_table = TrainerGroupTable(trainer_group_maximums=trainer_group_maximums, trainers=trainers, script_parse_table=script_parse_table)
 
     # improve duplicate trainer names
     make_trainer_group_name_trainer_ids(trainer_group_table)
