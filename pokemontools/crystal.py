@@ -6474,7 +6474,7 @@ def list_texts_in_bank(bank):
     Narrows down the list of objects that you will be inserting into Asm.
     """
     if len(all_texts) == 0:
-        raise Exception("all_texts is blank.. run_main() will populate it")
+        raise Exception("all_texts is blank.. main() will populate it")
 
     assert bank != None, "list_texts_in_banks must be given a particular bank"
 
@@ -6492,7 +6492,7 @@ def list_movements_in_bank(bank):
     Narrows down the list of objects to speed up Asm insertion.
     """
     if len(all_movements) == 0:
-        raise Exception("all_movements is blank.. run_main() will populate it")
+        raise Exception("all_movements is blank.. main() will populate it")
 
     assert bank != None, "list_movements_in_bank must be given a particular bank"
     assert 0 <= bank < 0x80, "bank doesn't exist in the ROM (out of bounds)"
@@ -6511,7 +6511,7 @@ def dump_asm_for_texts_in_bank(bank, start=50, end=100, rom=None):
     # load and parse the ROM if necessary
     if rom == None or len(rom) <= 4:
         rom = load_rom()
-        run_main()
+        main()
 
     # get all texts
     # first 100 look okay?
@@ -6531,7 +6531,7 @@ def dump_asm_for_texts_in_bank(bank, start=50, end=100, rom=None):
 def dump_asm_for_movements_in_bank(bank, start=0, end=100):
     if rom == None or len(rom) <= 4:
         load_rom()
-        run_main()
+        main()
 
     movements = list_movements_in_bank(bank)[start:end]
 
@@ -6547,7 +6547,7 @@ def dump_things_in_bank(bank, start=50, end=100):
     # load and parse the ROM if necessary
     if rom == None or len(rom) <= 4:
         load_rom()
-        run_main()
+        main()
 
     things = list_things_in_bank(bank)[start:end]
 
@@ -6828,7 +6828,7 @@ trainer_group_maximums = {}
 # get around having a global, and it should be fixed eventually.
 Command.trainer_group_maximums = trainer_group_maximums
 
-def run_main(rom=None):
+def main(rom=None):
     if not rom:
         # read the rom and figure out the offsets for maps
         rom = direct_load_rom()
@@ -6852,9 +6852,6 @@ def run_main(rom=None):
 
     # improve duplicate trainer names
     make_trainer_group_name_trainer_ids(trainer_group_table)
-
-# just a helpful alias
-main = run_main
 
 if __name__ == "crystal":
     pass
