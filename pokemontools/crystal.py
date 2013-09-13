@@ -301,7 +301,7 @@ class TextScript:
             )
 
         # load up the rom if it hasn't been loaded already
-        load_rom()
+        rom = load_rom()
 
         # in the event that the script parsing fails.. it would be nice to leave evidence
         script_parse_table[start_address:start_address+1] = "incomplete NewTextScript.parse"
@@ -1601,7 +1601,7 @@ class ApplyMovementData:
             )
 
         # load up the rom if it hasn't been loaded already
-        load_rom()
+        rom = load_rom()
 
         # in the event that the script parsing fails.. it would be nice to leave evidence
         script_parse_table[start_address:start_address+1] = "incomplete ApplyMovementData.parse"
@@ -2835,7 +2835,7 @@ class Script:
             raise Exception("this script has already been parsed before, please use that instance ("+hex(start_address)+")")
 
         # load up the rom if it hasn't been loaded already
-        load_rom()
+        rom = load_rom()
 
         # in the event that the script parsing fails.. it would be nice to leave evidence
         script_parse_table[start_address:start_address+1] = "incomplete parse_script_with_command_classes"
@@ -2943,7 +2943,7 @@ def compare_script_parsing_methods(address):
     output of the other. When there's a difference, there is something
     worth correcting. Probably by each command's "macro_name" attribute.
     """
-    load_rom()
+    rom = load_rom()
     separator = "################ compare_script_parsing_methods"
     # first do it the old way
     logging.debug(separator)
@@ -6487,7 +6487,7 @@ def list_texts_in_bank(bank):
 
     return texts
 
-def list_movements_in_bank(bank):
+def list_movements_in_bank(bank, all_movements):
     """
     Narrows down the list of objects to speed up Asm insertion.
     """
@@ -6528,12 +6528,12 @@ def dump_asm_for_texts_in_bank(bank, start=50, end=100, rom=None):
 
     logging.info("done dumping texts for bank {banked}".format(banked="$%.2x" % bank))
 
-def dump_asm_for_movements_in_bank(bank, start=0, end=100):
+def dump_asm_for_movements_in_bank(bank, start=0, end=100, all_movements=None):
     if rom == None or len(rom) <= 4:
-        load_rom()
+        rom = load_rom()
         main()
 
-    movements = list_movements_in_bank(bank)[start:end]
+    movements = list_movements_in_bank(bank, all_movements)[start:end]
 
     asm = Asm()
     asm.insert_with_dependencies(movements)
@@ -6546,7 +6546,7 @@ def dump_things_in_bank(bank, start=50, end=100):
     """
     # load and parse the ROM if necessary
     if rom == None or len(rom) <= 4:
-        load_rom()
+        rom = load_rom()
         main()
 
     things = list_things_in_bank(bank)[start:end]
