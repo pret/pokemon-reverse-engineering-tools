@@ -4466,9 +4466,7 @@ class MapHeader:
         output += "db " + ", ".join([self.location_on_world_map.to_asm(), self.music.to_asm(), self.time_of_day.to_asm(), self.fishing_group.to_asm()])
         return output
 
-
-all_map_headers = []
-def parse_map_header_at(address, map_group=None, map_id=None, debug=True):
+def parse_map_header_at(address, map_group=None, map_id=None, all_map_headers=None, debug=True):
     """parses an arbitrary map header at some address"""
     logging.debug("parsing a map header at {0}".format(hex(address)))
     map_header = MapHeader(address, map_group=map_group, map_id=map_id, debug=debug)
@@ -5655,6 +5653,7 @@ def parse_map_script_header_at(address, map_group=None, map_id=None, debug=True)
 def parse_map_header_by_id(*args, **kwargs):
     """convenience function to parse a specific map"""
     map_group, map_id = None, None
+    all_map_headers = kwargs["all_map_headers"]
     if "map_group" in kwargs.keys():
         map_group = kwargs["map_group"]
     if "map_id" in kwargs.keys():
@@ -5671,9 +5670,9 @@ def parse_map_header_by_id(*args, **kwargs):
         raise Exception("dunno what to do with input")
     offset = map_names[map_group]["offset"]
     map_header_offset = offset + ((map_id - 1) * map_header_byte_size)
-    return parse_map_header_at(map_header_offset, map_group=map_group, map_id=map_id)
+    return parse_map_header_at(map_header_offset, all_map_headers=all_map_headers, map_group=map_group, map_id=map_id)
 
-def parse_all_map_headers(map_names, debug=True):
+def parse_all_map_headers(map_names, all_map_headers=None, debug=True):
     """
     Calls parse_map_header_at for each map in each map group. Updates the
     map_names structure.
@@ -5694,7 +5693,7 @@ def parse_all_map_headers(map_names, debug=True):
             map_header_offset = offset + ((map_id - 1) * map_header_byte_size)
             map_names[group_id][map_id]["header_offset"] = map_header_offset
 
-            new_parsed_map = parse_map_header_at(map_header_offset, map_group=group_id, map_id=map_id, debug=debug)
+            new_parsed_map = parse_map_header_at(map_header_offset, map_group=group_id, map_id=map_id, all_map_headers=all_map_headers, debug=debug)
             map_names[group_id][map_id]["header_new"] = new_parsed_map
 
 class PokedexEntryPointerTable:
@@ -6842,6 +6841,8 @@ def scan_for_predefined_labels(debug=False):
     write_all_labels(all_labels)
     return all_labels
 
+all_map_headers = []
+
 def run_main(rom=None):
     if not rom:
         # read the rom and figure out the offsets for maps
@@ -6854,7 +6855,7 @@ def run_main(rom=None):
     [map_names[map_group_id+1].update({"offset": offset}) for map_group_id, offset in enumerate(map_group_offsets)]
 
     # parse map header bytes for each map
-    parse_all_map_headers(map_names)
+    parse_all_map_headers(map_names, all_map_headers=all_map_headers)
 
     # find trainers based on scripts and map headers
     # this can only happen after parsing the entire map and map scripts
