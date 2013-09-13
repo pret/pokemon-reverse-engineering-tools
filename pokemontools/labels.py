@@ -8,7 +8,6 @@ import json
 import logging
 
 import pointers
-import crystal
 
 class Labels(object):
     """
@@ -32,6 +31,7 @@ class Labels(object):
                 "Running crystal.scan_for_predefined_labels to create \"{0}\". Trying.."
                 .format(Labels.filename)
             )
+            import crystal
             crystal.scan_for_predefined_labels()
 
         self.labels = json.read(open(self.path, "r").read())
@@ -197,3 +197,13 @@ def get_label_from_line(line):
     #split up the line
     label = line.split(":")[0]
     return label
+
+def find_labels_without_addresses(asm):
+    """scans the asm source and finds labels that are unmarked"""
+    without_addresses = []
+    for (line_number, line) in enumerate(asm):
+        if line_has_label(line):
+            label = get_label_from_line(line)
+            if not line_has_comment_address(line):
+                without_addresses.append({"line_number": line_number, "line": line, "label": label})
+    return without_addresses
