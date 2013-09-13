@@ -114,7 +114,6 @@ rom = romstr.RomStr(None)
 
 def direct_load_rom(filename="../baserom.gbc"):
     """loads bytes into memory"""
-    global rom
     file_handler = open(filename, "rb")
     rom = romstr.RomStr(file_handler.read())
     file_handler.close()
@@ -123,7 +122,6 @@ def direct_load_rom(filename="../baserom.gbc"):
 def load_rom(filename="../baserom.gbc"):
     """checks that the loaded rom matches the path
     and then loads the rom if necessary."""
-    global rom
     if rom != romstr.RomStr(None) and rom != None:
         return rom
     if not isinstance(rom, romstr.RomStr):
@@ -139,7 +137,6 @@ def direct_load_asm(filename="../main.asm"):
 
 def load_asm(filename="../main.asm"):
     """returns asm source code (AsmList) from a file (uses a global)"""
-    global asm
     asm = direct_load_asm(filename=filename)
     return asm
 
@@ -285,7 +282,8 @@ class TextScript:
         if self.address in [0x26ef, 0x26f2, 0x6ee, 0x1071, 0x5ce33, 0x69523, 0x7ee98, 0x72176, 0x7a578, 0x19c09b, 0x19768c]:
             return None
 
-        global text_command_classes, script_parse_table
+        text_command_classes = self.text_command_classes
+        script_parse_table = self.script_parse_table
         current_address = copy(self.address)
         start_address = copy(current_address)
 
@@ -559,22 +557,20 @@ def rom_text_at(address, count=10):
     like for 0x112110"""
     return "".join([chr(x) for x in rom_interval(address, count, strings=False)])
 
-def get_map_constant_label(map_group=None, map_id=None):
+def get_map_constant_label(map_group=None, map_id=None, map_internal_ids=None):
     """returns PALLET_TOWN for some map group/id pair"""
     if map_group == None:
         raise Exception("need map_group")
     if map_id == None:
         raise Exception("need map_id")
 
-    global map_internal_ids
     for (id, each) in map_internal_ids.items():
         if each["map_group"] == map_group and each["map_id"] == map_id:
             return each["label"]
     return None
 
-def get_map_constant_label_by_id(global_id):
+def get_map_constant_label_by_id(global_id, map_internal_ids):
     """returns a map constant label for a particular map id"""
-    global map_internal_ids
     return map_internal_ids[global_id]["label"]
 
 def get_id_for_map_constant_label(label):
@@ -647,7 +643,7 @@ def generate_map_constants_dimensions():
         output += label + "_WIDTH EQU %d\n" % (map_names[map_group][map_id]["header_new"].second_map_header.width.byte)
     return output
 
-def transform_wildmons(asm):
+def transform_wildmons(asm, map_internal_ids):
     """
     Converts a wildmons section to use map constants.
     input: wildmons text.
@@ -659,7 +655,7 @@ def transform_wildmons(asm):
         and line != "" and line.split("; ")[0] != "":
             map_group = int(line.split("\tdb ")[1].split(",")[0].replace("$", "0x"), base=16)
             map_id    = int(line.split("\tdb ")[1].split(",")[1].replace("$", "0x").split("; ")[0], base=16)
-            label     = get_map_constant_label(map_group=map_group, map_id=map_id)
+            label     = get_map_constant_label(map_group=map_group, map_id=map_id, map_internal_ids=map_internal_ids)
             returnlines.append("\tdb GROUP_"+label+", MAP_"+label) #+" ; " + line.split(";")[1])
         else:
             returnlines.append(line)
@@ -1042,7 +1038,7 @@ class CoinByteParam(MultiByteParam):
 class MapGroupParam(SingleByteParam):
     def to_asm(self):
         map_id = ord(rom[self.address+1])
-        map_constant_label = get_map_constant_label(map_id=map_id, map_group=self.byte) # like PALLET_TOWN
+        map_constant_label = get_map_constant_label(map_id=map_id, map_group=self.byte, map_internal_ids=self.map_internal_ids) # like PALLET_TOWN
         if map_constant_label == None:
             return str(self.byte)
         #else: return "GROUP("+map_constant_label+")"
@@ -1057,7 +1053,7 @@ class MapIdParam(SingleByteParam):
 
     def to_asm(self):
         map_group = ord(rom[self.address-1])
-        map_constant_label = get_map_constant_label(map_id=self.byte, map_group=map_group)
+        map_constant_label = get_map_constant_label(map_id=self.byte, map_group=map_group, map_internal_ids=self.map_internal_ids)
         if map_constant_label == None:
             return str(self.byte)
         #else: return "MAP("+map_constant_label+")"
@@ -1074,7 +1070,7 @@ class MapGroupIdParam(MultiByteParam):
     def to_asm(self):
         map_group = self.map_group
         map_id = self.map_id
-        label = get_map_constant_label(map_group=map_group, map_id=map_id)
+        label = get_map_constant_label(map_group=map_group, map_id=map_id, map_internal_ids=self.map_internal_ids)
         return label
 
 
@@ -4573,7 +4569,7 @@ class SecondMapHeader:
         return dependencies
 
     def to_asm(self):
-        self_constant_label = get_map_constant_label(map_group=self.map_group, map_id=self.map_id)
+        self_constant_label = get_map_constant_label(map_group=self.map_group, map_id=self.map_id, map_internal_ids=self.map_internal_ids)
         output = "; border block\n"
         output += "db " + self.border_block.to_asm() + "\n\n"
         output += "; height, width\n"
@@ -5016,8 +5012,8 @@ class Connection:
         current_map_height      = self.smh.height.byte
         current_map_width       = self.smh.width.byte
 
-        map_constant_label          = get_map_constant_label(map_group=connected_map_group_id, map_id=connected_map_id)
-        self_constant_label         = get_map_constant_label(map_group=self.smh.map_group, map_id=self.smh.map_id)
+        map_constant_label          = get_map_constant_label(map_group=connected_map_group_id, map_id=connected_map_id, map_internal_ids=self.map_internal_ids)
+        self_constant_label         = get_map_constant_label(map_group=self.smh.map_group, map_id=self.smh.map_id, map_internal_ids=self.map_internal_ids)
         if map_constant_label != None:
             map_group_label = "GROUP_" + map_constant_label
             map_label       = "MAP_"   + map_constant_label
@@ -6827,6 +6823,9 @@ trainer_group_maximums = {}
 # Some of the commands need a reference to this data. This is a hacky way to
 # get around having a global, and it should be fixed eventually.
 Command.trainer_group_maximums = trainer_group_maximums
+
+SingleByteParam.map_internal_ids = map_internal_ids
+MultiByteParam.map_internal_ids = map_internal_ids
 
 def main(rom=None):
     if not rom:
