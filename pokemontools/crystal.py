@@ -5696,8 +5696,6 @@ def parse_all_map_headers(map_names, debug=True):
 
             new_parsed_map = parse_map_header_at(map_header_offset, map_group=group_id, map_id=map_id, debug=debug)
             map_names[group_id][map_id]["header_new"] = new_parsed_map
-            old_parsed_map = old_parse_map_header_at(map_header_offset, map_group=group_id, map_id=map_id, debug=debug)
-            map_names[group_id][map_id]["header_old"] = old_parsed_map
 
 class PokedexEntryPointerTable:
     """
