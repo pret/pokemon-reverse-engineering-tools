@@ -148,26 +148,22 @@ def load_asm2(filename="../main.asm"):
     new_asm = Asm(filename=filename)
     return new_asm
 
-def rom_interval(offset, length, strings=True, debug=True):
+def rom_interval(offset, length, rom=None, strings=True, debug=True):
     """returns hex values for the rom starting at offset until offset+length"""
-    global rom
     return rom.interval(offset, length, strings=strings, debug=debug)
 
-def rom_until(offset, byte, strings=True, debug=True):
+def rom_until(offset, byte, rom=None, strings=True, debug=True):
     """returns hex values from rom starting at offset until the given byte"""
-    global rom
     return rom.until(offset, byte, strings=strings, debug=debug)
 
 def how_many_until(byte, starting, rom):
     index = rom.find(byte, starting)
     return index - starting
 
-def load_map_group_offsets():
+def load_map_group_offsets(map_group_pointer_table, map_group_count, rom=None):
     """reads the map group table for the list of pointers"""
-    global map_group_pointer_table, map_group_count, map_group_offsets
-    global rom
     map_group_offsets = [] # otherwise this method can only be used once
-    data = rom_interval(map_group_pointer_table, map_group_count*2, strings=False)
+    data = rom_interval(map_group_pointer_table, map_group_count*2, strings=False, rom=rom)
     data = helpers.grouper(data)
     for pointer_parts in data:
         pointer = pointer_parts[0] + (pointer_parts[1] << 8)
@@ -5677,16 +5673,18 @@ def parse_map_header_by_id(*args, **kwargs):
     map_header_offset = offset + ((map_id - 1) * map_header_byte_size)
     return parse_map_header_at(map_header_offset, map_group=map_group, map_id=map_id)
 
-def parse_all_map_headers(debug=True):
-    """calls parse_map_header_at for each map in each map group"""
-    global map_names
+def parse_all_map_headers(map_names, debug=True):
+    """
+    Calls parse_map_header_at for each map in each map group. Updates the
+    map_names structure.
+    """
     if not map_names[1].has_key("offset"):
         raise Exception("dunno what to do - map_names should have groups with pre-calculated offsets by now")
-    for group_id, group_data in map_names.items():
+    for (group_id, group_data) in map_names.items():
         offset = group_data["offset"]
         # we only care about the maps
         #del group_data["offset"]
-        for map_id, map_data in group_data.items():
+        for (map_id, map_data) in group_data.items():
             if map_id == "offset": continue # skip the "offset" address for this map group
             if debug:
                 logging.debug(
@@ -6529,14 +6527,14 @@ def list_movements_in_bank(bank):
             movements.append(movement)
     return movements
 
-def dump_asm_for_texts_in_bank(bank, start=50, end=100):
+def dump_asm_for_texts_in_bank(bank, start=50, end=100, rom=None):
     """
     Simple utility to help with dumping texts into a particular bank. This is
     helpful for figuring out which text is breaking that bank.
     """
     # load and parse the ROM if necessary
     if rom == None or len(rom) <= 4:
-        load_rom()
+        rom = load_rom()
         run_main()
 
     # get all texts
@@ -6846,16 +6844,19 @@ def scan_for_predefined_labels(debug=False):
     write_all_labels(all_labels)
     return all_labels
 
-def run_main():
-    # read the rom and figure out the offsets for maps
-    direct_load_rom()
-    load_map_group_offsets()
+def run_main(rom=None):
+    if not rom:
+        # read the rom and figure out the offsets for maps
+        rom = direct_load_rom()
+
+    # figure out the map offsets
+    map_group_offsets = load_map_group_offsets(map_group_pointer_table=map_group_pointer_table, map_group_count=map_group_count, rom=rom)
 
     # add the offsets into our map structure, why not (johto maps only)
     [map_names[map_group_id+1].update({"offset": offset}) for map_group_id, offset in enumerate(map_group_offsets)]
 
     # parse map header bytes for each map
-    parse_all_map_headers()
+    parse_all_map_headers(map_names)
 
     # find trainers based on scripts and map headers
     # this can only happen after parsing the entire map and map scripts
