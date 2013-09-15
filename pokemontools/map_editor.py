@@ -348,11 +348,27 @@ class Tileset:
 		self.get_blocks()
 		self.get_tiles()
 
+	def get_tileset_gfx_filename(self):
+		filename = None
+
+		if version == 'red':
+			tileset_defs = open(os.path.join(conf.path, 'main.asm'), 'r').read()
+			incbin = asm_at_label(tileset_defs, 'Tset%.2X_GFX' % self.id)
+			print incbin
+			filename = read_header_macros(incbin, ['filename'], ['INCBIN'])[0][0].replace('"','').replace('.2bpp','.png')
+			filename = os.path.join(conf.path, filename)
+			print filename
+
+		if not filename:
+			filename = os.path.join(
+				gfx_dir,
+				to_gfx_name(self.id) + '.png'
+			)
+
+		return filename
+
 	def get_tiles(self):
-		filename = os.path.join(
-			gfx_dir,
-			to_gfx_name(self.id) + '.png'
-		)
+		filename = self.get_tileset_gfx_filename()
 		self.img = Image.open(filename)
 		self.img.width, self.img.height = self.img.size
 		self.tiles = []
