@@ -194,12 +194,12 @@ class crystal:
 
     @staticmethod
     def walk_through_walls_slow():
-        memory = get_memory()
+        memory = vba.memory
         memory[0xC2FA] = 0
         memory[0xC2FB] = 0
         memory[0xC2FC] = 0
         memory[0xC2FD] = 0
-        set_memory(memory)
+        vba.memory = memory
 
     @staticmethod
     def walk_through_walls():
@@ -420,7 +420,7 @@ class crystal:
         """
         This causes corruption, so it's not working yet.
         """
-        memory = get_memory()
+        memory = vba.memory
         memory[0xdcd7] = 2
         memory[0xdcd9] = 0x7
 
@@ -454,7 +454,7 @@ class crystal:
         memory[0xdd33] = 0x10
         memory[0xdd34] = 0x40
 
-        set_memory(memory)
+        vba.memory = memory
 
     @staticmethod
     def wait_for_script_running(debug=False, limit=1000):
@@ -482,12 +482,12 @@ class crystal:
         vba.press(cmd, hold=10, after=0)
         vba.press([])
 
-        memory = get_memory()
+        memory = vba.memory
         #while memory[0xd4e1] == 2 and memory[0xd042] != 0x3e:
         while memory[0xd043] in [0, 1, 2, 3]:
         #while memory[0xd043] in [0, 1, 2, 3] or memory[0xd042] != 0x3e:
             vba.step(count=10)
-            memory = get_memory()
+            memory = vba.memory
 
 class TestEmulator(unittest.TestCase):
     def test_PlaceString(self):
