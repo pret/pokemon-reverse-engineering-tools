@@ -40,6 +40,13 @@ registers = vba_wrapper.core.registers.Registers(vba)
 button_masks = vba_wrapper.core.VBA.button_masks
 button_combiner = vba_wrapper.core.VBA.button_combine
 
+def get_memory_range(address, length):
+    """
+    This is just a lame way to avoid converting some of the old
+    get_memory_range calls to use the vba.memory property.
+    """
+    return list(vba.memory[address:address+length])
+
 def translate_chars(charz):
     result = ""
     for each in charz:
