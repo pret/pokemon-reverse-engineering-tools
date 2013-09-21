@@ -12,9 +12,13 @@ from copy import copy
 import unittest
 
 # for converting bytes to readable text
-from pokemontools.chars import chars
+from pokemontools.chars import (
+    chars,
+)
 
-from pokemontools.map_names import map_names
+from pokemontools.map_names import (
+    map_names,
+)
 
 import keyboard
 
