@@ -61,6 +61,12 @@ import item_constants
 import wram
 import exceptions
 
+import addresses
+is_valid_address = addresses.is_valid_address
+
+import old_text_script
+OldTextScript = old_text_script
+
 from map_names import map_names
 
 # ---- script_parse_table explanation ----
@@ -108,7 +114,6 @@ rom = romstr.RomStr(None)
 
 def direct_load_rom(filename="../baserom.gbc"):
     """loads bytes into memory"""
-    global rom
     file_handler = open(filename, "rb")
     rom = romstr.RomStr(file_handler.read())
     file_handler.close()
@@ -117,7 +122,6 @@ def direct_load_rom(filename="../baserom.gbc"):
 def load_rom(filename="../baserom.gbc"):
     """checks that the loaded rom matches the path
     and then loads the rom if necessary."""
-    global rom
     if rom != romstr.RomStr(None) and rom != None:
         return rom
     if not isinstance(rom, romstr.RomStr):
@@ -133,41 +137,30 @@ def direct_load_asm(filename="../main.asm"):
 
 def load_asm(filename="../main.asm"):
     """returns asm source code (AsmList) from a file (uses a global)"""
-    global asm
     asm = direct_load_asm(filename=filename)
     return asm
 
-def is_valid_address(address):
-    """is_valid_rom_address"""
-    if address == None:
-        return False
-    if type(address) == str:
-        address = int(address, 16)
-    if 0 <= address <= 2097152:
-        return True
-    else:
-        return False
+def load_asm2(filename="../main.asm"):
+    """loads the asm source code into memory"""
+    new_asm = Asm(filename=filename)
+    return new_asm
 
-def rom_interval(offset, length, strings=True, debug=True):
+def rom_interval(offset, length, rom=None, strings=True, debug=True):
     """returns hex values for the rom starting at offset until offset+length"""
-    global rom
     return rom.interval(offset, length, strings=strings, debug=debug)
 
-def rom_until(offset, byte, strings=True, debug=True):
+def rom_until(offset, byte, rom=None, strings=True, debug=True):
     """returns hex values from rom starting at offset until the given byte"""
-    global rom
     return rom.until(offset, byte, strings=strings, debug=debug)
 
-def how_many_until(byte, starting):
+def how_many_until(byte, starting, rom):
     index = rom.find(byte, starting)
     return index - starting
 
-def load_map_group_offsets():
+def load_map_group_offsets(map_group_pointer_table, map_group_count, rom=None):
     """reads the map group table for the list of pointers"""
-    global map_group_pointer_table, map_group_count, map_group_offsets
-    global rom
     map_group_offsets = [] # otherwise this method can only be used once
-    data = rom_interval(map_group_pointer_table, map_group_count*2, strings=False)
+    data = rom_interval(map_group_pointer_table, map_group_count*2, strings=False, rom=rom)
     data = helpers.grouper(data)
     for pointer_parts in data:
         pointer = pointer_parts[0] + (pointer_parts[1] << 8)
@@ -289,7 +282,8 @@ class TextScript:
         if self.address in [0x26ef, 0x26f2, 0x6ee, 0x1071, 0x5ce33, 0x69523, 0x7ee98, 0x72176, 0x7a578, 0x19c09b, 0x19768c]:
             return None
 
-        global text_command_classes, script_parse_table
+        text_command_classes = self.text_command_classes
+        script_parse_table = self.script_parse_table
         current_address = copy(self.address)
         start_address = copy(current_address)
 
@@ -305,7 +299,7 @@ class TextScript:
             )
 
         # load up the rom if it hasn't been loaded already
-        load_rom()
+        rom = load_rom()
 
         # in the event that the script parsing fails.. it would be nice to leave evidence
         script_parse_table[start_address:start_address+1] = "incomplete NewTextScript.parse"
@@ -410,529 +404,6 @@ class TextScript:
         asm_output = "\n".join([command.to_asm() for command in self.commands])
         return asm_output
 
-class OldTextScript:
-    "a text is a sequence of commands different from a script-engine script"
-    base_label = "UnknownText_"
-    def __init__(self, address, map_group=None, map_id=None, debug=True, show=True, force=False, label=None):
-        self.address = address
-        self.map_group, self.map_id, self.debug, self.show, self.force = map_group, map_id, debug, show, force
-        if not label:
-            label = self.base_label + hex(address)
-        self.label = Label(name=label, address=address, object=self)
-        self.dependencies = []
-        self.parse_text_at(address)
-
-    @staticmethod
-    def find_addresses():
-        """returns a list of text pointers
-        useful for testing parse_text_engine_script_at
-
-        Note that this list is not exhaustive. There are some texts that
-        are only pointed to from some script that a current script just
-        points to. So find_all_text_pointers_in_script_engine_script will
-        have to recursively follow through each script to find those.
-        .. it does this now :)
-        """
-        addresses = set()
-        # for each map group
-        for map_group in map_names:
-            # for each map id
-            for map_id in map_names[map_group]:
-                # skip the offset key
-                if map_id == "offset": continue
-                # dump this into smap
-                smap = map_names[map_group][map_id]
-                # signposts
-                signposts = smap["signposts"]
-                # for each signpost
-                for signpost in signposts:
-                    if signpost["func"] in [0, 1, 2, 3, 4]:
-                        # dump this into script
-                        script = signpost["script"]
-                    elif signpost["func"] in [05, 06]:
-                        script = signpost["script"]
-                    else: continue
-                    # skip signposts with no bytes
-                    if len(script) == 0: continue
-                    # find all text pointers in script
-                    texts = find_all_text_pointers_in_script_engine_script(script, smap["event_bank"])
-                    # dump these addresses in
-                    addresses.update(texts)
-                # xy triggers
-                xy_triggers = smap["xy_triggers"]
-                # for each xy trigger
-                for xy_trigger in xy_triggers:
-                    # dump this into script
-                    script = xy_trigger["script"]
-                    # find all text pointers in script
-                    texts = find_all_text_pointers_in_script_engine_script(script, smap["event_bank"])
-                    # dump these addresses in
-                    addresses.update(texts)
-                # trigger scripts
-                triggers = smap["trigger_scripts"]
-                # for each trigger
-                for (i, trigger) in triggers.items():
-                    # dump this into script
-                    script = trigger["script"]
-                    # find all text pointers in script
-                    texts = find_all_text_pointers_in_script_engine_script(script, pointers.calculate_bank(trigger["address"]))
-                    # dump these addresses in
-                    addresses.update(texts)
-                # callback scripts
-                callbacks = smap["callback_scripts"]
-                # for each callback
-                for (k, callback) in callbacks.items():
-                    # dump this into script
-                    script = callback["script"]
-                    # find all text pointers in script
-                    texts = find_all_text_pointers_in_script_engine_script(script, pointers.calculate_bank(callback["address"]))
-                    # dump these addresses in
-                    addresses.update(texts)
-                # people-events
-                events = smap["people_events"]
-                # for each event
-                for event in events:
-                    if event["event_type"] == "script":
-                        # dump this into script
-                        script = event["script"]
-                        # find all text pointers in script
-                        texts = find_all_text_pointers_in_script_engine_script(script, smap["event_bank"])
-                        # dump these addresses in
-                        addresses.update(texts)
-                    if event["event_type"] == "trainer":
-                        trainer_data = event["trainer_data"]
-                        addresses.update([trainer_data["text_when_seen_ptr"]])
-                        addresses.update([trainer_data["text_when_trainer_beaten_ptr"]])
-                        trainer_bank = pointers.calculate_bank(event["trainer_data_address"])
-                        script1 = trainer_data["script_talk_again"]
-                        texts1 = find_all_text_pointers_in_script_engine_script(script1, trainer_bank)
-                        addresses.update(texts1)
-                        script2 = trainer_data["script_when_lost"]
-                        texts2 = find_all_text_pointers_in_script_engine_script(script2, trainer_bank)
-                        addresses.update(texts2)
-        return addresses
-
-    def parse_text_at(self, address):
-        """parses a text-engine script ("in-text scripts")
-        http://hax.iimarck.us/files/scriptingcodes_eng.htm#InText
-
-        This is presently very broken.
-
-        see parse_text_at2, parse_text_at, and process_00_subcommands
-        """
-        global rom, text_count, max_texts, texts, script_parse_table
-        if rom == None:
-            direct_load_rom()
-        if address == None:
-            return "not a script"
-        map_group, map_id, debug, show, force = self.map_group, self.map_id, self.debug, self.show, self.force
-        commands = {}
-
-        if is_script_already_parsed_at(address) and not force:
-            logging.debug("text is already parsed at this location: {0}".format(hex(address)))
-            raise Exception("text is already parsed, what's going on ?")
-            return script_parse_table[address]
-
-        total_text_commands = 0
-        command_counter = 0
-        original_address = address
-        offset = address
-        end = False
-        script_parse_table[original_address:original_address+1] = "incomplete text"
-        while not end:
-            address = offset
-            command = {}
-            command_byte = ord(rom[address])
-            if debug:
-                logging.debug(
-                    "TextScript.parse_script_at has encountered a command byte {0} at {1}"
-                    .format(hex(command_byte), hex(address))
-                )
-            end_address = address + 1
-            if  command_byte == 0:
-                # read until $57, $50 or $58
-                jump57 = how_many_until(chr(0x57), offset)
-                jump50 = how_many_until(chr(0x50), offset)
-                jump58 = how_many_until(chr(0x58), offset)
-
-                # whichever command comes first
-                jump = min([jump57, jump50, jump58])
-
-                end_address = offset + jump # we want the address before $57
-
-                lines = process_00_subcommands(offset+1, end_address, debug=debug)
-
-                if show and debug:
-                    text = parse_text_at2(offset+1, end_address-offset+1, debug=debug)
-                    logging.debug("output of parse_text_at2 is {0}".format(text))
-
-                command = {"type": command_byte,
-                           "start_address": offset,
-                           "end_address": end_address,
-                           "size": jump,
-                           "lines": lines,
-                          }
-
-                offset += jump
-            elif command_byte == 0x17:
-                # TX_FAR [pointer][bank]
-                pointer_byte1 = ord(rom[offset+1])
-                pointer_byte2 = ord(rom[offset+2])
-                pointer_bank = ord(rom[offset+3])
-
-                pointer = (pointer_byte1 + (pointer_byte2 << 8))
-                pointer = extract_maps.calculate_pointer(pointer, pointer_bank)
-
-                text = TextScript(pointer, map_group=self.map_group, map_id=self.amp_id, debug=self.debug, \
-                                  show=self.debug, force=self.debug, label="Target"+self.label.name)
-                if text.is_valid():
-                    self.dependencies.append(text)
-
-                command = {"type": command_byte,
-                           "start_address": offset,
-                           "end_address": offset + 3, # last byte belonging to this command
-                           "pointer": pointer, # parameter
-                           "text": text,
-                          }
-
-                offset += 3 + 1
-            elif command_byte == 0x50 or command_byte == 0x57 or command_byte == 0x58: # end text
-                command = {"type": command_byte,
-                           "start_address": offset,
-                           "end_address": offset,
-                          }
-
-                # this byte simply indicates to end the script
-                end = True
-
-                # this byte simply indicates to end the script
-                if command_byte == 0x50 and ord(rom[offset+1]) == 0x50: # $50$50 means end completely
-                    end = True
-                    commands[command_counter+1] = command
-
-                    # also save the next byte, before we quit
-                    commands[command_counter+1]["start_address"] += 1
-                    commands[command_counter+1]["end_address"] += 1
-                    add_command_byte_to_totals(command_byte)
-                elif command_byte == 0x50: # only end if we started with $0
-                    if len(commands.keys()) > 0:
-                        if commands[0]["type"] == 0x0: end = True
-                elif command_byte == 0x57 or command_byte == 0x58: # end completely
-                    end = True
-                    offset += 1 # go past this 0x50
-            elif command_byte == 0x1:
-                # 01 = text from RAM. [01][2-byte pointer]
-                size = 3 # total size, including the command byte
-                pointer_byte1 = ord(rom[offset+1])
-                pointer_byte2 = ord(rom[offset+2])
-
-                command = {"type": command_byte,
-                           "start_address": offset+1,
-                           "end_address": offset+2, # last byte belonging to this command
-                           "pointer": [pointer_byte1, pointer_byte2], # RAM pointer
-                          }
-
-                # view near these bytes
-                # subsection = rom[offset:offset+size+1] #peak ahead
-                #for x in subsection:
-                #    print hex(ord(x))
-                #print "--"
-
-                offset += 2 + 1 # go to the next byte
-
-                # use this to look at the surrounding bytes
-                if debug:
-                    logging.debug("next command is {0}".format(hex(ord(rom[offset]))))
-                    logging.debug(
-                        ".. current command number is {counter} near {offset} on map_id={map_id}"
-                        .format(
-                            counter=command_counter,
-                            offset=hex(offset),
-                            map_id=map_id,
-                        )
-                    )
-            elif command_byte == 0x7:
-                # 07 = shift texts 1 row above (2nd line becomes 1st line); address for next text = 2nd line. [07]
-                size = 1
-                command = {"type": command_byte,
-                           "start_address": offset,
-                           "end_address": offset,
-                          }
-                offset += 1
-            elif command_byte == 0x3:
-                # 03 = set new address in RAM for text. [03][2-byte RAM address]
-                size = 3
-                command = {"type": command_byte, "start_address": offset, "end_address": offset+2}
-                offset += size
-            elif command_byte == 0x4: # draw box
-                # 04 = draw box. [04][2-Byte pointer][height Y][width X]
-                size = 5 # including the command
-                command = {
-                            "type": command_byte,
-                            "start_address": offset,
-                            "end_address": offset + size,
-                            "pointer_bytes": [ord(rom[offset+1]), ord(rom[offset+2])],
-                            "y": ord(rom[offset+3]),
-                            "x": ord(rom[offset+4]),
-                          }
-                offset += size + 1
-            elif command_byte == 0x5:
-                # 05 = write text starting at 2nd line of text-box. [05][text][ending command]
-                # read until $57, $50 or $58
-                jump57 = how_many_until(chr(0x57), offset)
-                jump50 = how_many_until(chr(0x50), offset)
-                jump58 = how_many_until(chr(0x58), offset)
-
-                # whichever command comes first
-                jump = min([jump57, jump50, jump58])
-
-                end_address = offset + jump # we want the address before $57
-
-                lines = process_00_subcommands(offset+1, end_address, debug=debug)
-
-                if show and debug:
-                    text = parse_text_at2(offset+1, end_address-offset+1, debug=debug)
-                    logging.debug("parse_text_at2 text is {0}".format(text))
-
-                command = {"type": command_byte,
-                           "start_address": offset,
-                           "end_address": end_address,
-                           "size": jump,
-                           "lines": lines,
-                          }
-                offset = end_address + 1
-            elif command_byte == 0x6:
-                # 06 = wait for keypress A or B (put blinking arrow in textbox). [06]
-                command = {"type": command_byte, "start_address": offset, "end_address": offset}
-                offset += 1
-            elif command_byte == 0x7:
-                # 07 = shift texts 1 row above (2nd line becomes 1st line); address for next text = 2nd line. [07]
-                command = {"type": command_byte, "start_address": offset, "end_address": offset}
-                offset += 1
-            elif command_byte == 0x8:
-                # 08 = asm until whenever
-                command = {"type": command_byte, "start_address": offset, "end_address": offset}
-                offset += 1
-                end = True
-            elif command_byte == 0x9:
-                # 09 = write hex-to-dec number from RAM to textbox [09][2-byte RAM address][byte bbbbcccc]
-                #  bbbb = how many bytes to read (read number is big-endian)
-                #  cccc = how many digits display (decimal)
-                #(note: max of decimal digits is 7,i.e. max number correctly displayable is 9999999)
-                ram_address_byte1 = ord(rom[offset+1])
-                ram_address_byte2 = ord(rom[offset+2])
-                read_byte = ord(rom[offset+3])
-
-                command = {
-                            "type": command_byte,
-                            "address": [ram_address_byte1, ram_address_byte2],
-                            "read_byte": read_byte, # split this up when we make a macro for this
-                          }
-
-                offset += 4
-            else:
-                #if len(commands) > 0:
-                #   print "Unknown text command " + hex(command_byte) + " at " + hex(offset) + ", script began with " + hex(commands[0]["type"])
-                if debug:
-                    logging.debug(
-                        "Unknown text command at {offset} - command: {command} on map_id={map_id}"
-                        .format(
-                            offset=hex(offset),
-                            command=hex(ord(rom[offset])),
-                            map_id=map_id,
-                        )
-                    )
-
-                # end at the first unknown command
-                end = True
-            commands[command_counter] = command
-            command_counter += 1
-        total_text_commands += len(commands)
-
-        text_count += 1
-        #if text_count >= max_texts:
-        #    sys.exit()
-
-        self.commands = commands
-        self.last_address = offset
-        script_parse_table[original_address:offset] = self
-        all_texts.append(self)
-        self.size = self.byte_count = self.last_address - original_address
-        return commands
-
-    def get_dependencies(self, recompute=False, global_dependencies=set()):
-        global_dependencies.update(self.dependencies)
-        return self.dependencies
-
-    def to_asm(self, label=None):
-        address = self.address
-        start_address = address
-        if label == None: label = self.label.name
-        # using deepcopy because otherwise additional @s get appended each time
-        # like to the end of the text for TextScript(0x5cf3a)
-        commands = deepcopy(self.commands)
-        # apparently this isn't important anymore?
-        needs_to_begin_with_0 = True
-        # start with zero please
-        byte_count = 0
-        # where we store all output
-        output = ""
-        had_text_end_byte = False
-        had_text_end_byte_57_58 = False
-        had_db_last = False
-        xspacing = ""
-        # reset this pretty fast..
-        first_line = True
-        # for each command..
-        for this_command in commands.keys():
-            if not "lines" in commands[this_command].keys():
-                command = commands[this_command]
-                if not "type" in command.keys():
-                    logging.debug("ERROR in command: {0}".format(command))
-                    continue # dunno what to do here?
-
-                if   command["type"] == 0x1: # TX_RAM
-                    p1 = command["pointer"][0]
-                    p2 = command["pointer"][1]
-
-                    # remember to account for big endian -> little endian
-                    output += "\n" + xspacing + "TX_RAM $%.2x%.2x" %(p2, p1)
-                    byte_count += 3
-                    had_db_last = False
-                elif command["type"] == 0x17: # TX_FAR
-                    #p1 = command["pointer"][0]
-                    #p2 = command["pointer"][1]
-                    output += "\n" + xspacing + "TX_FAR _" + label + " ; " + hex(command["pointer"])
-                    byte_count += 4 # $17, bank, address word
-                    had_db_last = False
-                elif command["type"] == 0x9: # TX_RAM_HEX2DEC
-                    # address, read_byte
-                    output += "\n" + xspacing + "TX_NUM $%.2x%.2x, $%.2x" % (command["address"][1], command["address"][0], command["read_byte"])
-                    had_db_last = False
-                    byte_count += 4
-                elif command["type"] == 0x50 and not had_text_end_byte:
-                    # had_text_end_byte helps us avoid repeating $50s
-                    if had_db_last:
-                        output += ", $50"
-                    else:
-                        output += "\n" + xspacing + "db $50"
-                    byte_count += 1
-                    had_db_last = True
-                elif command["type"] in [0x57, 0x58] and not had_text_end_byte_57_58:
-                    if had_db_last:
-                        output += ", $%.2x" % (command["type"])
-                    else:
-                        output += "\n" + xspacing + "db $%.2x" % (command["type"])
-                    byte_count += 1
-                    had_db_last = True
-                elif command["type"] in [0x57, 0x58] and had_text_end_byte_57_58:
-                    pass # this is ok
-                elif command["type"] == 0x50 and had_text_end_byte:
-                    pass # this is also ok
-                elif command["type"] == 0x0b:
-                    if had_db_last:
-                        output += ", $0b"
-                    else:
-                        output += "\n" + xspacing + "db $0B"
-                    byte_count += 1
-                    had_db_last = True
-                elif command["type"] == 0x11:
-                    if had_db_last:
-                        output += ", $11"
-                    else:
-                        output += "\n" + xspacing + "db $11"
-                    byte_count += 1
-                    had_db_last = True
-                elif command["type"] == 0x6: # wait for keypress
-                    if had_db_last:
-                        output += ", $6"
-                    else:
-                        output += "\n" + xspacing + "db $6"
-                    byte_count += 1
-                    had_db_last = True
-                else:
-                    logging.debug("ERROR in command: {0}".format(hex(command["type"])))
-                    had_db_last = False
-
-                # everything else is for $0s, really
-                continue
-            lines = commands[this_command]["lines"]
-
-            # reset this in case we have non-$0s later
-            had_db_last = False
-
-            # add the ending byte to the last line- always seems $57
-            # this should already be in there, but it's not because of a bug in the text parser
-            lines[len(lines.keys())-1].append(commands[len(commands.keys())-1]["type"])
-
-            first = True # first byte
-            for line_id in lines:
-                line = lines[line_id]
-                output += xspacing + "db "
-                if first and needs_to_begin_with_0:
-                    output += "$0, "
-                    first = False
-                    byte_count += 1
-
-                quotes_open = False
-                first_byte = True
-                was_byte = False
-                for byte in line:
-                    if byte == 0x50:
-                        had_text_end_byte = True # don't repeat it
-                    if byte in [0x58, 0x57]:
-                        had_text_end_byte_57_58 = True
-
-                    if byte in chars.chars:
-                        if not quotes_open and not first_byte: # start text
-                            output += ", \""
-                            quotes_open = True
-                            first_byte = False
-                        if not quotes_open and first_byte: # start text
-                            output += "\""
-                            quotes_open = True
-                        output += chars.chars[byte]
-                    elif byte in constant_abbreviation_bytes:
-                        if quotes_open:
-                            output += "\""
-                            quotes_open = False
-                        if not first_byte:
-                            output += ", "
-                        output += constant_abbreviation_bytes[byte]
-                    else:
-                        if quotes_open:
-                            output += "\""
-                            quotes_open = False
-
-                        # if you want the ending byte on the last line
-                        #if not (byte == 0x57 or byte == 0x50 or byte == 0x58):
-                        if not first_byte:
-                            output += ", "
-
-                        output += "$" + hex(byte)[2:]
-                        was_byte = True
-
-                        # add a comma unless it's the end of the line
-                        #if byte_count+1 != len(line):
-                        #    output += ", "
-
-                    first_byte = False
-                    byte_count += 1
-                # close final quotes
-                if quotes_open:
-                    output += "\""
-                    quotes_open = False
-
-                output += "\n"
-        #include_newline = "\n"
-        #if len(output)!=0 and output[-1] == "\n":
-        #    include_newline = ""
-        #output += include_newline + "; " + hex(start_address) + " + " + str(byte_count) + " bytes = " + hex(start_address + byte_count)
-        if len(output) > 0 and output[-1] == "\n":
-            output = output[:-1]
-        self.size = self.byte_count = byte_count
-        return output
-
 def parse_text_engine_script_at(address, map_group=None, map_id=None, debug=True, show=True, force=False):
     """parses a text-engine script ("in-text scripts")
     http://hax.iimarck.us/files/scriptingcodes_eng.htm#InText
@@ -973,9 +444,9 @@ class EncodedText:
         offset = self.address
 
         # read until $57, $50 or $58
-        jump57 = how_many_until(chr(0x57), offset)
-        jump50 = how_many_until(chr(0x50), offset)
-        jump58 = how_many_until(chr(0x58), offset)
+        jump57 = how_many_until(chr(0x57), offset, rom)
+        jump50 = how_many_until(chr(0x50), offset, rom)
+        jump58 = how_many_until(chr(0x58), offset, rom)
 
         # whichever command comes first
         jump = min([jump57, jump50, jump58])
@@ -1086,22 +557,20 @@ def rom_text_at(address, count=10):
     like for 0x112110"""
     return "".join([chr(x) for x in rom_interval(address, count, strings=False)])
 
-def get_map_constant_label(map_group=None, map_id=None):
+def get_map_constant_label(map_group=None, map_id=None, map_internal_ids=None):
     """returns PALLET_TOWN for some map group/id pair"""
     if map_group == None:
         raise Exception("need map_group")
     if map_id == None:
         raise Exception("need map_id")
 
-    global map_internal_ids
     for (id, each) in map_internal_ids.items():
         if each["map_group"] == map_group and each["map_id"] == map_id:
             return each["label"]
     return None
 
-def get_map_constant_label_by_id(global_id):
+def get_map_constant_label_by_id(global_id, map_internal_ids):
     """returns a map constant label for a particular map id"""
-    global map_internal_ids
     return map_internal_ids[global_id]["label"]
 
 def get_id_for_map_constant_label(label):
@@ -1174,7 +643,7 @@ def generate_map_constants_dimensions():
         output += label + "_WIDTH EQU %d\n" % (map_names[map_group][map_id]["header_new"].second_map_header.width.byte)
     return output
 
-def transform_wildmons(asm):
+def transform_wildmons(asm, map_internal_ids):
     """
     Converts a wildmons section to use map constants.
     input: wildmons text.
@@ -1186,7 +655,7 @@ def transform_wildmons(asm):
         and line != "" and line.split("; ")[0] != "":
             map_group = int(line.split("\tdb ")[1].split(",")[0].replace("$", "0x"), base=16)
             map_id    = int(line.split("\tdb ")[1].split(",")[1].replace("$", "0x").split("; ")[0], base=16)
-            label     = get_map_constant_label(map_group=map_group, map_id=map_id)
+            label     = get_map_constant_label(map_group=map_group, map_id=map_id, map_internal_ids=map_internal_ids)
             returnlines.append("\tdb GROUP_"+label+", MAP_"+label) #+" ; " + line.split(";")[1])
         else:
             returnlines.append(line)
@@ -1569,7 +1038,7 @@ class CoinByteParam(MultiByteParam):
 class MapGroupParam(SingleByteParam):
     def to_asm(self):
         map_id = ord(rom[self.address+1])
-        map_constant_label = get_map_constant_label(map_id=map_id, map_group=self.byte) # like PALLET_TOWN
+        map_constant_label = get_map_constant_label(map_id=map_id, map_group=self.byte, map_internal_ids=self.map_internal_ids) # like PALLET_TOWN
         if map_constant_label == None:
             return str(self.byte)
         #else: return "GROUP("+map_constant_label+")"
@@ -1584,7 +1053,7 @@ class MapIdParam(SingleByteParam):
 
     def to_asm(self):
         map_group = ord(rom[self.address-1])
-        map_constant_label = get_map_constant_label(map_id=self.byte, map_group=map_group)
+        map_constant_label = get_map_constant_label(map_id=self.byte, map_group=map_group, map_internal_ids=self.map_internal_ids)
         if map_constant_label == None:
             return str(self.byte)
         #else: return "MAP("+map_constant_label+")"
@@ -1601,7 +1070,7 @@ class MapGroupIdParam(MultiByteParam):
     def to_asm(self):
         map_group = self.map_group
         map_id = self.map_id
-        label = get_map_constant_label(map_group=map_group, map_id=map_id)
+        label = get_map_constant_label(map_group=map_group, map_id=map_id, map_internal_ids=self.map_internal_ids)
         return label
 
 
@@ -2128,7 +1597,7 @@ class ApplyMovementData:
             )
 
         # load up the rom if it hasn't been loaded already
-        load_rom()
+        rom = load_rom()
 
         # in the event that the script parsing fails.. it would be nice to leave evidence
         script_parse_table[start_address:start_address+1] = "incomplete ApplyMovementData.parse"
@@ -2266,9 +1735,9 @@ class MainText(TextCommand):
             offset = offset + 1
 
         # read until $50, $57 or $58 (not sure about $58...)
-        jump57 = how_many_until(chr(0x57), offset)
-        jump50 = how_many_until(chr(0x50), offset)
-        jump58 = how_many_until(chr(0x58), offset)
+        jump57 = how_many_until(chr(0x57), offset, rom)
+        jump50 = how_many_until(chr(0x50), offset, rom)
+        jump58 = how_many_until(chr(0x58), offset, rom)
 
         # pick whichever one comes first
         jump = min([jump57, jump50, jump58])
@@ -3362,7 +2831,7 @@ class Script:
             raise Exception("this script has already been parsed before, please use that instance ("+hex(start_address)+")")
 
         # load up the rom if it hasn't been loaded already
-        load_rom()
+        rom = load_rom()
 
         # in the event that the script parsing fails.. it would be nice to leave evidence
         script_parse_table[start_address:start_address+1] = "incomplete parse_script_with_command_classes"
@@ -3470,7 +2939,7 @@ def compare_script_parsing_methods(address):
     output of the other. When there's a difference, there is something
     worth correcting. Probably by each command's "macro_name" attribute.
     """
-    load_rom()
+    rom = load_rom()
     separator = "################ compare_script_parsing_methods"
     # first do it the old way
     logging.debug(separator)
@@ -3543,25 +3012,6 @@ def parse_warps(address, warp_count, bank=None, map_group=None, map_id=None, deb
         current_address += warp_byte_size
         warps.append(warp)
     all_warps.extend(warps)
-    return warps
-
-def old_parse_warp_bytes(some_bytes, debug=True):
-    """parse some number of warps from the data"""
-    assert len(some_bytes) % warp_byte_size == 0, "wrong number of bytes"
-    warps = []
-    for bytes in helpers.grouper(some_bytes, count=warp_byte_size):
-        y = int(bytes[0], 16)
-        x = int(bytes[1], 16)
-        warp_to = int(bytes[2], 16)
-        map_group = int(bytes[3], 16)
-        map_id = int(bytes[4], 16)
-        warps.append({
-            "y": y,
-            "x": x,
-            "warp_to": warp_to,
-            "map_group": map_group,
-            "map_id": map_id,
-        })
     return warps
 
 class XYTrigger(Command):
@@ -3695,7 +3145,6 @@ class ItemFragmentParam(PointerLabelParam):
         global_dependencies.add(self.itemfrag)
         return self.dependencies
 
-trainer_group_maximums = {}
 class TrainerFragment(Command):
     """used by TrainerFragmentParam and PeopleEvent for trainer data
 
@@ -3769,10 +3218,10 @@ class TrainerFragment(Command):
         # get the trainer id
         trainer_id = self.params[2].byte
 
-        if not trainer_group in trainer_group_maximums.keys():
-            trainer_group_maximums[trainer_group] = set([trainer_id])
+        if not trainer_group in self.trainer_group_maximums.keys():
+            self.trainer_group_maximums[trainer_group] = set([trainer_id])
         else:
-            trainer_group_maximums[trainer_group].add(trainer_id)
+            self.trainer_group_maximums[trainer_group].add(trainer_id)
 
         # give this object a possibly better label
         label = "Trainer"
@@ -3861,10 +3310,13 @@ class TrainerGroupTable:
     This should probably be called TrainerGroupPointerTable.
     """
 
-    def __init__(self):
-        assert 0x43 in trainer_group_maximums.keys(), "TrainerGroupTable should only be created after all the trainers have been found"
-        self.address = trainers.trainer_group_pointer_table_address
-        self.bank = pointers.calculate_bank(trainers.trainer_group_pointer_table_address)
+    def __init__(self, trainer_group_maximums=None, trainers=None, script_parse_table=None):
+        self.trainer_group_maximums = trainer_group_maximums
+        self.trainers = trainers
+        self.script_parse_table = script_parse_table
+        assert 0x43 in self.trainer_group_maximums.keys(), "TrainerGroupTable should only be created after all the trainers have been found"
+        self.address = self.trainers.trainer_group_pointer_table_address
+        self.bank = pointers.calculate_bank(self.trainers.trainer_group_pointer_table_address)
         self.label = Label(name="TrainerGroupPointerTable", address=self.address, object=self)
         self.size = None
         self.last_address = None
@@ -3872,7 +3324,7 @@ class TrainerGroupTable:
         self.headers = []
         self.parse()
 
-        script_parse_table[self.address : self.last_address] = self
+        self.script_parse_table[self.address : self.last_address] = self
 
     def get_dependencies(self, recompute=False, global_dependencies=set()):
         global_dependencies.update(self.headers)
@@ -3885,16 +3337,16 @@ class TrainerGroupTable:
 
     def parse(self):
         size = 0
-        for (key, kvalue) in trainers.trainer_group_names.items():
+        for (key, kvalue) in self.trainers.trainer_group_names.items():
             # calculate the location of this trainer group header from its pointer
             pointer_bytes_location = kvalue["pointer_address"]
             parsed_address = calculate_pointer_from_bytes_at(pointer_bytes_location, bank=self.bank)
-            trainers.trainer_group_names[key]["parsed_address"] = parsed_address
+            self.trainers.trainer_group_names[key]["parsed_address"] = parsed_address
 
             # parse the trainer group header at this location
             name = kvalue["name"]
-            trainer_group_header = TrainerGroupHeader(address=parsed_address, group_id=key, group_name=name)
-            trainers.trainer_group_names[key]["header"] = trainer_group_header
+            trainer_group_header = TrainerGroupHeader(address=parsed_address, group_id=key, group_name=name, trainer_group_maximums=self.trainer_group_maximums)
+            self.trainers.trainer_group_names[key]["header"] = trainer_group_header
             self.headers.append(trainer_group_header)
 
             # keep track of the size of this pointer table
@@ -3918,10 +3370,12 @@ class TrainerGroupHeader:
     Data type <0x03>: Pokémon Data is <Level> <Pokémon> <Held Item> <Move1> <Move2> <Move3> <Move4>. Used by a few Cooltrainers.
     """
 
-    def __init__(self, address=None, group_id=None, group_name=None):
+    def __init__(self, address=None, group_id=None, group_name=None, trainer_group_maximums=None):
         assert address!=None, "TrainerGroupHeader requires an address"
         assert group_id!=None, "TrainerGroupHeader requires a group_id"
         assert group_name!=None, "TrainerGroupHeader requires a group_name"
+
+        self.trainer_group_maximums = trainer_group_maximums
 
         self.address = address
         self.group_id = group_id
@@ -3952,14 +3406,14 @@ class TrainerGroupHeader:
         size = 0
         current_address = self.address
 
-        if self.group_id not in trainer_group_maximums.keys():
+        if self.group_id not in self.trainer_group_maximums.keys():
             self.size = 0
             self.last_address = current_address
             return
 
         # create an IndividualTrainerHeader for each id in range(min id, max id + 1)
-        min_id = min(trainer_group_maximums[self.group_id])
-        max_id = max(trainer_group_maximums[self.group_id])
+        min_id = min(self.trainer_group_maximums[self.group_id])
+        max_id = max(self.trainer_group_maximums[self.group_id])
 
         if self.group_id == 0x0C:
             # CAL appears a third time with third-stage evos (meganium, typhlosion, feraligatr)
@@ -4065,7 +3519,7 @@ class TrainerHeader:
         address = self.address
 
         # figure out how many bytes until 0x50 "@"
-        jump = how_many_until(chr(0x50), address)
+        jump = how_many_until(chr(0x50), address, rom)
 
         # parse the "@" into the name
         self.name = parse_text_at(address, jump+1)
@@ -4216,7 +3670,7 @@ class TrainerPartyMonParser3(TrainerPartyMonParser):
 
 trainer_party_mon_parsers = [TrainerPartyMonParser0, TrainerPartyMonParser1, TrainerPartyMonParser2, TrainerPartyMonParser3]
 
-def find_trainer_ids_from_scripts():
+def find_trainer_ids_from_scripts(script_parse_table=None, trainer_group_maximums=None):
     """
     Looks through all scripts to find trainer group numbers and trainer numbers.
 
@@ -4229,7 +3683,7 @@ def find_trainer_ids_from_scripts():
     for item in script_parse_table.items():
         object = item[1]
         if isinstance(object, Script):
-            check_script_has_trainer_data(object)
+            check_script_has_trainer_data(object, trainer_group_maximums=trainer_group_maximums)
 
     # make a set of each list of trainer ids to avoid dupes
     # this will be used later in TrainerGroupTable
@@ -4238,7 +3692,7 @@ def find_trainer_ids_from_scripts():
         value = set(item[1])
         trainer_group_maximums[key] = value
 
-def report_unreferenced_trainer_ids():
+def report_unreferenced_trainer_ids(trainer_group_maximums):
     """
     Reports on the number of unreferenced trainer ids in each group.
 
@@ -4280,7 +3734,25 @@ def report_unreferenced_trainer_ids():
             logging.info(output)
     logging.info("total unreferenced trainers: {0}".format(total_unreferenced_trainers))
 
-def check_script_has_trainer_data(script):
+def trainer_group_report(trainer_group_maximums):
+    """
+    Reports how many trainer ids are used in each trainer group.
+    """
+    output = ""
+    total = 0
+    for trainer_group_id in trainer_group_maximums.keys():
+        group_name = trainers.trainer_group_names[trainer_group_id]["name"]
+        first_name = trainer_name_from_group(trainer_group_id).replace("\n", "")
+        trainers = len(trainer_group_maximums[trainer_group_id])
+        total += trainers
+        output += "group "+hex(trainer_group_id)+":\n"
+        output += "\tname: "+group_name+"\n"
+        output += "\tfirst: "+first_name+"\n"
+        output += "\ttrainer count:\t"+str(trainers)+"\n\n"
+    output += "total trainers: " + str(total)
+    return output
+
+def check_script_has_trainer_data(script, trainer_group_maximums=None):
     """
     see find_trainer_ids_from_scripts
     """
@@ -4306,26 +3778,8 @@ def trainer_name_from_group(group_id, trainer_id=0):
     bank = pointers.calculate_bank(0x39999)
     ptr_address = 0x39999 + ((group_id - 1)*2)
     address = calculate_pointer_from_bytes_at(ptr_address, bank=bank)
-    text = parse_text_at2(address, how_many_until(chr(0x50), address))
+    text = parse_text_at2(address, how_many_until(chr(0x50), address, rom))
     return text
-
-def trainer_group_report():
-    """
-    Reports how many trainer ids are used in each trainer group.
-    """
-    output = ""
-    total = 0
-    for trainer_group_id in trainer_group_maximums.keys():
-        group_name = trainers.trainer_group_names[trainer_group_id]["name"]
-        first_name = trainer_name_from_group(trainer_group_id).replace("\n", "")
-        trainers = len(trainer_group_maximums[trainer_group_id])
-        total += trainers
-        output += "group "+hex(trainer_group_id)+":\n"
-        output += "\tname: "+group_name+"\n"
-        output += "\tfirst: "+first_name+"\n"
-        output += "\ttrainer count:\t"+str(trainers)+"\n\n"
-    output += "total trainers: " + str(total)
-    return output
 
 def make_trainer_group_name_trainer_ids(trainer_group_table, debug=True):
     """
@@ -4365,31 +3819,6 @@ def make_trainer_group_name_trainer_ids(trainer_group_table, debug=True):
 
     if debug:
         logging.info("done improving trainer names")
-
-def pretty_print_trainer_id_constants():
-    """
-    Prints out some constants for trainer ids, for "constants.asm".
-
-    make_trainer_group_name_trainer_ids must be called prior to this.
-    """
-    assert trainer_group_table != None, "must make trainer_group_table first"
-    assert trainers.trainer_group_names != None, "must have trainers.trainer_group_names available"
-    assert "trainer_names" in trainers.trainer_group_names[1].keys(), "trainer_names must be set in trainers.trainer_group_names"
-
-    output = ""
-    for (key, value) in trainers.trainer_group_names.items():
-        if "uses_numeric_trainer_ids" in trainers.trainer_group_names[key].keys():
-            continue
-        id = key
-        group = value
-        header = group["header"]
-        name = group["name"]
-        trainer_names = group["trainer_names"]
-        output += "; " + name + "\n"
-        for (id, name) in enumerate(trainer_names):
-            output += name.upper() + " EQU $%.2x"%(id+1) + "\n"
-        output += "\n"
-    return output
 
 class PeopleEvent(Command):
     size = people_event_byte_size
@@ -4955,73 +4384,6 @@ def parse_signposts(address, signpost_count, bank=None, map_group=None, map_id=N
     all_signposts.extend(signposts)
     return signposts
 
-def old_parse_signpost_bytes(some_bytes, bank=None, map_group=None, map_id=None, debug=True):
-    assert len(some_bytes) % signpost_byte_size == 0, "wrong number of bytes"
-    signposts = []
-    for bytes in helpers.grouper(some_bytes, count=signpost_byte_size):
-        y = int(bytes[0], 16)
-        x = int(bytes[1], 16)
-        func = int(bytes[2], 16)
-
-        additional = {}
-        if func in [0, 1, 2, 3, 4]:
-            logging.debug(
-                "parsing signpost script.. signpost is at x={x} y={y}"
-                .format(x=x, y=y)
-            )
-            script_ptr_byte1 = int(bytes[3], 16)
-            script_ptr_byte2 = int(bytes[4], 16)
-            script_pointer = script_ptr_byte1 + (script_ptr_byte2 << 8)
-
-            script_address = None
-            script = None
-
-            script_address = pointers.calculate_pointer(script_pointer, bank)
-            script = parse_script_engine_script_at(script_address, map_group=map_group, map_id=map_id)
-
-            additional = {
-            "script_ptr": script_pointer,
-            "script_pointer": {"1": script_ptr_byte1, "2": script_ptr_byte2},
-            "script_address": script_address,
-            "script": script,
-            }
-        elif func in [5, 6]:
-            logging.debug(
-                "parsing signpost script.. signpost is at x={x} y={y}"
-                .format(x=x, y=y)
-            )
-
-            ptr_byte1 = int(bytes[3], 16)
-            ptr_byte2 = int(bytes[4], 16)
-            pointer = ptr_byte1 + (ptr_byte2 << 8)
-            address = pointers.calculate_pointer(pointer, bank)
-            bit_table_byte1 = ord(rom[address])
-            bit_table_byte2 = ord(rom[address+1])
-            script_ptr_byte1 = ord(rom[address+2])
-            script_ptr_byte2 = ord(rom[address+3])
-            script_address = calculate_pointer_from_bytes_at(address+2, bank=bank)
-            script = parse_script_engine_script_at(script_address, map_group=map_group, map_id=map_id)
-
-            additional = {
-            "bit_table_bytes": {"1": bit_table_byte1, "2": bit_table_byte2},
-            "script_ptr": script_ptr_byte1 + (script_ptr_byte2 << 8),
-            "script_pointer": {"1": script_ptr_byte1, "2": script_ptr_byte2},
-            "script_address": script_address,
-            "script": script,
-            }
-        else:
-            logging.debug(".. type 7 or 8 signpost not parsed yet.")
-
-        spost = {
-            "y": y,
-            "x": x,
-            "func": func,
-        }
-        spost.update(additional)
-        signposts.append(spost)
-    return signposts
-
-
 class MapHeader:
     base_label = "MapHeader_"
 
@@ -5079,48 +4441,12 @@ class MapHeader:
         output += "db " + ", ".join([self.location_on_world_map.to_asm(), self.music.to_asm(), self.time_of_day.to_asm(), self.fishing_group.to_asm()])
         return output
 
-
-all_map_headers = []
-def parse_map_header_at(address, map_group=None, map_id=None, debug=True):
+def parse_map_header_at(address, map_group=None, map_id=None, all_map_headers=None, debug=True):
     """parses an arbitrary map header at some address"""
     logging.debug("parsing a map header at {0}".format(hex(address)))
     map_header = MapHeader(address, map_group=map_group, map_id=map_id, debug=debug)
     all_map_headers.append(map_header)
     return map_header
-
-def old_parse_map_header_at(address, map_group=None, map_id=None, debug=True):
-    """parses an arbitrary map header at some address"""
-    logging.debug("parsing a map header at {0}".format(hex(address)))
-    bytes = rom_interval(address, map_header_byte_size, strings=False, debug=debug)
-    bank = bytes[0]
-    tileset = bytes[1]
-    permission = bytes[2]
-    second_map_header_address = pointers.calculate_pointer(bytes[3] + (bytes[4] << 8), 0x25)
-    location_on_world_map = bytes[5] # pokegear world map location
-    music = bytes[6]
-    time_of_day = bytes[7]
-    fishing_group = bytes[8]
-
-    map_header = {
-        "bank": bank,
-        "tileset": tileset,
-        "permission": permission, # map type?
-        "second_map_header_pointer": {"1": bytes[3], "2": bytes[4]},
-        "second_map_header_address": second_map_header_address,
-        "location_on_world_map": location_on_world_map, # area
-        "music": music,
-        "time_of_day": time_of_day,
-        "fishing": fishing_group,
-    }
-    logging.debug("second map header address is {0}".format(hex(second_map_header_address)))
-    map_header["second_map_header"] = old_parse_second_map_header_at(second_map_header_address, debug=debug)
-    event_header_address = map_header["second_map_header"]["event_address"]
-    script_header_address = map_header["second_map_header"]["script_address"]
-    # maybe event_header and script_header should be put under map_header["second_map_header"]
-    map_header["event_header"] = old_parse_map_event_header_at(event_header_address, map_group=map_group, map_id=map_id, debug=debug)
-    map_header["script_header"] = old_parse_map_script_header_at(script_header_address, map_group=map_group, map_id=map_id, debug=debug)
-    return map_header
-
 
 def get_direction(connection_byte, connection_id):
     """
@@ -5243,7 +4569,7 @@ class SecondMapHeader:
         return dependencies
 
     def to_asm(self):
-        self_constant_label = get_map_constant_label(map_group=self.map_group, map_id=self.map_id)
+        self_constant_label = get_map_constant_label(map_group=self.map_group, map_id=self.map_id, map_internal_ids=self.map_internal_ids)
         output = "; border block\n"
         output += "db " + self.border_block.to_asm() + "\n\n"
         output += "; height, width\n"
@@ -5686,8 +5012,8 @@ class Connection:
         current_map_height      = self.smh.height.byte
         current_map_width       = self.smh.width.byte
 
-        map_constant_label          = get_map_constant_label(map_group=connected_map_group_id, map_id=connected_map_id)
-        self_constant_label         = get_map_constant_label(map_group=self.smh.map_group, map_id=self.smh.map_id)
+        map_constant_label          = get_map_constant_label(map_group=connected_map_group_id, map_id=connected_map_id, map_internal_ids=self.map_internal_ids)
+        self_constant_label         = get_map_constant_label(map_group=self.smh.map_group, map_id=self.smh.map_id, map_internal_ids=self.map_internal_ids)
         if map_constant_label != None:
             map_group_label = "GROUP_" + map_constant_label
             map_label       = "MAP_"   + map_constant_label
@@ -5950,39 +5276,6 @@ def parse_second_map_header_at(address, map_group=None, map_id=None, debug=True)
     all_second_map_headers.append(smh)
     return smh
 
-def old_parse_second_map_header_at(address, map_group=None, map_id=None, debug=True):
-    """each map has a second map header"""
-    bytes = rom_interval(address, second_map_header_byte_size, strings=False)
-    border_block = bytes[0]
-    height = bytes[1]
-    width = bytes[2]
-    blockdata_bank = bytes[3]
-    blockdata_pointer = bytes[4] + (bytes[5] << 8)
-    blockdata_address = pointers.calculate_pointer(blockdata_pointer, blockdata_bank)
-    script_bank = bytes[6]
-    script_pointer = bytes[7] + (bytes[8] << 8)
-    script_address = pointers.calculate_pointer(script_pointer, script_bank)
-    event_bank = script_bank
-    event_pointer = bytes[9] + (bytes[10] << 8)
-    event_address = pointers.calculate_pointer(event_pointer, event_bank)
-    connections = bytes[11]
-    return {
-        "border_block": border_block,
-        "height": height,
-        "width": width,
-        "blockdata_bank": blockdata_bank,
-        "blockdata_pointer": {"1": bytes[4], "2": bytes[5]},
-        "blockdata_address": blockdata_address,
-        "script_bank": script_bank,
-        "script_pointer": {"1": bytes[7], "2": bytes[8]},
-        "script_address": script_address,
-        "event_bank": event_bank,
-        "event_pointer": {"1": bytes[9], "2": bytes[10]},
-        "event_address": event_address,
-        "connections": connections,
-    }
-
-
 class MapBlockData:
     base_label = "MapBlockData_"
     maps_path = os.path.realpath(os.path.join(os.path.realpath("."), "../maps"))
@@ -6168,48 +5461,6 @@ def parse_map_event_header_at(address, map_group=None, map_id=None, debug=True, 
     all_map_event_headers.append(ev)
     return ev
 
-def old_parse_map_event_header_at(address, map_group=None, map_id=None, debug=True):
-    """parse crystal map event header byte structure thing"""
-    returnable = {}
-
-    bank = pointers.calculate_bank(address)
-
-    logging.debug("event header address is {0}".format(hex(address)))
-    filler1 = ord(rom[address])
-    filler2 = ord(rom[address+1])
-    returnable.update({"1": filler1, "2": filler2})
-
-    # warps
-    warp_count = ord(rom[address+2])
-    warp_byte_count = warp_byte_size * warp_count
-    warps = rom_interval(address+3, warp_byte_count)
-    after_warps = address + 3 + warp_byte_count
-    returnable.update({"warp_count": warp_count, "warps": old_parse_warp_bytes(warps)})
-
-    # triggers (based on xy location)
-    trigger_count = ord(rom[after_warps])
-    trigger_byte_count = trigger_byte_size * trigger_count
-    triggers = rom_interval(after_warps+1, trigger_byte_count)
-    after_triggers = after_warps + 1 + trigger_byte_count
-    returnable.update({"xy_trigger_count": trigger_count, "xy_triggers": old_parse_xy_trigger_bytes(triggers, bank=bank, map_group=map_group, map_id=map_id)})
-
-    # signposts
-    signpost_count = ord(rom[after_triggers])
-    signpost_byte_count = signpost_byte_size * signpost_count
-    signposts = rom_interval(after_triggers+1, signpost_byte_count)
-    after_signposts = after_triggers + 1 + signpost_byte_count
-    returnable.update({"signpost_count": signpost_count, "signposts": old_parse_signpost_bytes(signposts, bank=bank, map_group=map_group, map_id=map_id)})
-
-    # people events
-    people_event_count = ord(rom[after_signposts])
-    people_event_byte_count = people_event_byte_size * people_event_count
-    people_events_bytes = rom_interval(after_signposts+1, people_event_byte_count)
-    people_events = old_parse_people_event_bytes(people_events_bytes, address=after_signposts+1, map_group=map_group, map_id=map_id)
-    returnable.update({"people_event_count": people_event_count, "people_events": people_events})
-
-    return returnable
-
-
 class MapScriptHeader:
     """parses a script header
 
@@ -6374,226 +5625,10 @@ def parse_map_script_header_at(address, map_group=None, map_id=None, debug=True)
     all_map_script_headers.append(evv)
     return evv
 
-def old_parse_map_script_header_at(address, map_group=None, map_id=None, debug=True):
-    logging.debug("starting to parse the map's script header..")
-    #[[Number1 of pointers] Number1 * [2byte pointer to script][00][00]]
-    ptr_line_size = 4 #[2byte pointer to script][00][00]
-    trigger_ptr_cnt = ord(rom[address])
-    trigger_pointers = helpers.grouper(rom_interval(address+1, trigger_ptr_cnt * ptr_line_size, strings=False), count=ptr_line_size)
-    triggers = {}
-    for index, trigger_pointer in enumerate(trigger_pointers):
-        logging.debug("parsing a trigger header...")
-        byte1 = trigger_pointer[0]
-        byte2 = trigger_pointer[1]
-        ptr   = byte1 + (byte2 << 8)
-        trigger_address = pointers.calculate_pointer(ptr, pointers.calculate_bank(address))
-        trigger_script  = parse_script_engine_script_at(trigger_address, map_group=map_group, map_id=map_id)
-        triggers[index] = {
-            "script": trigger_script,
-            "address": trigger_address,
-            "pointer": {"1": byte1, "2": byte2},
-        }
-
-    # bump ahead in the byte stream
-    address += trigger_ptr_cnt * ptr_line_size + 1
-
-    #[[Number2 of pointers] Number2 * [hook number][2byte pointer to script]]
-    callback_ptr_line_size = 3
-    callback_ptr_cnt = ord(rom[address])
-    callback_ptrs = helpers.grouper(rom_interval(address+1, callback_ptr_cnt * callback_ptr_line_size, strings=False), count=callback_ptr_line_size)
-    callback_pointers = {}
-    callbacks = {}
-    for index, callback_line in enumerate(callback_ptrs):
-        logging.debug("parsing a callback header..")
-        hook_byte = callback_line[0] # 1, 2, 3, 4, 5
-        callback_byte1 = callback_line[1]
-        callback_byte2 = callback_line[2]
-        callback_ptr = callback_byte1 + (callback_byte2 << 8)
-        callback_address = pointers.calculate_pointer(callback_ptr, pointers.calculate_bank(address))
-        callback_script = parse_script_engine_script_at(callback_address)
-        callback_pointers[len(callback_pointers.keys())] = [hook_byte, callback_ptr]
-        callbacks[index] = {
-            "script": callback_script,
-            "address": callback_address,
-            "pointer": {"1": callback_byte1, "2": callback_byte2},
-        }
-
-    # XXX do these triggers/callbacks call asm or script engine scripts?
-    return {
-        #"trigger_ptr_cnt": trigger_ptr_cnt,
-        "trigger_pointers": trigger_pointers,
-        #"callback_ptr_cnt": callback_ptr_cnt,
-        #"callback_ptr_scripts": callback_ptrs,
-        "callback_pointers": callback_pointers,
-        "trigger_scripts": triggers,
-        "callback_scripts": callbacks,
-    }
-
-def old_parse_trainer_header_at(address, map_group=None, map_id=None, debug=True):
-    bank = pointers.calculate_bank(address)
-    bytes = rom_interval(address, 12, strings=False)
-    bit_number = bytes[0] + (bytes[1] << 8)
-    trainer_group = bytes[2]
-    trainer_id = bytes[3]
-    text_when_seen_ptr = calculate_pointer_from_bytes_at(address+4, bank=bank)
-    text_when_seen = parse_text_engine_script_at(text_when_seen_ptr, map_group=map_group, map_id=map_id, debug=debug)
-    text_when_trainer_beaten_ptr = calculate_pointer_from_bytes_at(address+6, bank=bank)
-    text_when_trainer_beaten = parse_text_engine_script_at(text_when_trainer_beaten_ptr, map_group=map_group, map_id=map_id, debug=debug)
-
-    if [ord(rom[address+8]), ord(rom[address+9])] == [0, 0]:
-        script_when_lost_ptr = 0
-        script_when_lost = None
-    else:
-        logging.debug("parsing script-when-lost")
-        script_when_lost_ptr = calculate_pointer_from_bytes_at(address+8, bank=bank)
-        script_when_lost = None
-        silver_avoids = [0xfa53]
-        if script_when_lost_ptr > 0x4000 and not script_when_lost_ptr in silver_avoids:
-            script_when_lost = parse_script_engine_script_at(script_when_lost_ptr, map_group=map_group, map_id=map_id, debug=debug)
-
-    logging.debug("parsing script-talk-again") # or is this a text?
-    script_talk_again_ptr = calculate_pointer_from_bytes_at(address+10, bank=bank)
-    script_talk_again = None
-    if script_talk_again_ptr > 0x4000:
-        script_talk_again = parse_script_engine_script_at(script_talk_again_ptr, map_group=map_group, map_id=map_id, debug=debug)
-
-    return {
-        "bit_number": bit_number,
-        "trainer_group": trainer_group,
-        "trainer_id": trainer_id,
-        "text_when_seen_ptr": text_when_seen_ptr,
-        "text_when_seen": text_when_seen,
-        "text_when_trainer_beaten_ptr": text_when_trainer_beaten_ptr,
-        "text_when_trainer_beaten": text_when_trainer_beaten,
-        "script_when_lost_ptr": script_when_lost_ptr,
-        "script_when_lost": script_when_lost,
-        "script_talk_again_ptr": script_talk_again_ptr,
-        "script_talk_again": script_talk_again,
-    }
-
-def old_parse_people_event_bytes(some_bytes, address=None, map_group=None, map_id=None, debug=True):
-    """parse some number of people-events from the data
-    see PeopleEvent
-    see http://hax.iimarck.us/files/scriptingcodes_eng.htm#Scripthdr
-
-    For example, map 1.1 (group 1 map 1) has four person-events.
-
-        37 05 07 06 00 FF FF 00 00 02 40 FF FF
-        3B 08 0C 05 01 FF FF 00 00 05 40 FF FF
-        3A 07 06 06 00 FF FF A0 00 08 40 FF FF
-        29 05 0B 06 00 FF FF 00 00 0B 40 FF FF
-
-    max of 14 people per map?
-    """
-    assert len(some_bytes) % people_event_byte_size == 0, "wrong number of bytes"
-
-    # address is not actually required for this function to work...
-    bank = None
-    if address:
-        bank = pointers.calculate_bank(address)
-
-    people_events = []
-    for bytes in helpers.grouper(some_bytes, count=people_event_byte_size):
-        pict = int(bytes[0], 16)
-        y = int(bytes[1], 16)    # y from top + 4
-        x = int(bytes[2], 16)    # x from left + 4
-        face = int(bytes[3], 16) # 0-4 for regular, 6-9 for static facing
-        move = int(bytes[4], 16)
-        clock_time_byte1 = int(bytes[5], 16)
-        clock_time_byte2 = int(bytes[6], 16)
-        color_function_byte = int(bytes[7], 16) # Color|Function
-        trainer_sight_range = int(bytes[8], 16)
-
-        lower_bits = color_function_byte & 0xF
-        #lower_bits_high = lower_bits >> 2
-        #lower_bits_low = lower_bits & 3
-        higher_bits = color_function_byte >> 4
-        #higher_bits_high = higher_bits >> 2
-        #higher_bits_low = higher_bits & 3
-
-        is_regular_script = lower_bits == 00
-        # pointer points to script
-        is_give_item = lower_bits == 01
-        # pointer points to [Item no.][Amount]
-        is_trainer = lower_bits == 02
-        # pointer points to trainer header
-
-        # goldmap called these next two bytes "text_block" and "text_bank"?
-        script_pointer_byte1 = int(bytes[9], 16)
-        script_pointer_byte2 = int(bytes[10], 16)
-        script_pointer = script_pointer_byte1 + (script_pointer_byte2 << 8)
-        # calculate the full address by assuming it's in the current bank
-        # but what if it's not in the same bank?
-        extra_portion = {}
-        if bank:
-            ptr_address = pointers.calculate_pointer(script_pointer, bank)
-            if is_regular_script:
-                logging.debug(
-                    "parsing a person-script at x={x} y={y} address={address}"
-                    .format(x=(x-4), y=(y-4), address=hex(ptr_address))
-                )
-                script = parse_script_engine_script_at(ptr_address, map_group=map_group, map_id=map_id)
-                extra_portion = {
-                    "script_address": ptr_address,
-                    "script": script,
-                    "event_type": "script",
-                }
-            if is_give_item:
-                logging.debug("not parsing give item event.. [item id][quantity]")
-                extra_portion = {
-                    "event_type": "give_item",
-                    "give_item_data_address": ptr_address,
-                    "item_id": ord(rom[ptr_address]),
-                    "item_qty": ord(rom[ptr_address+1]),
-                }
-            if is_trainer:
-                logging.debug("parsing a trainer (person-event) at x={x} y={y}".format(x=x, y=y))
-                parsed_trainer = old_parse_trainer_header_at(ptr_address, map_group=map_group, map_id=map_id)
-                extra_portion = {
-                    "event_type": "trainer",
-                    "trainer_data_address": ptr_address,
-                    "trainer_data": parsed_trainer,
-                }
-
-        # XXX not sure what's going on here
-        # bit no. of bit table 1 (hidden if set)
-        # note: FFFF for none
-        when_byte = int(bytes[11], 16)
-        hide = int(bytes[12], 16)
-
-        bit_number_of_bit_table1_byte2 = int(bytes[11], 16)
-        bit_number_of_bit_table1_byte1 = int(bytes[12], 16)
-        bit_number_of_bit_table1 = bit_number_of_bit_table1_byte1 + (bit_number_of_bit_table1_byte2 << 8)
-
-        people_event = {
-            "pict": pict,
-            "y": y,                      # y from top + 4
-            "x": x,                      # x from left + 4
-            "face": face,                # 0-4 for regular, 6-9 for static facing
-            "move": move,
-            "clock_time": {"1": clock_time_byte1,
-                           "2": clock_time_byte2},       # clock/time setting byte 1
-            "color_function_byte": color_function_byte,  # Color|Function
-            "trainer_sight_range": trainer_sight_range,  # trainer range of sight
-            "script_pointer": {"1": script_pointer_byte1,
-                               "2": script_pointer_byte2},
-
-            #"text_block": text_block,   # script pointer byte 1
-            #"text_bank": text_bank,     # script pointer byte 2
-            "when_byte": when_byte,      # bit no. of bit table 1 (hidden if set)
-            "hide": hide,                # note: FFFF for none
-
-            "is_trainer": is_trainer,
-            "is_regular_script": is_regular_script,
-            "is_give_item": is_give_item,
-        }
-        people_event.update(extra_portion)
-        people_events.append(people_event)
-    return people_events
-
 def parse_map_header_by_id(*args, **kwargs):
     """convenience function to parse a specific map"""
     map_group, map_id = None, None
+    all_map_headers = kwargs["all_map_headers"]
     if "map_group" in kwargs.keys():
         map_group = kwargs["map_group"]
     if "map_id" in kwargs.keys():
@@ -6610,18 +5645,20 @@ def parse_map_header_by_id(*args, **kwargs):
         raise Exception("dunno what to do with input")
     offset = map_names[map_group]["offset"]
     map_header_offset = offset + ((map_id - 1) * map_header_byte_size)
-    return parse_map_header_at(map_header_offset, map_group=map_group, map_id=map_id)
+    return parse_map_header_at(map_header_offset, all_map_headers=all_map_headers, map_group=map_group, map_id=map_id)
 
-def parse_all_map_headers(debug=True):
-    """calls parse_map_header_at for each map in each map group"""
-    global map_names
+def parse_all_map_headers(map_names, all_map_headers=None, debug=True):
+    """
+    Calls parse_map_header_at for each map in each map group. Updates the
+    map_names structure.
+    """
     if not map_names[1].has_key("offset"):
         raise Exception("dunno what to do - map_names should have groups with pre-calculated offsets by now")
-    for group_id, group_data in map_names.items():
+    for (group_id, group_data) in map_names.items():
         offset = group_data["offset"]
         # we only care about the maps
         #del group_data["offset"]
-        for map_id, map_data in group_data.items():
+        for (map_id, map_data) in group_data.items():
             if map_id == "offset": continue # skip the "offset" address for this map group
             if debug:
                 logging.debug(
@@ -6631,10 +5668,8 @@ def parse_all_map_headers(debug=True):
             map_header_offset = offset + ((map_id - 1) * map_header_byte_size)
             map_names[group_id][map_id]["header_offset"] = map_header_offset
 
-            new_parsed_map = parse_map_header_at(map_header_offset, map_group=group_id, map_id=map_id, debug=debug)
+            new_parsed_map = parse_map_header_at(map_header_offset, map_group=group_id, map_id=map_id, all_map_headers=all_map_headers, debug=debug)
             map_names[group_id][map_id]["header_new"] = new_parsed_map
-            old_parsed_map = old_parse_map_header_at(map_header_offset, map_group=group_id, map_id=map_id, debug=debug)
-            map_names[group_id][map_id]["header_old"] = old_parsed_map
 
 class PokedexEntryPointerTable:
     """
@@ -6705,7 +5740,7 @@ class PokedexEntry:
     def parse(self):
         # eww.
         address = self.address
-        jump = how_many_until(chr(0x50), address)
+        jump = how_many_until(chr(0x50), address, rom)
         self.species = parse_text_at(address, jump+1)
         address = address + jump + 1
 
@@ -6713,10 +5748,10 @@ class PokedexEntry:
         self.height = ord(rom[address+2]) + (ord(rom[address+3]) << 8)
         address += 4
 
-        jump = how_many_until(chr(0x50), address)
+        jump = how_many_until(chr(0x50), address, rom)
         self.page1 = PokedexText(address)
         address = address + jump + 1
-        jump = how_many_until(chr(0x50), address)
+        jump = how_many_until(chr(0x50), address, rom)
         self.page2 = PokedexText(address)
 
         self.last_address = address + jump + 1
@@ -7022,14 +6057,8 @@ def apply_diff(diff, try_fixing=True, do_compile=True):
                 os.system("mv ../main1.asm ../main.asm")
             return False
 
-class AsmLine:
-    # TODO: parse label lines
-    def __init__(self, line, bank=None):
-        self.line = line
-        self.bank = bank
-
-    def to_asm(self):
-        return self.line
+import crystalparts.asmline
+AsmLine = crystalparts.asmline.AsmLine
 
 class Incbin:
     def __init__(self, line, bank=None, debug=False):
@@ -7149,14 +6178,6 @@ class AsmSection:
 
     def to_asm(self):
         return self.line
-
-new_asm = None
-def load_asm2(filename="../main.asm", force=False):
-    """loads the asm source code into memory"""
-    global new_asm
-    if new_asm == None or force:
-        new_asm = Asm(filename=filename)
-    return new_asm
 
 class Asm:
     """controls the overall asm output"""
@@ -7449,7 +6470,7 @@ def list_texts_in_bank(bank):
     Narrows down the list of objects that you will be inserting into Asm.
     """
     if len(all_texts) == 0:
-        raise Exception("all_texts is blank.. run_main() will populate it")
+        raise Exception("all_texts is blank.. main() will populate it")
 
     assert bank != None, "list_texts_in_banks must be given a particular bank"
 
@@ -7462,12 +6483,12 @@ def list_texts_in_bank(bank):
 
     return texts
 
-def list_movements_in_bank(bank):
+def list_movements_in_bank(bank, all_movements):
     """
     Narrows down the list of objects to speed up Asm insertion.
     """
     if len(all_movements) == 0:
-        raise Exception("all_movements is blank.. run_main() will populate it")
+        raise Exception("all_movements is blank.. main() will populate it")
 
     assert bank != None, "list_movements_in_bank must be given a particular bank"
     assert 0 <= bank < 0x80, "bank doesn't exist in the ROM (out of bounds)"
@@ -7478,15 +6499,15 @@ def list_movements_in_bank(bank):
             movements.append(movement)
     return movements
 
-def dump_asm_for_texts_in_bank(bank, start=50, end=100):
+def dump_asm_for_texts_in_bank(bank, start=50, end=100, rom=None):
     """
     Simple utility to help with dumping texts into a particular bank. This is
     helpful for figuring out which text is breaking that bank.
     """
     # load and parse the ROM if necessary
     if rom == None or len(rom) <= 4:
-        load_rom()
-        run_main()
+        rom = load_rom()
+        main()
 
     # get all texts
     # first 100 look okay?
@@ -7503,12 +6524,12 @@ def dump_asm_for_texts_in_bank(bank, start=50, end=100):
 
     logging.info("done dumping texts for bank {banked}".format(banked="$%.2x" % bank))
 
-def dump_asm_for_movements_in_bank(bank, start=0, end=100):
+def dump_asm_for_movements_in_bank(bank, start=0, end=100, all_movements=None):
     if rom == None or len(rom) <= 4:
-        load_rom()
-        run_main()
+        rom = load_rom()
+        main()
 
-    movements = list_movements_in_bank(bank)[start:end]
+    movements = list_movements_in_bank(bank, all_movements)[start:end]
 
     asm = Asm()
     asm.insert_with_dependencies(movements)
@@ -7521,8 +6542,8 @@ def dump_things_in_bank(bank, start=50, end=100):
     """
     # load and parse the ROM if necessary
     if rom == None or len(rom) <= 4:
-        load_rom()
-        run_main()
+        rom = load_rom()
+        main()
 
     things = list_things_in_bank(bank)[start:end]
 
@@ -7649,7 +6670,7 @@ class Label:
         entries to the Asm.parts list.
         """
         # assert new_asm != None, "new_asm should be an instance of Asm"
-        load_asm2()
+        new_asm = load_asm2()
         is_in_file = new_asm.is_label_name_in_file(self.name)
         self.is_in_file = is_in_file
         return is_in_file
@@ -7658,7 +6679,7 @@ class Label:
         """
         Checks if the address is in use by another label.
         """
-        load_asm2()
+        new_asm = load_asm2()
         self.address_is_in_file = new_asm.does_address_have_label(self.address)
         return self.address_is_in_file
 
@@ -7690,19 +6711,9 @@ class Label:
         """
         Generates a label name based on parents and self.object.
         """
-        object = self.object
-        name = object.make_label()
+        obj = self.object
+        name = obj.make_label()
         return name
-
-def find_labels_without_addresses():
-    """scans the asm source and finds labels that are unmarked"""
-    without_addresses = []
-    for (line_number, line) in enumerate(asm):
-        if labels.line_has_label(line):
-            label = labels.get_label_from_line(line)
-            if not labels.line_has_comment_address(line):
-                without_addresses.append({"line_number": line_number, "line": line, "label": label})
-    return without_addresses
 
 label_errors = ""
 def get_labels_between(start_line_id, end_line_id, bank):
@@ -7805,30 +6816,41 @@ def scan_for_predefined_labels(debug=False):
     write_all_labels(all_labels)
     return all_labels
 
-def run_main():
-    # read the rom and figure out the offsets for maps
-    direct_load_rom()
-    load_map_group_offsets()
+all_map_headers = []
+
+trainer_group_maximums = {}
+
+# Some of the commands need a reference to this data. This is a hacky way to
+# get around having a global, and it should be fixed eventually.
+Command.trainer_group_maximums = trainer_group_maximums
+
+SingleByteParam.map_internal_ids = map_internal_ids
+MultiByteParam.map_internal_ids = map_internal_ids
+
+def main(rom=None):
+    if not rom:
+        # read the rom and figure out the offsets for maps
+        rom = direct_load_rom()
+
+    # figure out the map offsets
+    map_group_offsets = load_map_group_offsets(map_group_pointer_table=map_group_pointer_table, map_group_count=map_group_count, rom=rom)
 
     # add the offsets into our map structure, why not (johto maps only)
     [map_names[map_group_id+1].update({"offset": offset}) for map_group_id, offset in enumerate(map_group_offsets)]
 
     # parse map header bytes for each map
-    parse_all_map_headers()
+    parse_all_map_headers(map_names, all_map_headers=all_map_headers)
 
     # find trainers based on scripts and map headers
     # this can only happen after parsing the entire map and map scripts
-    find_trainer_ids_from_scripts()
+    find_trainer_ids_from_scripts(script_parse_table=script_parse_table, trainer_group_maximums=trainer_group_maximums)
 
     # and parse the main TrainerGroupTable once we know the max number of trainers
     #global trainer_group_table
-    trainer_group_table = TrainerGroupTable()
+    trainer_group_table = TrainerGroupTable(trainer_group_maximums=trainer_group_maximums, trainers=trainers, script_parse_table=script_parse_table)
 
     # improve duplicate trainer names
     make_trainer_group_name_trainer_ids(trainer_group_table)
-
-# just a helpful alias
-main = run_main
 
 if __name__ == "crystal":
     pass

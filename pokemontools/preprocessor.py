@@ -3,6 +3,7 @@
 Basic preprocessor for both pokecrystal and pokered.
 """
 
+import os
 import sys
 
 import exceptions
@@ -466,6 +467,8 @@ class Preprocessor(object):
         self.macros = macros
         self.macro_table = make_macro_table(self.macros)
 
+        self.globes = []
+
     def preprocess(self, lines=None):
         """
         Run the preprocessor against stdin.
@@ -480,6 +483,23 @@ class Preprocessor(object):
         for l in lines:
             self.read_line(l)
 
+        self.update_globals()
+
+    def update_globals(self):
+        """
+        Add any labels not already in globals.asm.
+        """
+        # TODO: pokered needs to be fixed
+        try:
+            globes = open(os.path.join(self.config.path, 'globals.asm'), 'r+')
+            lines = globes.readlines()
+            for globe in self.globes:
+                line = 'GLOBAL ' + globe + '\n'
+                if line not in lines:
+                    globes.write(line)
+        except Exception as exception:
+            pass # don't care if it's not there...
+
     def read_line(self, l):
         """
         Preprocesses a given line of asm.
@@ -493,8 +513,8 @@ class Preprocessor(object):
         asm, comment = separate_comment(l)
 
         # export all labels
-        if ':' in asm[:asm.find('"')] and "macro" not in asm.lower():
-            sys.stdout.write('GLOBAL ' + asm.split(':')[0] + '\n')
+        if ':' in asm.split('"')[0] and "macro" not in asm.lower():
+            self.globes += [asm.split(':')[0]]
 
         # expect preprocessed .asm files
         if "INCLUDE" in asm:
