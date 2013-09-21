@@ -46,27 +46,6 @@ def translate_chars(charz):
         result += chars[each]
     return result
 
-def press(buttons, holdsteps=1, aftersteps=1):
-    """
-    Press a button.
-
-    Use steplimit to say for how many steps you want to press
-    the button (try leaving it at the default, 1).
-    """
-    if hasattr(buttons, "__len__"):
-        number = button_combiner(buttons)
-    elif isinstance(buttons, int):
-        number = buttons
-    else:
-        number = buttons
-    for step_counter in range(0, holdsteps):
-        Gb.step(number)
-
-    # clear the button press
-    if aftersteps > 0:
-        for step_counter in range(0, aftersteps):
-            Gb.step(0)
-
 def call(bank, address):
     """
     Jumps into a function at a certain address.
@@ -148,7 +127,7 @@ class crystal:
                 # set CurSFX
                 set_memory_at(0xc2bf, 0)
 
-                press("a", holdsteps=10, aftersteps=1)
+                vba.press("a", hold=10, after=1)
 
                 # check if CurSFX is SFX_READ_TEXT_2
                 if get_memory_at(0xc2bf) == 0x8:
@@ -415,9 +394,9 @@ class crystal:
         Applies a sequence of buttons to the on-screen keyboard.
         """
         for buttons in button_sequence:
-            press(buttons)
+            vba.press(buttons)
             nstep(2)
-            press([])
+            vba.press([])
 
     @staticmethod
     def write(something="TrAiNeR"):
@@ -493,8 +472,8 @@ class crystal:
         """
         Attempt to move the player.
         """
-        press(cmd, holdsteps=10, aftersteps=0)
-        press([])
+        vba.press(cmd, hold=10, after=0)
+        vba.press([])
 
         memory = get_memory()
         #while memory[0xd4e1] == 2 and memory[0xd042] != 0x3e:
