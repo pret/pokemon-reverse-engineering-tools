@@ -69,7 +69,7 @@ def call(bank, address):
         if get_memory_range(registers.sp, 2) != [value & 0xFF, value >> 8]:
             print "desired memory values: " + str([value & 0xFF, value >> 8] )
             print "actual memory values: " + str(get_memory_range(registers.sp , 2))
-            print "wrong value at " + hex(registers.sp) + " expected " + hex(value) + " but got " + hex(get_memory_at(registers.sp))
+            print "wrong value at " + hex(registers.sp) + " expected " + hex(value) + " but got " + hex(vba.read_memory_at(registers.sp))
 
     if bank != 0:
         registers["af"] = (bank << 8) | (registers["af"] & 0xFF)
@@ -87,8 +87,8 @@ def get_stack():
 
     for x in range(0, 11):
         sp = sp - (2 * x)
-        hi = get_memory_at(sp + 1)
-        lo = get_memory_at(sp)
+        hi = vba.read_memory_at(sp + 1)
+        lo = vba.read_memory_at(sp)
         address = ((hi << 8) | lo)
         addresses.append(address)
 
@@ -117,8 +117,8 @@ class crystal:
         :param max_wait: number of wait loops to perform
         """
         while max_wait > 0:
-            hi = get_memory_at(registers.sp + 1)
-            lo = get_memory_at(registers.sp)
+            hi = vba.read_memory_at(registers.sp + 1)
+            lo = vba.read_memory_at(registers.sp)
             address = ((hi << 8) | lo)
 
             if address in range(0xa1b, 0xa46) + range(0xaaf, 0xaf5): #  0xaef:
@@ -130,7 +130,7 @@ class crystal:
                 vba.press("a", hold=10, after=1)
 
                 # check if CurSFX is SFX_READ_TEXT_2
-                if get_memory_at(0xc2bf) == 0x8:
+                if vba.read_memory_at(0xc2bf) == 0x8:
                     print "cursfx is set to SFX_READ_TEXT_2, looping.."
                     return crystal.text_wait(step_size=step_size, max_wait=max_wait, debug=debug, callback=callback, sfx_limit=sfx_limit)
                 else:
@@ -169,7 +169,7 @@ class crystal:
             # OakSpeech intro where textboxes are running constantly, and then
             # suddenly the player can move around. One way to detect that is to
             # set callback to a function that returns
-            # "vba.get_memory_at(0xcfb1) != 0".
+            # "vba.read_memory_at(0xcfb1) != 0".
             if callback != None:
                 result = callback()
                 if result == True:
@@ -240,14 +240,14 @@ class crystal:
         """
         Returns the current map group.
         """
-        return get_memory_at(0xdcb5)
+        return vba.read_memory_at(0xdcb5)
 
     @staticmethod
     def get_map_id():
         """
         Returns the map number of the current map.
         """
-        return get_memory_at(0xdcb6)
+        return vba.read_memory_at(0xdcb6)
 
     @staticmethod
     def get_map_name():
@@ -265,8 +265,8 @@ class crystal:
 
         Relative to top-left corner of map.
         """
-        x = get_memory_at(0xdcb8)
-        y = get_memory_at(0xdcb7)
+        x = vba.read_memory_at(0xdcb8)
+        y = vba.read_memory_at(0xdcb7)
         return (x, y)
 
     @staticmethod
@@ -286,11 +286,11 @@ class crystal:
         """
         Checks whether or not we're in a battle.
         """
-        return (get_memory_at(0xd22d) != 0) or crystal.is_in_link_battle()
+        return (vba.read_memory_at(0xd22d) != 0) or crystal.is_in_link_battle()
 
     @staticmethod
     def is_in_link_battle():
-        return get_memory_at(0xc2dc) != 0
+        return vba.read_memory_at(0xc2dc) != 0
 
     @staticmethod
     def unlock_flypoints():
@@ -310,7 +310,7 @@ class crystal:
         """
         Returns 'male' or 'female'.
         """
-        gender = get_memory_at(0xD472)
+        gender = vba.read_memory_at(0xD472)
         if gender == 0:
             return "male"
         elif gender == 1:
@@ -455,7 +455,7 @@ class crystal:
         Wait until ScriptRunning isn't -1.
         """
         while limit > 0:
-            if get_memory_at(0xd438) != 255:
+            if vba.read_memory_at(0xd438) != 255:
                 print "script is done executing"
                 return
             else:
