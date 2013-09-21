@@ -64,8 +64,8 @@ def call(bank, address):
 
     for value in push:
         registers.sp -= 2
-        set_memory_at(registers.sp + 1, value >> 8)
-        set_memory_at(registers.sp, value & 0xFF)
+        vba.write_memory_at(registers.sp + 1, value >> 8)
+        vba.write_memory_at(registers.sp, value & 0xFF)
         if get_memory_range(registers.sp, 2) != [value & 0xFF, value >> 8]:
             print "desired memory values: " + str([value & 0xFF, value >> 8] )
             print "actual memory values: " + str(get_memory_range(registers.sp , 2))
@@ -125,7 +125,7 @@ class crystal:
                 print "pressing, then breaking.. address is: " + str(hex(address))
 
                 # set CurSFX
-                set_memory_at(0xc2bf, 0)
+                vba.write_memory_at(0xc2bf, 0)
 
                 vba.press("a", hold=10, after=1)
 
@@ -204,14 +204,14 @@ class crystal:
         to be executed each step/tick if continuous walk-through-walls
         is desired.
         """
-        set_memory_at(0xC2FA, 0)
-        set_memory_at(0xC2FB, 0)
-        set_memory_at(0xC2FC, 0)
-        set_memory_at(0xC2FD, 0)
+        vba.write_memory_at(0xC2FA, 0)
+        vba.write_memory_at(0xC2FB, 0)
+        vba.write_memory_at(0xC2FC, 0)
+        vba.write_memory_at(0xC2FD, 0)
 
     #@staticmethod
     #def set_enemy_level(level):
-    #    set_memory_at(0xd213, level)
+    #    vba.write_memory_at(0xd213, level)
 
     @staticmethod
     def nstep(steplimit=500):
@@ -227,13 +227,13 @@ class crystal:
 
     @staticmethod
     def disable_triggers():
-        set_memory_at(0x23c4, 0xAF)
-        set_memory_at(0x23d0, 0xAF);
+        vba.write_memory_at(0x23c4, 0xAF)
+        vba.write_memory_at(0x23d0, 0xAF);
 
     @staticmethod
     def disable_callbacks():
-        set_memory_at(0x23f2, 0xAF)
-        set_memory_at(0x23fe, 0xAF)
+        vba.write_memory_at(0x23f2, 0xAF)
+        vba.write_memory_at(0x23fe, 0xAF)
 
     @staticmethod
     def get_map_group_id():
@@ -279,7 +279,7 @@ class crystal:
 
         This probably works on other menus.
         """
-        set_memory_at(0xcfa9, id)
+        vba.write_memory_at(0xcfa9, id)
 
     @staticmethod
     def is_in_battle():
@@ -300,10 +300,10 @@ class crystal:
         Note: this might start at 0xDCA4 (minus one on all addresses), but not
         sure.
         """
-        set_memory_at(0xDCA5, 0xFF)
-        set_memory_at(0xDCA6, 0xFF)
-        set_memory_at(0xDCA7, 0xFF)
-        set_memory_at(0xDCA8, 0xFF)
+        vba.write_memory_at(0xDCA5, 0xFF)
+        vba.write_memory_at(0xDCA6, 0xFF)
+        vba.write_memory_at(0xDCA7, 0xFF)
+        vba.write_memory_at(0xDCA8, 0xFF)
 
     @staticmethod
     def get_gender():
@@ -329,14 +329,14 @@ class crystal:
 
     @staticmethod
     def warp(map_group_id, map_id, x, y):
-        set_memory_at(0xdcb5, map_group_id)
-        set_memory_at(0xdcb6, map_id)
-        set_memory_at(0xdcb7, y)
-        set_memory_at(0xdcb8, x)
-        set_memory_at(0xd001, 0xFF)
-        set_memory_at(0xff9f, 0xF1)
-        set_memory_at(0xd432, 1)
-        set_memory_at(0xd434, 0 & 251)
+        vba.write_memory_at(0xdcb5, map_group_id)
+        vba.write_memory_at(0xdcb6, map_id)
+        vba.write_memory_at(0xdcb7, y)
+        vba.write_memory_at(0xdcb8, x)
+        vba.write_memory_at(0xd001, 0xFF)
+        vba.write_memory_at(0xff9f, 0xF1)
+        vba.write_memory_at(0xd432, 1)
+        vba.write_memory_at(0xd434, 0 & 251)
 
     @staticmethod
     def warp_pokecenter():
@@ -346,16 +346,16 @@ class crystal:
     @staticmethod
     def masterballs():
         # masterball
-        set_memory_at(0xd8d8, 1)
-        set_memory_at(0xd8d9, 99)
+        vba.write_memory_at(0xd8d8, 1)
+        vba.write_memory_at(0xd8d9, 99)
 
         # ultraball
-        set_memory_at(0xd8da, 2)
-        set_memory_at(0xd8db, 99)
+        vba.write_memory_at(0xd8da, 2)
+        vba.write_memory_at(0xd8db, 99)
 
         # pokeballs
-        set_memory_at(0xd8dc, 5)
-        set_memory_at(0xd8dd, 99)
+        vba.write_memory_at(0xd8dc, 5)
+        vba.write_memory_at(0xd8dd, 99)
 
     @staticmethod
     def get_text():
