@@ -459,7 +459,7 @@ class crystal:
                 print "script is done executing"
                 return
             else:
-                step()
+                vba.step()
 
             if debug:
                 limit = limit - 1
