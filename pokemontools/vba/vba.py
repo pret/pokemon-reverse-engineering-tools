@@ -162,7 +162,7 @@ class crystal:
                     break
 
                 else:
-                    nstep(step_size)
+                    vba.step(count=step_size)
 
             # if there is a callback, then call the callback and exit when the
             # callback returns True. This is especially useful during the
@@ -223,7 +223,7 @@ class crystal:
         for step_counter in range(0, steplimit):
             crystal.walk_through_walls()
             #call(0x1, 0x1078)
-            step()
+            vba.step()
 
     @staticmethod
     def disable_triggers():
@@ -395,7 +395,7 @@ class crystal:
         """
         for buttons in button_sequence:
             vba.press(buttons)
-            nstep(2)
+            vba.step(count=2)
             vba.press([])
 
     @staticmethod
@@ -479,7 +479,7 @@ class crystal:
         #while memory[0xd4e1] == 2 and memory[0xd042] != 0x3e:
         while memory[0xd043] in [0, 1, 2, 3]:
         #while memory[0xd043] in [0, 1, 2, 3] or memory[0xd042] != 0x3e:
-            nstep(10)
+            vba.step(count=10)
             memory = get_memory()
 
 class TestEmulator(unittest.TestCase):
@@ -492,7 +492,7 @@ class TestEmulator(unittest.TestCase):
         # what text to read from
         registers["de"] = 0x1276
 
-        nstep(10)
+        vba.step(count=10)
 
         text = crystal.get_text()
 
