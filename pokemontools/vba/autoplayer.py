@@ -257,7 +257,7 @@ class SpeedRunner(Runner):
 
         if starter_choice.lower() == "cyndaquil":
             moves = 0
-        if starter_choice.lower() == "totodile":
+        elif starter_choice.lower() == "totodile":
             moves = 1
         else:
             moves = 2
