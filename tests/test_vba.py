@@ -254,6 +254,10 @@ class VbaTests(unittest.TestCase):
             "pythoN",
             "python",
             "PyThOn",
+            "Zot",
+            "Death",
+            "Hiro",
+            "HIRO",
         ]
 
         self.bootstrap_name_prompt()
