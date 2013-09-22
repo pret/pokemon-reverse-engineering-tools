@@ -418,7 +418,7 @@ class SpeedRunner(Runner):
 
         # if pokemon health is >20, just continue
         # if move 1 PP is 0, just continue
-        if cur_hp > 20 and move_pp > 5:
+        if cur_hp > 20 and move_pp > 5 and self.cry.vba.memory[0xdcfe] < level:
             self.cry.move("u")
             return self.new_bark_level_grind(level, walk_to_grass=False, skip=False)
 
