@@ -430,7 +430,12 @@ class crystal(object):
         """
         for buttons in button_sequence:
             self.vba.press(buttons)
-            self.vba.step(count=2)
+
+            if buttons == "select":
+                self.vba.step(count=5)
+            else:
+                self.vba.step(count=2)
+
             self.vba.press([])
 
     def write(self, something="TrAiNeR"):
@@ -440,7 +445,9 @@ class crystal(object):
         Uses a planning algorithm to do this in the most efficient way possible.
         """
         button_sequence = keyboard.plan_typing(something)
+        self.vba.step(count=10)
         self.keyboard_apply([[x] for x in button_sequence])
+        return button_sequence
 
     def set_partymon2(self):
         """
