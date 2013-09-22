@@ -20,11 +20,19 @@ def setup_wram():
     Loads up some default addresses. Should eventually be replaced with the
     actual wram parser.
     """
+    # TODO: this should just be parsed straight out of wram.asm
     wram = {}
     wram["PlayerDirection"] = 0xd4de
     wram["PlayerAction"] = 0xd4e1
     wram["MapX"] = 0xd4e6
     wram["MapY"] = 0xd4e7
+
+    wram["WarpNumber"] = 0xdcb4
+    wram["MapGroup"] = 0xdcb5
+    wram["MapNumber"] = 0xdcb6
+    wram["YCoord"] = 0xdcb7
+    wram["XCoord"] = 0xdcb8
+
     return wram
 
 def bootstrap():
