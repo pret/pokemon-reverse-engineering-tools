@@ -169,5 +169,29 @@ class VbaTests(unittest.TestCase):
         self.assertEqual(self.get_wram_value("MapGroup"), 24)
         self.assertEqual(self.get_wram_value("MapNumber"), 4)
 
+    def test_speedrunner_handle_elm(self):
+        self.vba.shutdown()
+
+        runner = autoplayer.SpeedRunner(cry=None)
+        runner.setup()
+        runner.skip_intro(skip=True)
+        runner.handle_mom(skip=True)
+        runner.walk_into_new_bark_town(skip=False)
+
+        # go through the Elm's Lab sequence
+        runner.handle_elm("cyndaquil", skip=False)
+
+        # test again if the game is in a state where the player can walk
+        first_map_y = self.get_wram_value("MapY")
+        runner.cry.move("d")
+        second_map_y = self.get_wram_value("MapY")
+
+        # check that the player has moved
+        self.assertNotEqual(first_map_y, second_map_y)
+
+        # check that the map is correct
+        self.assertEqual(self.get_wram_value("MapGroup"), 24)
+        self.assertEqual(self.get_wram_value("MapNumber"), 5)
+
 if __name__ == "__main__":
     unittest.main()
