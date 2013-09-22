@@ -142,8 +142,8 @@ class crystal(object):
         :param max_wait: number of wait loops to perform
         """
         while max_wait > 0:
-            hi = self.vba.read_memory_at(registers.sp + 1)
-            lo = self.vba.read_memory_at(registers.sp)
+            hi = self.vba.read_memory_at(self.registers.sp + 1)
+            lo = self.vba.read_memory_at(self.registers.sp)
             address = ((hi << 8) | lo)
 
             if address in range(0xa1b, 0xa46) + range(0xaaf, 0xaf5): #  0xaef:
