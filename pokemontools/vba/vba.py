@@ -53,42 +53,43 @@ def translate_chars(charz):
         result += chars[each]
     return result
 
-def call(bank, address, vba=vba, registers=registers):
-    """
-    Jumps into a function at a certain address.
-
-    Go into the start menu, pause the game and try call(1, 0x1078) to see a
-    string printed to the screen.
-    """
-    push = [
-        registers.pc,
-        registers.hl,
-        registers.de,
-        registers.bc,
-        registers.af,
-        0x3bb7,
-    ]
-
-    for value in push:
-        registers.sp -= 2
-        vba.write_memory_at(registers.sp + 1, value >> 8)
-        vba.write_memory_at(registers.sp, value & 0xFF)
-        if get_memory_range(vba, registers.sp, 2) != [value & 0xFF, value >> 8]:
-            print "desired memory values: " + str([value & 0xFF, value >> 8] )
-            print "actual memory values: " + str(get_memory_range(vba, registers.sp, 2))
-            print "wrong value at " + hex(registers.sp) + " expected " + hex(value) + " but got " + hex(vba.read_memory_at(registers.sp))
-
-    if bank != 0:
-        registers["af"] = (bank << 8) | (registers["af"] & 0xFF)
-        registers["hl"] = address
-        registers["pc"] = 0x2d63 # FarJump
-    else:
-        registers["pc"] = address
-
 class crystal:
     """
     Just a simple namespace to store a bunch of functions for Pokémon Crystal.
     """
+
+    @staticmethod
+    def call(bank, address, vba=vba, registers=registers):
+        """
+        Jumps into a function at a certain address.
+
+        Go into the start menu, pause the game and try call(1, 0x1078) to see a
+        string printed to the screen.
+        """
+        push = [
+            registers.pc,
+            registers.hl,
+            registers.de,
+            registers.bc,
+            registers.af,
+            0x3bb7,
+        ]
+
+        for value in push:
+            registers.sp -= 2
+            vba.write_memory_at(registers.sp + 1, value >> 8)
+            vba.write_memory_at(registers.sp, value & 0xFF)
+            if get_memory_range(vba, registers.sp, 2) != [value & 0xFF, value >> 8]:
+                print "desired memory values: " + str([value & 0xFF, value >> 8] )
+                print "actual memory values: " + str(get_memory_range(vba, registers.sp, 2))
+                print "wrong value at " + hex(registers.sp) + " expected " + hex(value) + " but got " + hex(vba.read_memory_at(registers.sp))
+
+        if bank != 0:
+            registers["af"] = (bank << 8) | (registers["af"] & 0xFF)
+            registers["hl"] = address
+            registers["pc"] = 0x2d63 # FarJump
+        else:
+            registers["pc"] = address
 
     @staticmethod
     def get_stack(vba=vba, registers=registers):
@@ -492,7 +493,7 @@ class crystal:
 
 class TestEmulator(unittest.TestCase):
     def test_PlaceString(self):
-        call(vba, 0, 0x1078)
+        crystal.call(0, 0x1078)
 
         # where to draw the text
         registers["hl"] = 0xc4a0
