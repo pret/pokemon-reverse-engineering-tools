@@ -19,10 +19,15 @@ def skippable(func):
     def wrapped_function(*args, **kwargs):
         self = args[0]
         skip = True
+        override = True
 
         if "skip" in kwargs.keys():
             skip = kwargs["skip"]
             del kwargs["skip"]
+
+        if "override" in kwargs.keys():
+            override = kwargs["override"]
+            del kwargs["override"]
 
         # override skip if there's no save
         if skip:
@@ -33,9 +38,13 @@ def skippable(func):
         return_value = None
 
         if not skip:
-            self.cry.save_state(func.__name__ + "-start", override=True)
+            if override:
+                self.cry.save_state(func.__name__ + "-start", override=override)
+
             return_value = func(*args, **kwargs)
-            self.cry.save_state(func.__name__ + "-end", override=True)
+
+            if override:
+                self.cry.save_state(func.__name__ + "-end", override=override)
         elif skip:
             self.cry.vba.state = self.cry.load_state(func.__name__ + "-end")
 
@@ -81,7 +90,7 @@ class SpeedRunner(Runner):
         self.new_bark_level_grind(10, skip=False)
 
     @skippable
-    def skip_intro(self):
+    def skip_intro(self, stop_at_name_selection=False):
         """
         Skip the game boot intro sequence.
         """
@@ -123,6 +132,9 @@ class SpeedRunner(Runner):
 
         # read text until name selection
         self.cry.text_wait()
+
+        if stop_at_name_selection:
+            return
 
         # select "Chris"
         self.cry.vba.press("d", hold=10, after=1)
