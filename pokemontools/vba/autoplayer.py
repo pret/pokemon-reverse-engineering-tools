@@ -303,9 +303,6 @@ class SpeedRunner(Runner):
         # talk with elm a bit more
         self.cry.text_wait()
 
-        # TODO: and again.. wtf?
-        self.cry.text_wait()
-
         # wait until the script is done running
         self.cry.wait_for_script_running()
 
