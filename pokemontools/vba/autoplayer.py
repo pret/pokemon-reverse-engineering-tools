@@ -366,7 +366,7 @@ class SpeedRunner(Runner):
             # wait for the move to be over
             self.cry.text_wait()
 
-            hp = ((self.cry.vba.get_memory_at(0xd218) << 8) | self.cry.vba.get_memory_at(0xd217))
+            hp = ((self.cry.vba.memory[0xd218] << 8) | self.cry.vba.memory[0xd217])
             print "enemy hp is: " + str(hp)
 
             if hp == 0:
@@ -377,11 +377,11 @@ class SpeedRunner(Runner):
 
             attacks = attacks - 1
 
-        while self.cry.vba.get_memory_at(0xd22d) != 0:
+        while self.cry.vba.memory[0xd22d] != 0:
             self.cry.vba.press("a", hold=10, after=1)
 
         # wait for the map to finish loading
-        self.cry.vba.nstep(50)
+        self.cry.vba.step(count=50)
 
         print "okay, back in the overworld"
 
@@ -449,7 +449,7 @@ class SpeedRunner(Runner):
         self.cry.wait_for_script_running()
 
         # wait for it to be really really done
-        self.cry.vba.nstep(50)
+        self.cry.vba.step(count=50)
 
         self.cry.move("r")
         self.cry.move("r")
@@ -469,7 +469,7 @@ class SpeedRunner(Runner):
         self.cry.move("d")
 
         # check partymon1 level
-        if self.cry.vba.get_memory_at(0xdcfe) < level:
+        if self.cry.vba.memory[0xdcfe] < level:
             self.new_bark_level_grind(level, skip=False)
         else:
             return
