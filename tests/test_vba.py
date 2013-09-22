@@ -162,9 +162,12 @@ class VbaTests(unittest.TestCase):
         runner.cry.move("d")
         second_map_y = self.get_wram_value("MapY")
 
+        # check that the player has moved
         self.assertNotEqual(first_map_y, second_map_y)
 
-        # TODO: test the current map id against what it should be
+        # check that the map is correct
+        self.assertEqual(self.get_wram_value("MapGroup"), 24)
+        self.assertEqual(self.get_wram_value("MapNumber"), 4)
 
 if __name__ == "__main__":
     unittest.main()
