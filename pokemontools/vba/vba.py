@@ -77,6 +77,30 @@ class crystal(object):
         with open(save_path, "wb") as file_handler:
             file_handler.write(state)
 
+    def load_state(self, name, loadit=True):
+        """
+        Read a state from file based on the name of the state.
+
+        Looks in save_state_path for a file with this name (".sav" is
+        optional).
+
+        @param loadit: whether or not to set the emulator to this state
+        """
+        save_path = os.path.join(self.config.save_state_path, name)
+
+        if not os.path.exists(save_path):
+            if len(name) < 4 or name[-4:] != ".sav":
+                name += ".sav"
+                save_path = os.path.join(save_state_path, name)
+
+        with open(save_path, "rb") as file_handler:
+            state = file_handler.read()
+
+        if loadit:
+            self.vba.state = state
+
+        return state
+
     def call(self, bank, address):
         """
         Jumps into a function at a certain address.
