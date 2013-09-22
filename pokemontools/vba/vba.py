@@ -91,7 +91,7 @@ class crystal(object):
         if not os.path.exists(save_path):
             if len(name) < 4 or name[-4:] != ".sav":
                 name += ".sav"
-                save_path = os.path.join(save_state_path, name)
+                save_path = os.path.join(self.config.save_state_path, name)
 
         with open(save_path, "rb") as file_handler:
             state = file_handler.read()
