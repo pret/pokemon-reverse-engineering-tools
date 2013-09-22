@@ -7,11 +7,11 @@ import unittest
 import pokemontools.vba.vba as vba
 
 try:
-    import pokemontools.vba.vba_autoplayer
+    import pokemontools.vba.vba_autoplayer as autoplayer
 except ImportError:
-    import pokemontools.vba.autoplayer as vba_autoplayer
+    import pokemontools.vba.autoplayer as autoplayer
 
-vba_autoplayer.vba = vba
+autoplayer.vba = vba
 
 def setup_wram():
     """
@@ -31,18 +31,17 @@ def bootstrap():
     is constructed by this function.
     """
 
-    # reset the rom
-    vba.shutdown()
-    vba.load_rom()
+    cry = vba.crystal()
+    runner = autoplayer.SpeedRunner(cry=cry)
 
     # skip=False means run the skip_intro function instead of just skipping to
     # a saved state.
-    vba_autoplayer.skip_intro()
+    runner.skip_intro()
 
-    state = vba.get_state()
+    state = cry.get_state()
 
     # clean everything up again
-    vba.shutdown()
+    cry.vba.shutdown()
 
     return state
 
