@@ -424,6 +424,39 @@ class crystal(object):
 
         return output
 
+    def is_showing_stats_screen(self):
+        """
+        This is meant to detect whether or not the stats screen is showing.
+        This is the menu that pops up after leveling up.
+        """
+        # These words must be on the screen if the stats screen is currently
+        # displayed.
+        parts = [
+            "ATTACK",
+            "DEFENSE",
+            "SPCL.ATK",
+            "SPCL.DEF",
+            "SPEED",
+        ]
+
+        # get the current text on the screen
+        text = self.get_text()
+
+        if all([part in text for part in parts]):
+            return True
+        else:
+            return False
+
+    def handle_stats_screen(self, force=False):
+        """
+        Attempts to bypass a stats screen. Set force=True if you want to make
+        the attempt regardless of whether or not the system thinks a stats
+        screen is showing.
+        """
+        if self.is_showing_stats_screen() or force:
+            self.vba.press("a")
+            self.vba.step(count=20)
+
     def keyboard_apply(self, button_sequence):
         """
         Applies a sequence of buttons to the on-screen keyboard.
