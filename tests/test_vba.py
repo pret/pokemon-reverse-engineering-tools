@@ -123,5 +123,24 @@ class VbaTests(unittest.TestCase):
 
         self.assertTrue("TRAINER" in text)
 
+    def test_speedrunner_constructor(self):
+        runner = autoplayer.SpeedRunner(cry=self.cry)
+
+    def test_speedrunner_handle_mom(self):
+        self.vba.shutdown()
+
+        # TODO: why can't i pass in the current state of the emulator?
+        runner = autoplayer.SpeedRunner(cry=None)
+        runner.setup()
+        runner.skip_intro(skip=True)
+        runner.handle_mom(skip=False)
+
+        # confirm that handle_mom is done by attempting to move on the map
+        first_map_y = self.get_wram_value("MapY")
+        runner.cry.move("d")
+        second_map_y = self.get_wram_value("MapY")
+
+        self.assertNotEqual(first_map_y, second_map_y)
+
 if __name__ == "__main__":
     unittest.main()
