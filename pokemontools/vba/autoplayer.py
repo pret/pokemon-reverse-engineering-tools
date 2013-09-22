@@ -90,43 +90,43 @@ class SpeedRunner(Runner):
         self.cry.nstep(400)
 
         # skip the ditto sequence
-        self.cry.press("a")
+        self.cry.vba.press("a")
         self.cry.nstep(100)
 
         # skip the start screen
-        self.cry.press("start")
+        self.cry.vba.press("start")
         self.cry.nstep(100)
 
         # click "new game"
-        self.cry.press("a", holdsteps=50, aftersteps=1)
+        self.cry.vba.press("a", hold=50, after=1)
 
         # skip text up to "Are you a boy? Or are you a girl?"
         self.cry.text_wait()
 
         # select "Boy"
-        self.cry.press("a", holdsteps=50, aftersteps=1)
+        self.cry.vba.press("a", hold=50, after=1)
 
         # text until "What time is it?"
         self.cry.text_wait()
 
         # select 10 o'clock
-        self.cry.press("a", holdsteps=50, aftersteps=1)
+        self.cry.vba.press("a", hold=50, after=1)
 
         # yes i mean it
-        self.cry.press("a", holdsteps=50, aftersteps=1)
+        self.cry.vba.press("a", hold=50, after=1)
 
         # "How many minutes?" 0 min.
-        self.cry.press("a", holdsteps=50, aftersteps=1)
+        self.cry.vba.press("a", hold=50, after=1)
 
         # "Who! 0 min.?" yes/no select yes
-        self.cry.press("a", holdsteps=50, aftersteps=1)
+        self.cry.vba.press("a", hold=50, after=1)
 
         # read text until name selection
         self.cry.text_wait()
 
         # select "Chris"
-        self.cry.press("d", holdsteps=10, aftersteps=1)
-        self.cry.press("a", holdsteps=50, aftersteps=1)
+        self.cry.vba.press("d", hold=10, after=1)
+        self.cry.vba.press("a", hold=50, after=1)
 
         def overworldcheck():
             """
@@ -164,28 +164,28 @@ class SpeedRunner(Runner):
         self.cry.text_wait()
 
         # "What day is it?" Sunday
-        self.cry.vba.press("a", holdsteps=10) # Sunday
+        self.cry.vba.press("a", hold=10) # Sunday
 
         self.cry.text_wait()
 
         # "SUNDAY, is it?" yes/no
-        self.cry.vba.press("a", holdsteps=10) # yes
+        self.cry.vba.press("a", hold=10) # yes
 
         self.cry.text_wait()
 
         # "Is it Daylight Saving Time now?" yes/no
-        self.cry.vba.press("a", holdsteps=10) # yes
+        self.cry.vba.press("a", hold=10) # yes
 
         self.cry.text_wait()
 
         # "AM DST, is that OK?" yes/no
-        self.cry.vba.press("a", holdsteps=10) # yes
+        self.cry.vba.press("a", hold=10) # yes
 
         # text until "know how to use the PHONE?" yes/no
         self.cry.text_wait()
 
         # press yes
-        self.cry.vba.press("a", holdsteps=10)
+        self.cry.vba.press("a", hold=10)
 
         # wait until mom is done talking
         self.cry.text_wait()
@@ -234,7 +234,7 @@ class SpeedRunner(Runner):
         self.cry.text_wait()
 
         # "that I recently caught." yes/no
-        self.cry.vba.press("a", holdsteps=10) # yes
+        self.cry.vba.press("a", hold=10) # yes
 
         # talk to elm some more
         self.cry.text_wait()
@@ -269,7 +269,7 @@ class SpeedRunner(Runner):
         self.cry.move("u")
 
         # select it
-        self.cry.vba.press("a", holdsteps=10, aftersteps=0)
+        self.cry.vba.press("a", hold=10, after=0)
 
         # wait for the image to pop up
         self.cry.text_wait()
@@ -281,7 +281,7 @@ class SpeedRunner(Runner):
         self.cry.text_wait()
 
         # press yes
-        self.cry.vba.press("a", holdsteps=10, aftersteps=0)
+        self.cry.vba.press("a", hold=10, after=0)
 
         # wait for elm to talk a bit
         self.cry.text_wait()
@@ -290,8 +290,8 @@ class SpeedRunner(Runner):
         self.cry.text_wait()
 
         # give a nickname? yes/no
-        self.cry.vba.press("d", holdsteps=10, aftersteps=0) # move to "no"
-        self.cry.vba.press("a", holdsteps=10, aftersteps=0) # no
+        self.cry.vba.press("d", hold=10, after=0) # move to "no"
+        self.cry.vba.press("a", hold=10, after=0) # no
 
         # TODO: why didn't this wait until he was completely done?
         self.cry.text_wait()
@@ -358,13 +358,13 @@ class SpeedRunner(Runner):
 
         while attacks > 0:
             # FIGHT
-            self.cry.vba.press("a", holdsteps=10, aftersteps=1)
+            self.cry.vba.press("a", hold=10, after=1)
 
             # wait to select a move
             self.cry.text_wait()
 
             # SCRATCH
-            self.cry.vba.press("a", holdsteps=10, aftersteps=1)
+            self.cry.vba.press("a", hold=10, after=1)
 
             # wait for the move to be over
             self.cry.text_wait()
@@ -381,7 +381,7 @@ class SpeedRunner(Runner):
             attacks = attacks - 1
 
         while self.cry.vba.get_memory_at(0xd22d) != 0:
-            self.cry.vba.press("a", holdsteps=10, aftersteps=1)
+            self.cry.vba.press("a", hold=10, after=1)
 
         # wait for the map to finish loading
         self.cry.vba.nstep(50)
@@ -438,13 +438,13 @@ class SpeedRunner(Runner):
         self.cry.move("u")
 
         # interact
-        self.cry.vba.press("a", holdsteps=10, aftersteps=1)
+        self.cry.vba.press("a", hold=10, after=1)
 
         # wait for yes/no box
         self.cry.text_wait()
 
         # press yes
-        self.cry.vba.press("a", holdsteps=10, aftersteps=1)
+        self.cry.vba.press("a", hold=10, after=1)
 
         # TODO: when is healing done?
 
