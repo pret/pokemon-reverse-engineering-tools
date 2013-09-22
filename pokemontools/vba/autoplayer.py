@@ -37,7 +37,7 @@ def skippable(func):
             return_value = func(*args, **kwargs)
             self.cry.save_state(func.__name__ + "-end", override=True)
         elif skip:
-            self.cry.vba.state = self.cry.vba.load_state(func.__name__ + "-end")
+            self.cry.vba.state = self.cry.load_state(func.__name__ + "-end")
 
         return return_value
     return wrapped_function
