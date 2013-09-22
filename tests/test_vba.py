@@ -56,16 +56,6 @@ class OtherVbaTests(unittest.TestCase):
         self.assertEqual(expected_result, button_sequence)
 
 class VbaTests(unittest.TestCase):
-    # unittest in jython2.5 doesn't seem to have setUpClass ?? Man, why am I on
-    # jython2.5? This is ancient.
-    #@classmethod
-    #def setUpClass(cls):
-    #    # get a good game state
-    #    cls.state = bootstrap()
-    #
-    #    # figure out addresses
-    #    cls.wram = setup_wram()
-
     cry = None
     wram = None
 
@@ -80,21 +70,16 @@ class VbaTests(unittest.TestCase):
 
         cls.vba.state = cls.bootstrap_state
 
-    def get_wram_value(self, name):
-        return self.vba.memory[self.wram[name]]
+    @classmethod
+    def tearDownClass(cls):
+        cls.vba.shutdown()
 
     def setUp(self):
-        #if self.cry:
-        #    # clean up the emulator's state
-        #    self.cry.shutdown()
-        #self.cry = vba.crystal()
-        #self.vba = self.cry.vba
-
         # reset to whatever the bootstrapper created
         self.vba.state = self.bootstrap_state
 
-    #def tearDown(self):
-    #    self.vba.shutdown()
+    def get_wram_value(self, name):
+        return self.vba.memory[self.wram[name]]
 
     def test_movement_changes_player_direction(self):
         player_direction = self.get_wram_value("PlayerDirection")
