@@ -31,14 +31,14 @@ def bootstrap():
     is constructed by this function.
     """
 
-    cry = vba.crystal()
+    cry = vba.crystal(config=None)
     runner = autoplayer.SpeedRunner(cry=cry)
 
     # skip=False means run the skip_intro function instead of just skipping to
     # a saved state.
     runner.skip_intro()
 
-    state = cry.get_state()
+    state = cry.vba.state
 
     # clean everything up again
     cry.vba.shutdown()
