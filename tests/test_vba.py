@@ -142,5 +142,21 @@ class VbaTests(unittest.TestCase):
 
         self.assertNotEqual(first_map_y, second_map_y)
 
+    def test_speedrunner_walk_into_new_bark_town(self):
+        runner = autoplayer.SpeedRunner(cry=None)
+        runner.setup()
+        runner.skip_intro(skip=True)
+        runner.handle_mom(skip=True)
+        runner.walk_into_new_bark_town(skip=False)
+
+        # test again if the game is in a state where the player can walk
+        first_map_y = self.get_wram_value("MapY")
+        runner.cry.move("d")
+        second_map_y = self.get_wram_value("MapY")
+
+        self.assertNotEqual(first_map_y, second_map_y)
+
+        # TODO: test the current map id against what it should be
+
 if __name__ == "__main__":
     unittest.main()
