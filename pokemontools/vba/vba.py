@@ -52,7 +52,7 @@ class crystal(object):
         self.vba = vba_wrapper.VBA(self.config.rom_path)
         self.registers = vba_wrapper.core.registers.Registers(self.vba)
 
-        if not os.path.exists(rom_path):
+        if not os.path.exists(self.config.rom_path):
             raise Exception("rom_path is not configured properly; edit vba_config.py? " + str(rom_path))
 
     def call(self, bank, address):
@@ -73,8 +73,8 @@ class crystal(object):
 
         for value in push:
             self.registers.sp -= 2
-            self.vba.write_memory_at(registers.sp + 1, value >> 8)
-            self.vba.write_memory_at(registers.sp, value & 0xFF)
+            self.vba.write_memory_at(self.registers.sp + 1, value >> 8)
+            self.vba.write_memory_at(self.registers.sp, value & 0xFF)
             if list(self.vba.memory[self.registers.sp : self.registers.sp + 2]) != [value & 0xFF, value >> 8]:
                 print "desired memory values: " + str([value & 0xFF, value >> 8] )
                 print "actual memory values: " + str(list(self.vba.memory[self.registers.sp : self.registers.sp + 2]))
@@ -462,8 +462,12 @@ class crystal(object):
             memory = self.vba.memory
 
 class TestEmulator(unittest.TestCase):
-    def setUp(self):
-        self.cry = crystal()
+    @classmethod
+    def setUpClass(cls):
+        cls.cry = crystal()
+
+        # advance it forward past the intro sequences
+        cls.cry.vba.step(count=3500)
 
     def test_PlaceString(self):
         self.cry.call(0, 0x1078)
@@ -480,8 +484,7 @@ class TestEmulator(unittest.TestCase):
 
         self.assertTrue("TRAINER" in text)
 
-class TestWriter(unittest.TestCase):
-    def test_very_basic(self):
+    def test_keyboard_planner(self):
         button_sequence = keyboard.plan_typing("an")
         expected_result = ["select", "a", "d", "r", "r", "r", "r", "a"]
 
