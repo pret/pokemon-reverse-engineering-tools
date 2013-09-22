@@ -183,7 +183,7 @@ class VbaTests(unittest.TestCase):
 
         # test again if the game is in a state where the player can walk
         first_map_y = self.get_wram_value("MapY")
-        runner.cry.move("d")
+        runner.cry.move("u")
         second_map_y = self.get_wram_value("MapY")
 
         # check that the player has moved
