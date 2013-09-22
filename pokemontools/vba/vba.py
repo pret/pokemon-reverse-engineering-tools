@@ -85,7 +85,7 @@ def call(bank, address, vba=vba, registers=registers):
     else:
         registers["pc"] = address
 
-def get_stack():
+def get_stack(vba=vba, registers=registers):
     """
     Return a list of functions on the stack.
     """
