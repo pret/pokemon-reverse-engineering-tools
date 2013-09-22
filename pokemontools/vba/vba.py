@@ -56,6 +56,12 @@ class crystal(object):
         if not os.path.exists(self.config.rom_path):
             raise Exception("rom_path is not configured properly; edit vba_config.py? " + str(rom_path))
 
+    def shutdown(self):
+        """
+        Reset the emulator.
+        """
+        self.vba.shutdown()
+
     def save_state(self, name, state=None, override=False):
         """
         Saves the given state to save_state_path.
