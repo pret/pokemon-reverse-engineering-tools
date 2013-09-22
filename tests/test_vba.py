@@ -170,8 +170,6 @@ class VbaTests(unittest.TestCase):
         self.assertEqual(self.get_wram_value("MapNumber"), 4)
 
     def test_speedrunner_handle_elm(self):
-        self.vba.shutdown()
-
         runner = autoplayer.SpeedRunner(cry=None)
         runner.setup()
         runner.skip_intro(skip=True)
