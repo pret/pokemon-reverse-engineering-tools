@@ -23,19 +23,9 @@ from pokemontools.map_names import (
 import keyboard
 
 # just use a default config for now until the globals are removed completely
-import pokemontools.config as conf
-config = conf.Config()
-project_path = config.path
-save_state_path = config.save_state_path
-rom_path = config.rom_path
-
-if not os.path.exists(rom_path):
-    raise Exception("rom_path is not configured properly; edit vba_config.py? " + str(rom_path))
+import pokemontools.configuration as configuration
 
 import vba_wrapper
-
-vba = vba_wrapper.VBA(rom_path)
-registers = vba_wrapper.core.registers.Registers(vba)
 
 button_masks = vba_wrapper.core.VBA.button_masks
 button_combiner = vba_wrapper.core.VBA.button_combine
@@ -46,13 +36,26 @@ def translate_chars(charz):
         result += chars[each]
     return result
 
-class crystal:
+class crystal(object):
     """
     Just a simple namespace to store a bunch of functions for Pokémon Crystal.
+    There can only be one running instance of the emulator per process because
+    it's a poorly written shared library.
     """
 
-    @staticmethod
-    def call(bank, address, vba=vba, registers=registers):
+    def __init__(self):
+        """
+        Launch the VBA controller.
+        """
+        self.config = configuration.Config()
+
+        self.vba = vba_wrapper.VBA(self.config.rom_path)
+        self.registers = vba_wrapper.core.registers.Registers(self.vba)
+
+        if not os.path.exists(rom_path):
+            raise Exception("rom_path is not configured properly; edit vba_config.py? " + str(rom_path))
+
+    def call(self, bank, address):
         """
         Jumps into a function at a certain address.
 
@@ -60,49 +63,47 @@ class crystal:
         string printed to the screen.
         """
         push = [
-            registers.pc,
-            registers.hl,
-            registers.de,
-            registers.bc,
-            registers.af,
+            self.registers.pc,
+            self.registers.hl,
+            self.registers.de,
+            self.registers.bc,
+            self.registers.af,
             0x3bb7,
         ]
 
         for value in push:
-            registers.sp -= 2
-            vba.write_memory_at(registers.sp + 1, value >> 8)
-            vba.write_memory_at(registers.sp, value & 0xFF)
-            if list(vba.memory[registers.sp : registers.sp + 2]) != [value & 0xFF, value >> 8]:
+            self.registers.sp -= 2
+            self.vba.write_memory_at(registers.sp + 1, value >> 8)
+            self.vba.write_memory_at(registers.sp, value & 0xFF)
+            if list(self.vba.memory[self.registers.sp : self.registers.sp + 2]) != [value & 0xFF, value >> 8]:
                 print "desired memory values: " + str([value & 0xFF, value >> 8] )
-                print "actual memory values: " + str(list(vba.memory[registers.sp : registers.sp + 2]))
-                print "wrong value at " + hex(registers.sp) + " expected " + hex(value) + " but got " + hex(vba.read_memory_at(registers.sp))
+                print "actual memory values: " + str(list(self.vba.memory[self.registers.sp : self.registers.sp + 2]))
+                print "wrong value at " + hex(self.registers.sp) + " expected " + hex(value) + " but got " + hex(self.vba.read_memory_at(self.registers.sp))
 
         if bank != 0:
-            registers["af"] = (bank << 8) | (registers["af"] & 0xFF)
-            registers["hl"] = address
-            registers["pc"] = 0x2d63 # FarJump
+            self.registers["af"] = (bank << 8) | (self.registers["af"] & 0xFF)
+            self.registers["hl"] = address
+            self.registers["pc"] = 0x2d63 # FarJump
         else:
-            registers["pc"] = address
+            self.registers["pc"] = address
 
-    @staticmethod
-    def get_stack(vba=vba, registers=registers):
+    def get_stack(self):
         """
         Return a list of functions on the stack.
         """
         addresses = []
-        sp = registers.sp
+        sp = self.registers.sp
 
         for x in range(0, 11):
             sp = sp - (2 * x)
-            hi = vba.read_memory_at(sp + 1)
-            lo = vba.read_memory_at(sp)
+            hi = self.vba.read_memory_at(sp + 1)
+            lo = self.vba.read_memory_at(sp)
             address = ((hi << 8) | lo)
             addresses.append(address)
 
         return addresses
 
-    @staticmethod
-    def text_wait(step_size=1, max_wait=200, sfx_limit=0, debug=False, callback=None):
+    def text_wait(self, step_size=1, max_wait=200, sfx_limit=0, debug=False, callback=None):
         """
         Presses the "A" button when text is done being drawn to screen.
 
@@ -119,22 +120,22 @@ class crystal:
         :param max_wait: number of wait loops to perform
         """
         while max_wait > 0:
-            hi = vba.read_memory_at(registers.sp + 1)
-            lo = vba.read_memory_at(registers.sp)
+            hi = self.vba.read_memory_at(registers.sp + 1)
+            lo = self.vba.read_memory_at(registers.sp)
             address = ((hi << 8) | lo)
 
             if address in range(0xa1b, 0xa46) + range(0xaaf, 0xaf5): #  0xaef:
                 print "pressing, then breaking.. address is: " + str(hex(address))
 
                 # set CurSFX
-                vba.write_memory_at(0xc2bf, 0)
+                self.vba.write_memory_at(0xc2bf, 0)
 
-                vba.press("a", hold=10, after=1)
+                self.vba.press("a", hold=10, after=1)
 
                 # check if CurSFX is SFX_READ_TEXT_2
-                if vba.read_memory_at(0xc2bf) == 0x8:
+                if self.vba.read_memory_at(0xc2bf) == 0x8:
                     print "cursfx is set to SFX_READ_TEXT_2, looping.."
-                    return crystal.text_wait(step_size=step_size, max_wait=max_wait, debug=debug, callback=callback, sfx_limit=sfx_limit)
+                    return self.text_wait(step_size=step_size, max_wait=max_wait, debug=debug, callback=callback, sfx_limit=sfx_limit)
                 else:
                     if sfx_limit > 0:
                         sfx_limit = sfx_limit - 1
@@ -145,7 +146,7 @@ class crystal:
 
                         break
             else:
-                stack = crystal.get_stack()
+                stack = self.get_stack()
 
                 # yes/no box or the name selection box
                 if address in range(0xa46, 0xaaf):
@@ -164,7 +165,7 @@ class crystal:
                     break
 
                 else:
-                    vba.step(count=step_size)
+                    self.vba.step(count=step_size)
 
             # if there is a callback, then call the callback and exit when the
             # callback returns True. This is especially useful during the
@@ -187,17 +188,15 @@ class crystal:
         if max_wait == 0:
             print "max_wait was hit"
 
-    @staticmethod
-    def walk_through_walls_slow():
-        memory = vba.memory
+    def walk_through_walls_slow(self):
+        memory = self.vba.memory
         memory[0xC2FA] = 0
         memory[0xC2FB] = 0
         memory[0xC2FC] = 0
         memory[0xC2FD] = 0
-        vba.memory = memory
+        self.vba.memory = memory
 
-    @staticmethod
-    def walk_through_walls():
+    def walk_through_walls(self):
         """
         Lets the player walk all over the map.
 
@@ -206,73 +205,65 @@ class crystal:
         to be executed each step/tick if continuous walk-through-walls
         is desired.
         """
-        vba.write_memory_at(0xC2FA, 0)
-        vba.write_memory_at(0xC2FB, 0)
-        vba.write_memory_at(0xC2FC, 0)
-        vba.write_memory_at(0xC2FD, 0)
+        self.vba.write_memory_at(0xC2FA, 0)
+        self.vba.write_memory_at(0xC2FB, 0)
+        self.vba.write_memory_at(0xC2FC, 0)
+        self.vba.write_memory_at(0xC2FD, 0)
 
     #@staticmethod
     #def set_enemy_level(level):
     #    vba.write_memory_at(0xd213, level)
 
-    @staticmethod
-    def nstep(steplimit=500):
+    def nstep(self, steplimit=500):
         """
         Steps the CPU forward and calls some functions in between each step.
 
         (For example, to manipulate memory.) This is pretty slow.
         """
         for step_counter in range(0, steplimit):
-            crystal.walk_through_walls()
+            self.walk_through_walls()
             #call(0x1, 0x1078)
-            vba.step()
+            self.vba.step()
 
-    @staticmethod
-    def disable_triggers():
-        vba.write_memory_at(0x23c4, 0xAF)
-        vba.write_memory_at(0x23d0, 0xAF);
+    def disable_triggers(self):
+        self.vba.write_memory_at(0x23c4, 0xAF)
+        self.vba.write_memory_at(0x23d0, 0xAF);
 
-    @staticmethod
-    def disable_callbacks():
-        vba.write_memory_at(0x23f2, 0xAF)
-        vba.write_memory_at(0x23fe, 0xAF)
+    def disable_callbacks(self):
+        self.vba.write_memory_at(0x23f2, 0xAF)
+        self.vba.write_memory_at(0x23fe, 0xAF)
 
-    @staticmethod
-    def get_map_group_id():
+    def get_map_group_id(self):
         """
         Returns the current map group.
         """
-        return vba.read_memory_at(0xdcb5)
+        return self.vba.read_memory_at(0xdcb5)
 
-    @staticmethod
-    def get_map_id():
+    def get_map_id(self):
         """
         Returns the map number of the current map.
         """
-        return vba.read_memory_at(0xdcb6)
+        return self.vba.read_memory_at(0xdcb6)
 
-    @staticmethod
-    def get_map_name():
+    def get_map_name(self, map_names=map_names):
         """
         Figures out the current map name.
         """
-        map_group_id = crystal.get_map_group_id()
-        map_id = crystal.get_map_id()
+        map_group_id = self.get_map_group_id()
+        map_id = self.get_map_id()
         return map_names[map_group_id][map_id]["name"]
 
-    @staticmethod
-    def get_xy():
+    def get_xy(self):
         """
         (x, y) coordinates of player on map.
 
         Relative to top-left corner of map.
         """
-        x = vba.read_memory_at(0xdcb8)
-        y = vba.read_memory_at(0xdcb7)
+        x = self.vba.read_memory_at(0xdcb8)
+        y = self.vba.read_memory_at(0xdcb7)
         return (x, y)
 
-    @staticmethod
-    def menu_select(id=1):
+    def menu_select(self, id=1):
         """
         Sets the cursor to the given pokemon in the player's party.
 
@@ -281,38 +272,34 @@ class crystal:
 
         This probably works on other menus.
         """
-        vba.write_memory_at(0xcfa9, id)
+        self.vba.write_memory_at(0xcfa9, id)
 
-    @staticmethod
-    def is_in_battle():
+    def is_in_battle(self):
         """
         Checks whether or not we're in a battle.
         """
-        return (vba.read_memory_at(0xd22d) != 0) or crystal.is_in_link_battle()
+        return (self.vba.read_memory_at(0xd22d) != 0) or self.is_in_link_battle()
 
-    @staticmethod
-    def is_in_link_battle():
-        return vba.read_memory_at(0xc2dc) != 0
+    def is_in_link_battle(self):
+        return self.vba.read_memory_at(0xc2dc) != 0
 
-    @staticmethod
-    def unlock_flypoints():
+    def unlock_flypoints(self):
         """
         Unlocks different destinations for flying.
 
         Note: this might start at 0xDCA4 (minus one on all addresses), but not
         sure.
         """
-        vba.write_memory_at(0xDCA5, 0xFF)
-        vba.write_memory_at(0xDCA6, 0xFF)
-        vba.write_memory_at(0xDCA7, 0xFF)
-        vba.write_memory_at(0xDCA8, 0xFF)
+        self.vba.write_memory_at(0xDCA5, 0xFF)
+        self.vba.write_memory_at(0xDCA6, 0xFF)
+        self.vba.write_memory_at(0xDCA7, 0xFF)
+        self.vba.write_memory_at(0xDCA8, 0xFF)
 
-    @staticmethod
-    def get_gender():
+    def get_gender(self):
         """
         Returns 'male' or 'female'.
         """
-        gender = vba.read_memory_at(0xD472)
+        gender = self.vba.read_memory_at(0xD472)
         if gender == 0:
             return "male"
         elif gender == 1:
@@ -320,54 +307,49 @@ class crystal:
         else:
             return gender
 
-    @staticmethod
-    def get_player_name():
+    def get_player_name(self):
         """
         Returns the 7 characters making up the player's name.
         """
-        bytez = vba.memory[0xD47D:0xD47D + 7]
+        bytez = self.vba.memory[0xD47D:0xD47D + 7]
         name = translate_chars(bytez)
         return name
 
-    @staticmethod
-    def warp(map_group_id, map_id, x, y):
-        vba.write_memory_at(0xdcb5, map_group_id)
-        vba.write_memory_at(0xdcb6, map_id)
-        vba.write_memory_at(0xdcb7, y)
-        vba.write_memory_at(0xdcb8, x)
-        vba.write_memory_at(0xd001, 0xFF)
-        vba.write_memory_at(0xff9f, 0xF1)
-        vba.write_memory_at(0xd432, 1)
-        vba.write_memory_at(0xd434, 0 & 251)
+    def warp(self, map_group_id, map_id, x, y):
+        self.vba.write_memory_at(0xdcb5, map_group_id)
+        self.vba.write_memory_at(0xdcb6, map_id)
+        self.vba.write_memory_at(0xdcb7, y)
+        self.vba.write_memory_at(0xdcb8, x)
+        self.vba.write_memory_at(0xd001, 0xFF)
+        self.vba.write_memory_at(0xff9f, 0xF1)
+        self.vba.write_memory_at(0xd432, 1)
+        self.vba.write_memory_at(0xd434, 0 & 251)
 
-    @staticmethod
-    def warp_pokecenter():
-        crystal.warp(1, 1, 3, 3)
-        crystal.nstep(200)
+    def warp_pokecenter(self):
+        self.warp(1, 1, 3, 3)
+        self.nstep(200)
 
-    @staticmethod
-    def masterballs():
+    def masterballs(self):
         # masterball
-        vba.write_memory_at(0xd8d8, 1)
-        vba.write_memory_at(0xd8d9, 99)
+        self.vba.write_memory_at(0xd8d8, 1)
+        self.vba.write_memory_at(0xd8d9, 99)
 
         # ultraball
-        vba.write_memory_at(0xd8da, 2)
-        vba.write_memory_at(0xd8db, 99)
+        self.vba.write_memory_at(0xd8da, 2)
+        self.vba.write_memory_at(0xd8db, 99)
 
         # pokeballs
-        vba.write_memory_at(0xd8dc, 5)
-        vba.write_memory_at(0xd8dd, 99)
+        self.vba.write_memory_at(0xd8dc, 5)
+        self.vba.write_memory_at(0xd8dd, 99)
 
-    @staticmethod
-    def get_text():
+    def get_text(self, chars=chars):
         """
         Returns alphanumeric text on the screen.
 
         Other characters will not be shown.
         """
         output = ""
-        tiles = vba.memory[0xc4a0:0xc4a0 + 1000]
+        tiles = self.vba.memory[0xc4a0:0xc4a0 + 1000]
         for each in tiles:
             if each in chars.keys():
                 thing = chars[each]
@@ -390,32 +372,29 @@ class crystal:
 
         return output
 
-    @staticmethod
-    def keyboard_apply(button_sequence):
+    def keyboard_apply(self, button_sequence):
         """
         Applies a sequence of buttons to the on-screen keyboard.
         """
         for buttons in button_sequence:
-            vba.press(buttons)
-            vba.step(count=2)
-            vba.press([])
+            self.vba.press(buttons)
+            self.vba.step(count=2)
+            self.vba.press([])
 
-    @staticmethod
-    def write(something="TrAiNeR"):
+    def write(self, something="TrAiNeR"):
         """
         Types out a word.
 
         Uses a planning algorithm to do this in the most efficient way possible.
         """
         button_sequence = keyboard.plan_typing(something)
-        crystal.keyboard_apply([[x] for x in button_sequence])
+        self.keyboard_apply([[x] for x in button_sequence])
 
-    @staticmethod
-    def set_partymon2():
+    def set_partymon2(self):
         """
         This causes corruption, so it's not working yet.
         """
-        memory = vba.memory
+        memory = self.vba.memory
         memory[0xdcd7] = 2
         memory[0xdcd9] = 0x7
 
@@ -449,19 +428,18 @@ class crystal:
         memory[0xdd33] = 0x10
         memory[0xdd34] = 0x40
 
-        vba.memory = memory
+        self.vba.memory = memory
 
-    @staticmethod
-    def wait_for_script_running(debug=False, limit=1000):
+    def wait_for_script_running(self, debug=False, limit=1000):
         """
         Wait until ScriptRunning isn't -1.
         """
         while limit > 0:
-            if vba.read_memory_at(0xd438) != 255:
+            if self.vba.read_memory_at(0xd438) != 255:
                 print "script is done executing"
                 return
             else:
-                vba.step()
+                self.vba.step()
 
             if debug:
                 limit = limit - 1
@@ -469,20 +447,19 @@ class crystal:
         if limit == 0:
             print "limit ran out"
 
-    @staticmethod
-    def move(cmd):
+    def move(self, cmd):
         """
         Attempt to move the player.
         """
-        vba.press(cmd, hold=10, after=0)
-        vba.press([])
+        self.vba.press(cmd, hold=10, after=0)
+        self.vba.press([])
 
-        memory = vba.memory
+        memory = self.vba.memory
         #while memory[0xd4e1] == 2 and memory[0xd042] != 0x3e:
         while memory[0xd043] in [0, 1, 2, 3]:
         #while memory[0xd043] in [0, 1, 2, 3] or memory[0xd042] != 0x3e:
-            vba.step(count=10)
-            memory = vba.memory
+            self.vba.step(count=10)
+            memory = self.vba.memory
 
 class TestEmulator(unittest.TestCase):
     def test_PlaceString(self):
