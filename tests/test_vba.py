@@ -89,6 +89,16 @@ class VbaTests(unittest.TestCase):
     def get_wram_value(self, name):
         return self.vba.memory[self.wram[name]]
 
+    def check_movement(self, direction="d"):
+        """
+        Check if (y, x) before attempting to move and (y, x) after attempting
+        to move are the same.
+        """
+        start = (self.get_wram_value("MapY"), self.get_wram_value("MapX"))
+        self.cry.move(direction)
+        end = (self.get_wram_value("MapY"), self.get_wram_value("MapX"))
+        return start != end
+
     def test_movement_changes_player_direction(self):
         player_direction = self.get_wram_value("PlayerDirection")
 
@@ -144,11 +154,7 @@ class VbaTests(unittest.TestCase):
         runner.handle_mom(skip=False)
 
         # confirm that handle_mom is done by attempting to move on the map
-        first_map_y = self.get_wram_value("MapY")
-        runner.cry.move("d")
-        second_map_y = self.get_wram_value("MapY")
-
-        self.assertNotEqual(first_map_y, second_map_y)
+        self.assertTrue(self.check_movement("d"))
 
     def test_speedrunner_walk_into_new_bark_town(self):
         runner = autoplayer.SpeedRunner(cry=None)
@@ -157,13 +163,8 @@ class VbaTests(unittest.TestCase):
         runner.handle_mom(skip=True)
         runner.walk_into_new_bark_town(skip=False)
 
-        # test again if the game is in a state where the player can walk
-        first_map_y = self.get_wram_value("MapY")
-        runner.cry.move("d")
-        second_map_y = self.get_wram_value("MapY")
-
-        # check that the player has moved
-        self.assertNotEqual(first_map_y, second_map_y)
+        # test that the game is in a state such that the player can walk
+        self.assertTrue(self.check_movement("d"))
 
         # check that the map is correct
         self.assertEqual(self.get_wram_value("MapGroup"), 24)
@@ -180,12 +181,7 @@ class VbaTests(unittest.TestCase):
         runner.handle_elm("cyndaquil", skip=False)
 
         # test again if the game is in a state where the player can walk
-        first_map_y = self.get_wram_value("MapY")
-        runner.cry.move("u")
-        second_map_y = self.get_wram_value("MapY")
-
-        # check that the player has moved
-        self.assertNotEqual(first_map_y, second_map_y)
+        self.assertTrue(self.check_movement("u"))
 
         # check that the map is correct
         self.assertEqual(self.get_wram_value("MapGroup"), 24)
