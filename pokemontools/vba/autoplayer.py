@@ -332,7 +332,7 @@ class SpeedRunner(Runner):
         return
 
     @skippable
-    def new_bark_level_grind(self, level):
+    def new_bark_level_grind(self, level, walk_to_grass=True):
         """
         Do level grinding in New Bark.
 
@@ -341,7 +341,8 @@ class SpeedRunner(Runner):
         """
 
         # walk to the grass area
-        self.new_bark_level_grind_walk_to_grass(skip=False)
+        if walk_to_grass:
+            self.new_bark_level_grind_walk_to_grass(skip=False)
 
         last_direction = "u"
 
@@ -391,7 +392,23 @@ class SpeedRunner(Runner):
         # wait for the map to finish loading
         self.cry.vba.step(count=50)
 
+        # This is used to handle any additional textbox that might be up on the
+        # screen. The debug parameter is set to True so that max_wait is
+        # enabled. This might be a textbox that is still waiting around because
+        # of some faint during the battle. I am not completely sure why this
+        # happens.
+        self.cry.text_wait(max_wait=30, debug=True)
+
         print "okay, back in the overworld"
+
+        cur_hp = ((self.cry.vba.memory[0xdd01] << 8) | self.cry.vba.memory[0xdd02])
+        move_pp = self.cry.vba.memory[0xdcf6] # move 1 pp
+
+        # if pokemon health is >20, just continue
+        # if move 1 PP is 0, just continue
+        if cur_hp > 20 and move_pp > 5:
+            self.cry.move("u")
+            return self.new_bark_level_grind(level, walk_to_grass=False, skip=False)
 
         # move up
         self.cry.move("u")
