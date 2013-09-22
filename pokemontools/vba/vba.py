@@ -85,26 +85,27 @@ def call(bank, address, vba=vba, registers=registers):
     else:
         registers["pc"] = address
 
-def get_stack(vba=vba, registers=registers):
-    """
-    Return a list of functions on the stack.
-    """
-    addresses = []
-    sp = registers.sp
-
-    for x in range(0, 11):
-        sp = sp - (2 * x)
-        hi = vba.read_memory_at(sp + 1)
-        lo = vba.read_memory_at(sp)
-        address = ((hi << 8) | lo)
-        addresses.append(address)
-
-    return addresses
-
 class crystal:
     """
     Just a simple namespace to store a bunch of functions for Pokémon Crystal.
     """
+
+    @staticmethod
+    def get_stack(vba=vba, registers=registers):
+        """
+        Return a list of functions on the stack.
+        """
+        addresses = []
+        sp = registers.sp
+
+        for x in range(0, 11):
+            sp = sp - (2 * x)
+            hi = vba.read_memory_at(sp + 1)
+            lo = vba.read_memory_at(sp)
+            address = ((hi << 8) | lo)
+            addresses.append(address)
+
+        return addresses
 
     @staticmethod
     def text_wait(step_size=1, max_wait=200, sfx_limit=0, debug=False, callback=None):
@@ -150,7 +151,7 @@ class crystal:
 
                         break
             else:
-                stack = get_stack()
+                stack = crystal.get_stack()
 
                 # yes/no box or the name selection box
                 if address in range(0xa46, 0xaaf):
