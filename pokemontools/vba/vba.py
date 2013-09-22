@@ -462,18 +462,21 @@ class crystal(object):
             memory = self.vba.memory
 
 class TestEmulator(unittest.TestCase):
+    def setUp(self):
+        self.cry = crystal()
+
     def test_PlaceString(self):
-        crystal.call(0, 0x1078)
+        self.cry.call(0, 0x1078)
 
         # where to draw the text
-        registers["hl"] = 0xc4a0
+        self.cry.registers["hl"] = 0xc4a0
 
         # what text to read from
-        registers["de"] = 0x1276
+        self.cry.registers["de"] = 0x1276
 
-        vba.step(count=10)
+        self.cry.vba.step(count=10)
 
-        text = crystal.get_text()
+        text = self.cry.get_text()
 
         self.assertTrue("TRAINER" in text)
 
