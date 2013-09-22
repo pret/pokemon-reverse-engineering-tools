@@ -11,6 +11,8 @@ try:
 except ImportError:
     import pokemontools.vba.autoplayer as autoplayer
 
+import pokemontools.vba.keyboard as keyboard
+
 autoplayer.vba = vba
 
 def setup_wram():
@@ -36,7 +38,7 @@ def bootstrap():
 
     # skip=False means run the skip_intro function instead of just skipping to
     # a saved state.
-    runner.skip_intro()
+    runner.skip_intro(skip=True)
 
     state = cry.vba.state
 
@@ -56,28 +58,40 @@ class VbaTests(unittest.TestCase):
     #    # figure out addresses
     #    cls.wram = setup_wram()
 
-    # FIXME: work around jython2.5 unittest
-    state = bootstrap()
-    wram = setup_wram()
+    cry = None
+    wram = None
+
+    @classmethod
+    def setUpClass(cls):
+        cls.bootstrap_state = bootstrap()
+
+        cls.wram = setup_wram()
+
+        cls.cry = vba.crystal()
+        cls.vba = cls.cry.vba
+
+        cls.vba.state = cls.bootstrap_state
 
     def get_wram_value(self, name):
-        return vba.get_memory_at(self.wram[name])
+        return self.vba.memory[self.wram[name]]
 
     def setUp(self):
-        # clean the state
-        vba.shutdown()
-        vba.load_rom()
+        #if self.cry:
+        #    # clean up the emulator's state
+        #    self.cry.shutdown()
+        #self.cry = vba.crystal()
+        #self.vba = self.cry.vba
 
         # reset to whatever the bootstrapper created
-        vba.set_state(self.state)
+        self.vba.state = self.bootstrap_state
 
-    def tearDown(self):
-        vba.shutdown()
+    #def tearDown(self):
+    #    self.vba.shutdown()
 
     def test_movement_changes_player_direction(self):
         player_direction = self.get_wram_value("PlayerDirection")
 
-        vba.crystal.move("u")
+        self.cry.move("u")
 
         # direction should have changed
         self.assertNotEqual(player_direction, self.get_wram_value("PlayerDirection"))
@@ -85,7 +99,7 @@ class VbaTests(unittest.TestCase):
     def test_movement_changes_y_coord(self):
         first_map_y = self.get_wram_value("MapY")
 
-        vba.crystal.move("u")
+        self.cry.move("u")
 
         # y location should be different
         second_map_y = self.get_wram_value("MapY")
@@ -95,7 +109,7 @@ class VbaTests(unittest.TestCase):
         # should start with standing
         self.assertEqual(self.get_wram_value("PlayerAction"), 1)
 
-        vba.crystal.move("l")
+        self.cry.move("l")
 
         # should be standing
         player_action = self.get_wram_value("PlayerAction")
@@ -104,7 +118,7 @@ class VbaTests(unittest.TestCase):
 class TestEmulator(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.cry = crystal()
+        cls.cry = vba.crystal()
 
         # advance it forward past the intro sequences
         cls.cry.vba.step(count=3500)
