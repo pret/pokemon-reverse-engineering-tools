@@ -4,6 +4,8 @@ Programmatic speedrun of Pokémon Crystal
 """
 import os
 
+import pokemontools.configuration as configuration
+
 # bring in the emulator and basic tools
 import vba as _vba
 
@@ -11,11 +13,11 @@ def skippable(func):
     """
     Makes a function skippable.
 
-    Saves the state before and after the function runs.
-    Pass "skip=True" to the function to load the previous save
-    state from when the function finished.
+    Saves the state before and after the function runs. Pass "skip=True" to the
+    function to load the previous save state from when the function finished.
     """
     def wrapped_function(*args, **kwargs):
+        self = args[0]
         skip = True
 
         if "skip" in kwargs.keys():
@@ -25,17 +27,17 @@ def skippable(func):
         # override skip if there's no save
         if skip:
             full_name = func.__name__ + "-end.sav"
-            if not os.path.exists(os.path.join(vba.save_state_path, full_name)):
+            if not os.path.exists(os.path.join(self.config.save_state_path, full_name)):
                 skip = False
 
         return_value = None
 
         if not skip:
-            _vba.save_state(func.__name__ + "-start", override=True)
+            self.cry.save_state(func.__name__ + "-start", override=True)
             return_value = func(*args, **kwargs)
-            _vba.save_state(func.__name__ + "-end", override=True)
+            self.cry.save_state(func.__name__ + "-end", override=True)
         elif skip:
-            _vba.set_state(vba.load_state(func.__name__ + "-end"))
+            self.cry.vba.set_state(self.cry.vba.load_state(func.__name__ + "-end"))
 
         return return_value
     return wrapped_function
@@ -48,8 +50,17 @@ class Runner(object):
     pass
 
 class SpeedRunner(Runner):
+    def __init__(self, cry=None, config=None):
+        self.cry = cry
+
+        if not config:
+            config = configuration.Config()
+
+        self.config = config
+
     def setup(self):
-        self.cry = _vba.crystal()
+        if not self.cry:
+            self.cry = _vba.crystal(config=config)
 
     def main(self):
         """
