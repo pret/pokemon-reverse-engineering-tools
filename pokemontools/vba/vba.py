@@ -40,7 +40,7 @@ registers = vba_wrapper.core.registers.Registers(vba)
 button_masks = vba_wrapper.core.VBA.button_masks
 button_combiner = vba_wrapper.core.VBA.button_combine
 
-def get_memory_range(address, length):
+def get_memory_range(vba, address, length):
     """
     This is just a lame way to avoid converting some of the old
     get_memory_range calls to use the vba.memory property.
@@ -73,9 +73,9 @@ def call(bank, address):
         registers.sp -= 2
         vba.write_memory_at(registers.sp + 1, value >> 8)
         vba.write_memory_at(registers.sp, value & 0xFF)
-        if get_memory_range(registers.sp, 2) != [value & 0xFF, value >> 8]:
+        if get_memory_range(vba, registers.sp, 2) != [value & 0xFF, value >> 8]:
             print "desired memory values: " + str([value & 0xFF, value >> 8] )
-            print "actual memory values: " + str(get_memory_range(registers.sp , 2))
+            print "actual memory values: " + str(get_memory_range(vba, registers.sp, 2))
             print "wrong value at " + hex(registers.sp) + " expected " + hex(value) + " but got " + hex(vba.read_memory_at(registers.sp))
 
     if bank != 0:
@@ -330,7 +330,7 @@ class crystal:
         """
         Returns the 7 characters making up the player's name.
         """
-        bytez = get_memory_range(0xD47D, 7)
+        bytez = get_memory_range(vba, 0xD47D, 7)
         name = translate_chars(bytez)
         return name
 
@@ -372,7 +372,7 @@ class crystal:
         Other characters will not be shown.
         """
         output = ""
-        tiles = get_memory_range(0xc4a0, 1000)
+        tiles = get_memory_range(vba, 0xc4a0, 1000)
         for each in tiles:
             if each in chars.keys():
                 thing = chars[each]
