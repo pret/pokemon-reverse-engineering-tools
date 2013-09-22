@@ -56,6 +56,27 @@ class crystal(object):
         if not os.path.exists(self.config.rom_path):
             raise Exception("rom_path is not configured properly; edit vba_config.py? " + str(rom_path))
 
+    def save_state(self, name, state=None, override=False):
+        """
+        Saves the given state to save_state_path.
+
+        The file format must be ".sav", and this will be appended to your
+        string if necessary.
+        """
+        if state == None:
+            state = self.vba.state
+
+        if len(name) < 4 or name[-4:] != ".sav":
+            name += ".sav"
+
+        save_path = os.path.join(self.config.save_state_path, name)
+
+        if not override and os.path.exists(save_path):
+            raise Exception("oops, save state path already exists: {0}".format(save_path))
+
+        with open(save_path, "wb") as file_handler:
+            file_handler.write(state)
+
     def call(self, bank, address):
         """
         Jumps into a function at a certain address.
