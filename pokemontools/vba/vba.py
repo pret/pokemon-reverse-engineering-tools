@@ -53,7 +53,7 @@ def translate_chars(charz):
         result += chars[each]
     return result
 
-def call(bank, address):
+def call(bank, address, vba=vba, registers=registers):
     """
     Jumps into a function at a certain address.
 
@@ -491,7 +491,7 @@ class crystal:
 
 class TestEmulator(unittest.TestCase):
     def test_PlaceString(self):
-        call(0, 0x1078)
+        call(vba, 0, 0x1078)
 
         # where to draw the text
         registers["hl"] = 0xc4a0
