@@ -99,6 +99,17 @@ class VbaTests(unittest.TestCase):
         end = (self.get_wram_value("MapY"), self.get_wram_value("MapX"))
         return start != end
 
+    def bootstrap_name_prompt(self):
+        runner = autoplayer.SpeedRunner(cry=None)
+        runner.setup()
+        runner.skip_intro(stop_at_name_selection=True, skip=False, override=False)
+
+        self.cry.vba.press("a", hold=20)
+
+        # wait for "Your name?" to show up
+        while "YOUR NAME?" not in self.cry.get_text():
+            self.cry.step(count=50)
+
     def test_movement_changes_player_direction(self):
         player_direction = self.get_wram_value("PlayerDirection")
 
@@ -212,26 +223,57 @@ class VbaTests(unittest.TestCase):
         self.assertEqual(self.get_wram_value("MapGroup"), 24)
         self.assertEqual(self.get_wram_value("MapNumber"), 4)
 
-    def test_keyboard_typing(self):
-        runner = autoplayer.SpeedRunner(cry=None)
-        runner.setup()
-        runner.skip_intro(stop_at_name_selection=True, skip=False, override=False)
+    def test_keyboard_typing_dumb_name(self):
+        self.bootstrap_name_prompt()
 
-        self.cry.vba.press("a", hold=20)
-
-        # wait for "Your name?" to show up
-        text = self.cry.get_text()
-
-        while "YOUR NAME?" not in text:
-            self.cry.step(count=50)
-            text = self.cry.get_text()
-
-        self.cry.write()
+        name = "tRaInEr"
+        self.cry.write(name)
 
         # save this selection
         self.cry.vba.press("a", hold=20)
 
-        # TODO: confirm the test was real
+        self.assertEqual(name, self.cry.get_player_name())
+
+    def test_keyboard_typing_cap_name(self):
+        names = [
+            "trainer",
+            "TRAINER",
+            "TrAiNeR",
+            "tRaInEr",
+            "ExAmPlE",
+            "Chris",
+            "Kris",
+            "beepaaa",
+            "chris",
+            "CHRIS",
+            "Python",
+            "pYthon",
+            "pyThon",
+            "pytHon",
+            "pythOn",
+            "pythoN",
+            "python",
+            "PyThOn",
+        ]
+
+        self.bootstrap_name_prompt()
+        start_state = self.cry.vba.state
+
+        for name in names:
+            print "Writing name: " + name
+
+            self.cry.vba.state = start_state
+
+            sequence = self.cry.write(name)
+
+            print "sequence is: " + str(sequence)
+
+            # save this selection
+            self.cry.vba.press("start", hold=20)
+            self.cry.vba.press("a", hold=20)
+
+            pname = self.cry.get_player_name().replace("@", "")
+            self.assertEqual(name, pname)
 
 if __name__ == "__main__":
     unittest.main()
