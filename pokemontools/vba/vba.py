@@ -9,8 +9,6 @@ import re
 import string
 from copy import copy
 
-import unittest
-
 # for converting bytes to readable text
 from pokemontools.chars import (
     chars,
@@ -460,36 +458,3 @@ class crystal(object):
         #while memory[0xd043] in [0, 1, 2, 3] or memory[0xd042] != 0x3e:
             self.vba.step(count=10)
             memory = self.vba.memory
-
-class TestEmulator(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        cls.cry = crystal()
-
-        # advance it forward past the intro sequences
-        cls.cry.vba.step(count=3500)
-
-    def test_PlaceString(self):
-        self.cry.call(0, 0x1078)
-
-        # where to draw the text
-        self.cry.registers["hl"] = 0xc4a0
-
-        # what text to read from
-        self.cry.registers["de"] = 0x1276
-
-        self.cry.vba.step(count=10)
-
-        text = self.cry.get_text()
-
-        self.assertTrue("TRAINER" in text)
-
-    def test_keyboard_planner(self):
-        button_sequence = keyboard.plan_typing("an")
-        expected_result = ["select", "a", "d", "r", "r", "r", "r", "a"]
-
-        self.assertEqual(len(expected_result), len(button_sequence))
-        self.assertEqual(expected_result, button_sequence)
-
-if __name__ == "__main__":
-    unittest.main()
