@@ -76,18 +76,18 @@ class SpeedRunner(Runner):
         Start the game.
         """
         # get past the opening sequence
-        self.skip_intro()
+        self.skip_intro(skip=True)
 
         # walk to mom and handle her text
-        self.handle_mom()
+        self.handle_mom(skip=True)
 
         # walk outside into new bark town
-        self.walk_into_new_bark_town()
+        self.walk_into_new_bark_town(skip=True)
 
         # walk to elm and do whatever he wants
-        self.handle_elm("totodile")
+        self.handle_elm("totodile", skip=True)
 
-        self.new_bark_level_grind(10, skip=False)
+        self.new_bark_level_grind(6, skip=False)
 
     @skippable
     def skip_intro(self, stop_at_name_selection=False):
