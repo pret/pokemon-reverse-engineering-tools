@@ -145,8 +145,6 @@ class VbaTests(unittest.TestCase):
         runner = autoplayer.SpeedRunner(cry=self.cry)
 
     def test_speedrunner_handle_mom(self):
-        self.vba.shutdown()
-
         # TODO: why can't i pass in the current state of the emulator?
         runner = autoplayer.SpeedRunner(cry=None)
         runner.setup()
