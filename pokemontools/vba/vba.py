@@ -41,11 +41,14 @@ class crystal(object):
     it's a poorly written shared library.
     """
 
-    def __init__(self):
+    def __init__(self, config=None):
         """
         Launch the VBA controller.
         """
-        self.config = configuration.Config()
+        if not config:
+            config = configuration.Config()
+
+        self.config = config
 
         self.vba = vba_wrapper.VBA(self.config.rom_path)
         self.registers = vba_wrapper.core.registers.Registers(self.vba)
