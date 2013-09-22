@@ -60,7 +60,7 @@ class SpeedRunner(Runner):
 
     def setup(self):
         if not self.cry:
-            self.cry = _vba.crystal(config=config)
+            self.cry = _vba.crystal(config=self.config)
 
     def main(self):
         """
