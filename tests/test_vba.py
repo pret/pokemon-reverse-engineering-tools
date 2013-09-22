@@ -185,5 +185,32 @@ class VbaTests(unittest.TestCase):
         self.assertEqual(self.get_wram_value("MapGroup"), 24)
         self.assertEqual(self.get_wram_value("MapNumber"), 5)
 
+    def test_moving_back_and_forth(self):
+        runner = autoplayer.SpeedRunner(cry=None)
+        runner.setup()
+        runner.skip_intro(skip=True)
+        runner.handle_mom(skip=True)
+        runner.walk_into_new_bark_town(skip=False)
+
+        # must be in New Bark Town
+        self.assertEqual(self.get_wram_value("MapGroup"), 24)
+        self.assertEqual(self.get_wram_value("MapNumber"), 4)
+
+        runner.cry.move("l")
+        runner.cry.move("l")
+        runner.cry.move("l")
+        runner.cry.move("d")
+        runner.cry.move("d")
+
+        for x in range(0, 10):
+            runner.cry.move("l")
+            runner.cry.move("d")
+            runner.cry.move("r")
+            runner.cry.move("u")
+
+        # must still be in New Bark Town
+        self.assertEqual(self.get_wram_value("MapGroup"), 24)
+        self.assertEqual(self.get_wram_value("MapNumber"), 4)
+
 if __name__ == "__main__":
     unittest.main()
