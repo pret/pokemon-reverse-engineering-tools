@@ -343,10 +343,18 @@ class SpeedRunner(Runner):
         # walk to the grass area
         self.new_bark_level_grind_walk_to_grass(skip=False)
 
-        # TODO: walk around in grass, handle battles
-        walk = ["d", "d", "u", "d", "u", "d"]
-        for direction in walk:
+        last_direction = "u"
+
+        # walk around in the grass until a battle happens
+        while self.cry.vba.memory[0xd22d] == 0:
+            if last_direction == "u":
+                direction = "d"
+            else:
+                direction = "u"
+
             self.cry.move(direction)
+
+            last_direction = direction
 
         # wait for wild battle to completely start
         self.cry.text_wait()
