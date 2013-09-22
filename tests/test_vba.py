@@ -47,6 +47,14 @@ def bootstrap():
 
     return state
 
+class OtherVbaTests(unittest.TestCase):
+    def test_keyboard_planner(self):
+        button_sequence = keyboard.plan_typing("an")
+        expected_result = ["select", "a", "d", "r", "r", "r", "r", "a"]
+
+        self.assertEqual(len(expected_result), len(button_sequence))
+        self.assertEqual(expected_result, button_sequence)
+
 class VbaTests(unittest.TestCase):
     # unittest in jython2.5 doesn't seem to have setUpClass ?? Man, why am I on
     # jython2.5? This is ancient.
@@ -115,14 +123,6 @@ class VbaTests(unittest.TestCase):
         player_action = self.get_wram_value("PlayerAction")
         self.assertEqual(player_action, 1) # 1 = standing
 
-class TestEmulator(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        cls.cry = vba.crystal()
-
-        # advance it forward past the intro sequences
-        cls.cry.vba.step(count=3500)
-
     def test_PlaceString(self):
         self.cry.call(0, 0x1078)
 
@@ -137,13 +137,6 @@ class TestEmulator(unittest.TestCase):
         text = self.cry.get_text()
 
         self.assertTrue("TRAINER" in text)
-
-    def test_keyboard_planner(self):
-        button_sequence = keyboard.plan_typing("an")
-        expected_result = ["select", "a", "d", "r", "r", "r", "r", "a"]
-
-        self.assertEqual(len(expected_result), len(button_sequence))
-        self.assertEqual(expected_result, button_sequence)
 
 if __name__ == "__main__":
     unittest.main()
