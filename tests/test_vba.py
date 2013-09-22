@@ -212,5 +212,26 @@ class VbaTests(unittest.TestCase):
         self.assertEqual(self.get_wram_value("MapGroup"), 24)
         self.assertEqual(self.get_wram_value("MapNumber"), 4)
 
+    def test_keyboard_typing(self):
+        runner = autoplayer.SpeedRunner(cry=None)
+        runner.setup()
+        runner.skip_intro(stop_at_name_selection=True, skip=False, override=False)
+
+        self.cry.vba.press("a", hold=20)
+
+        # wait for "Your name?" to show up
+        text = self.cry.get_text()
+
+        while "YOUR NAME?" not in text:
+            self.cry.step(count=50)
+            text = self.cry.get_text()
+
+        self.cry.write()
+
+        # save this selection
+        self.cry.vba.press("a", hold=20)
+
+        # TODO: confirm the test was real
+
 if __name__ == "__main__":
     unittest.main()
