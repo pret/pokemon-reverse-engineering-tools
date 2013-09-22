@@ -4,8 +4,7 @@ Some old methods rescued from crystal.py
 
 import pointers
 
-map_header_byte_size = ...
-rom_interval = ...
+map_header_byte_size = 9
 
 all_map_headers = []
 
