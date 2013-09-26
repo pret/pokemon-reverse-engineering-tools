@@ -31,9 +31,6 @@ if version == 'crystal':
 
     header_dir = os.path.join(conf.path, 'maps/')
 
-    # todo
-    display_connections = False
-
 elif version == 'red':
     map_dir = os.path.join(conf.path, 'maps/')
     gfx_dir = os.path.join(conf.path, 'gfx/tilesets/')
@@ -48,9 +45,6 @@ elif version == 'red':
     constants_filename = os.path.join(conf.path, 'constants.asm')
 
     header_path = os.path.join(conf.path, 'main.asm')
-
-    # todo
-    display_connections = False
 
 else:
     raise Exception, 'version must be "crystal" or "red"'
@@ -67,6 +61,8 @@ get_constants()
 
 class Application(Frame):
     def __init__(self, master=None):
+        self.display_connections = False
+
         Frame.__init__(self, master)
         self.grid()
         Style().configure("TFrame", background="#444")
@@ -209,7 +205,7 @@ class Application(Frame):
             self.map.draw_block(block_x, block_y)
 
     def init_map_connections(self):
-        if not display_connections:
+        if not self.display_connections:
             return
         for direction in self.map.connections.keys():
             if direction in self.connections.keys():
