@@ -372,6 +372,9 @@ class Tileset:
 
 	def get_tiles(self):
 		filename = self.get_tileset_gfx_filename()
+		if not os.path.exists(filename):
+			import gfx
+			gfx.to_png(filename.replace('.png','.2bpp'), filename)
 		self.img = Image.open(filename)
 		self.img.width, self.img.height = self.img.size
 		self.tiles = []
