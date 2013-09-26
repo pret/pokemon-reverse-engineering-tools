@@ -6,12 +6,12 @@ from ttk import Frame, Style
 import PIL
 from PIL import Image, ImageTk
 
-import configuration
-conf = configuration.Config()
+import config
+conf = config.Config()
 
 
-version = 'crystal'
-#version = 'red'
+#version = 'crystal'
+version = 'red'
 
 if version == 'crystal':
 	map_dir = os.path.join(conf.path, 'maps/')
