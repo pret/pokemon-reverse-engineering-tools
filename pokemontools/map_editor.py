@@ -322,12 +322,15 @@ class Map:
 		# Draw one block (4x4 tiles)
 		block = self.blockdata[block_y * self.width + block_x]
 		for j, tile in enumerate(self.tileset.blocks[block]):
-			# Tile gfx are split in half to make vram mapping easier
-			if tile >= 0x80:
-				tile -= 0x20
-			tile_x = block_x * 32 + (j % 4) * 8
-			tile_y = block_y * 32 + (j / 4) * 8
-			self.canvas.create_image(index + tile_x, indey + tile_y, image=self.tileset.tiles[tile])
+			try:
+				# Tile gfx are split in half to make vram mapping easier
+				if tile >= 0x80:
+					tile -= 0x20
+				tile_x = block_x * 32 + (j % 4) * 8
+				tile_y = block_y * 32 + (j / 4) * 8
+				self.canvas.create_image(index + tile_x, indey + tile_y, image=self.tileset.tiles[tile])
+			except:
+				pass
 
 
 class Tileset:
