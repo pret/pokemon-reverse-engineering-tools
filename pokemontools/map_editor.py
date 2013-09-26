@@ -147,7 +147,6 @@ class Application(Frame):
         self.map.canvas.bind('<B1-Motion>', self.paint)
 
     def init_picker(self):
-        
         self.current_tile = Map(self.button_frame, tileset_id=self.map.tileset_id)
         self.current_tile.blockdata = [self.paint_tile]
         self.current_tile.width = 1
