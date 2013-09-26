@@ -617,18 +617,23 @@ def asm_at_label(asm, label):
         content += [[l, comment]]
     return content
 
+def main():
+    """
+    Launches the map editor.
+    """
+    root = Tk()
+    root.wm_title("MAP EDITOR")
+    app = Application(master=root)
 
-root = Tk()
-root.wm_title("MAP EDITOR")
-app = Application(master=root)
+    try:
+        app.mainloop()
+    except KeyboardInterrupt:
+        pass
 
-try:
-    app.mainloop()
-except KeyboardInterrupt:
-    pass
+    try:
+        root.destroy()
+    except TclError:
+        pass
 
-try:
-    root.destroy()
-except TclError:
-    pass
-
+if __name__ == "__main__":
+    main()
