@@ -87,7 +87,7 @@ class SpeedRunner(Runner):
         # walk to elm and do whatever he wants
         self.handle_elm("totodile", skip=True)
 
-        self.new_bark_level_grind(6, skip=False)
+        self.new_bark_level_grind(17, skip=False)
 
     @skippable
     def skip_intro(self, stop_at_name_selection=False):
