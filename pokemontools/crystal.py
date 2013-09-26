@@ -67,8 +67,8 @@ is_valid_address = addresses.is_valid_address
 import old_text_script
 OldTextScript = old_text_script
 
-import config
-conf = config.Config()
+import configiguration
+conf = configuration.Config()
 
 from map_names import map_names
 
