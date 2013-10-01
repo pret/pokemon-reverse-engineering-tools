@@ -2860,7 +2860,7 @@ pksv_crystal_more = {
     0xA5: ["displaylocation", ["id", SingleByteParam], ["memory", SingleByteParam]],
     0xA6: ["trainerclassname", ["id", SingleByteParam]],
     0xA7: ["name", ["type", SingleByteParam], ["id", SingleByteParam]],
-    0xA8: ["waitframes", ["unknown", SingleByteParam]],
+    0xA8: ["wait", ["unknown", SingleByteParam]],
     0xA9: ["unknown0xa9"],
 }
 def create_command_classes(debug=False):
@@ -3142,7 +3142,7 @@ effect_commands = {
     0xa7: ['effect0xa7'],
     0xa8: ['effect0xa8'],
     0xa9: ['clearmissdamage'],
-    0xaa: ['wait'],
+    0xaa: ['movedelay'],
     0xab: ['hittarget'],
     0xac: ['tristatuschance'],
     0xad: ['supereffectivelooptext'],
