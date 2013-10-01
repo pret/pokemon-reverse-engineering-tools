@@ -2862,7 +2862,6 @@ pksv_crystal_more = {
     0xA7: ["name", ["type", SingleByteParam], ["id", SingleByteParam]],
     0xA8: ["waitframes", ["unknown", SingleByteParam]],
     0xA9: ["unknown0xa9"],
-    0xAA: ["unknown0xaa"],
 }
 def create_command_classes(debug=False):
     """creates some classes for each command byte"""
