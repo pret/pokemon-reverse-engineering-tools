@@ -552,3 +552,10 @@ class crystal(object):
         #while memory[0xd043] in [0, 1, 2, 3] or memory[0xd042] != 0x3e:
             self.vba.step(count=10)
             memory = self.vba.memory
+
+    def get_enemy_hp(self):
+        """
+        Returns the HP of the current enemy.
+        """
+        hp = ((self.cry.vba.memory[0xd218] << 8) | self.cry.vba.memory[0xd217])
+        return hp
