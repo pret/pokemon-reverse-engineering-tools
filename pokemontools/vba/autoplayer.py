@@ -60,6 +60,8 @@ class Runner(object):
 
 class SpeedRunner(Runner):
     def __init__(self, cry=None, config=None):
+        super(SpeedRunner, self).__init__()
+
         self.cry = cry
 
         if not config:
