@@ -29,6 +29,10 @@ button_masks = vba_wrapper.core.VBA.button_masks
 button_combiner = vba_wrapper.core.VBA.button_combine
 
 def translate_chars(charz):
+    """
+    Translate a string from the in-game format to readable form. This is
+    accomplished through the same lookup table that the preprocessors use.
+    """
     result = ""
     for each in charz:
         result += chars[each]
