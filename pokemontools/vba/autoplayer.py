@@ -70,12 +70,16 @@ class SpeedRunner(Runner):
         self.config = config
 
     def setup(self):
+        """
+        Configure this ``Runner`` instance to contain a reference to an active
+        emulator session.
+        """
         if not self.cry:
             self.cry = _vba.crystal(config=self.config)
 
     def main(self):
         """
-        Start the game.
+        Main entry point for complete control of the game as the main player.
         """
         # get past the opening sequence
         self.skip_intro(skip=True)
@@ -548,6 +552,9 @@ class SpeedRunner(Runner):
         self.cry.move("d")
 
 def main():
+    """
+    Setup a basic ``SpeedRunner`` instance and then run the runner.
+    """
     runner = SpeedRunner()
     runner.setup()
     return runner.main()
