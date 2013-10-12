@@ -67,6 +67,9 @@ is_valid_address = addresses.is_valid_address
 import old_text_script
 OldTextScript = old_text_script
 
+import configuration
+conf = configuration.Config()
+
 from map_names import map_names
 
 # ---- script_parse_table explanation ----
@@ -112,16 +115,22 @@ def map_name_cleaner(input):
 
 rom = romstr.RomStr(None)
 
-def direct_load_rom(filename="../baserom.gbc"):
+def direct_load_rom(filename=None):
     """loads bytes into memory"""
+    if filename == None:
+        filename = os.path.join(conf.path, "baserom.gbc")
+    global rom
     file_handler = open(filename, "rb")
     rom = romstr.RomStr(file_handler.read())
     file_handler.close()
     return rom
 
-def load_rom(filename="../baserom.gbc"):
+def load_rom(filename=None):
     """checks that the loaded rom matches the path
     and then loads the rom if necessary."""
+    if filename == None:
+        filename = os.path.join(conf.path, "baserom.gbc")
+    global rom
     if rom != romstr.RomStr(None) and rom != None:
         return rom
     if not isinstance(rom, romstr.RomStr):
@@ -129,14 +138,19 @@ def load_rom(filename="../baserom.gbc"):
     elif os.lstat(filename).st_size != len(rom):
         return direct_load_rom(filename)
 
-def direct_load_asm(filename="../main.asm"):
+def direct_load_asm(filename=None):
+    if filename == None:
+        filename = os.path.join(conf.path, "main.asm")
     """returns asm source code (AsmList) from a file"""
     asm = open(filename, "r").read().split("\n")
     asm = romstr.AsmList(asm)
     return asm
 
-def load_asm(filename="../main.asm"):
+def load_asm(filename=None):
     """returns asm source code (AsmList) from a file (uses a global)"""
+    if filename == None:
+        filename = os.path.join(conf.path, "main.asm")
+    global asm
     asm = direct_load_asm(filename=filename)
     return asm
 
@@ -2164,8 +2178,8 @@ pksv_crystal_more = {
     0x07: ["if not equal", ["byte", SingleByteParam], ["pointer", ScriptPointerLabelParam]],
     0x08: ["iffalse", ["pointer", ScriptPointerLabelParam]],
     0x09: ["iftrue", ["pointer", ScriptPointerLabelParam]],
-    0x0A: ["if less than", ["byte", SingleByteParam], ["pointer", ScriptPointerLabelParam]],
-    0x0B: ["if greater than", ["byte", SingleByteParam], ["pointer", ScriptPointerLabelParam]],
+    0x0A: ["if greater than", ["byte", SingleByteParam], ["pointer", ScriptPointerLabelParam]],
+    0x0B: ["if less than", ["byte", SingleByteParam], ["pointer", ScriptPointerLabelParam]],
     0x0C: ["jumpstd", ["predefined_script", MultiByteParam]],
     0x0D: ["callstd", ["predefined_script", MultiByteParam]],
     0x0E: ["3callasm", ["asm", AsmPointerParam]],
@@ -2206,14 +2220,14 @@ pksv_crystal_more = {
     0x2E: ["giveegg", ["pkmn", PokemonParam], ["level", DecimalParam]],
     0x2F: ["givepokeitem", ["pointer", PointerParamToItemAndLetter]],
     0x30: ["checkpokeitem", ["pointer", PointerParamToItemAndLetter]], # not pksv
-    0x31: ["checkbit1", ["bit_number", MultiByteParam]],
-    0x32: ["clearbit1", ["bit_number", MultiByteParam]],
-    0x33: ["setbit1", ["bit_number", MultiByteParam]],
-    0x34: ["checkbit2", ["bit_number", MultiByteParam]],
-    0x35: ["clearbit2", ["bit_number", MultiByteParam]],
-    0x36: ["setbit2", ["bit_number", MultiByteParam]],
-    0x37: ["wildoff"],
-    0x38: ["wildon"],
+    0x31: ["checkevent", ["bit_number", MultiByteParam]],
+    0x32: ["clearevent", ["bit_number", MultiByteParam]],
+    0x33: ["setevent", ["bit_number", MultiByteParam]],
+    0x34: ["checkflag", ["bit_number", MultiByteParam]],
+    0x35: ["clearflag", ["bit_number", MultiByteParam]],
+    0x36: ["setflag", ["bit_number", MultiByteParam]],
+    0x37: ["wildon"],
+    0x38: ["wildoff"],
     0x39: ["xycompare", ["pointer", MultiByteParam]],
     0x3A: ["warpmod", ["warp_id", SingleByteParam], ["map_group", MapGroupParam], ["map_id", MapIdParam]],
     0x3B: ["blackoutmod", ["map_group", MapGroupParam], ["map_id", MapIdParam]],
@@ -2326,12 +2340,11 @@ pksv_crystal_more = {
     0xA2: ["credits"],
     0xA3: ["warpfacing", ["facing", SingleByteParam], ["map_group", MapGroupParam], ["map_id", MapIdParam], ["x", SingleByteParam], ["y", SingleByteParam]],
     0xA4: ["storetext", ["pointer", PointerLabelBeforeBank], ["memory", SingleByteParam]],
-    0xA5: ["displaylocation", ["id", SingleByteParam]],
-    0xA6: ["unknown0xa6"],
-    0xA7: ["unknown0xa7"],
-    0xA8: ["unknown0xa8", ["unknown", SingleByteParam]],
+    0xA5: ["displaylocation", ["id", SingleByteParam], ["memory", SingleByteParam]],
+    0xA6: ["trainerclassname", ["id", SingleByteParam]],
+    0xA7: ["name", ["type", SingleByteParam], ["id", SingleByteParam]],
+    0xA8: ["wait", ["unknown", SingleByteParam]],
     0xA9: ["unknown0xa9"],
-    0xAA: ["unknown0xaa"],
 }
 def create_command_classes(debug=False):
     """creates some classes for each command byte"""
@@ -2612,7 +2625,7 @@ effect_commands = {
     0xa7: ['effect0xa7'],
     0xa8: ['effect0xa8'],
     0xa9: ['clearmissdamage'],
-    0xaa: ['wait'],
+    0xaa: ['movedelay'],
     0xab: ['hittarget'],
     0xac: ['tristatuschance'],
     0xad: ['supereffectivelooptext'],
@@ -2654,7 +2667,9 @@ effect_classes = create_effect_command_classes()
 
 
 
-def generate_macros(filename="../script_macros.asm"):
+def generate_macros(filename=None):
+    if filename == None:
+        filename = os.path.join(conf.path, "script_macros.asm")
     """generates all macros based on commands
     this is dumped into script_macros.asm"""
     output  = "; This file is generated by generate_macros.\n"
@@ -5278,7 +5293,7 @@ def parse_second_map_header_at(address, map_group=None, map_id=None, debug=True)
 
 class MapBlockData:
     base_label = "MapBlockData_"
-    maps_path = os.path.realpath(os.path.join(os.path.realpath("."), "../maps"))
+    maps_path = os.path.realpath(os.path.join(conf.path, "maps"))
 
     def __init__(self, address, map_group=None, map_id=None, debug=True, bank=None, label=None, width=None, height=None):
         self.address = address
@@ -5922,9 +5937,11 @@ def reset_incbins():
     isolate_incbins(asm=asm)
     process_incbins()
 
-def find_incbin_to_replace_for(address, debug=False, rom_file="../baserom.gbc"):
+def find_incbin_to_replace_for(address, debug=False, rom_file=None):
     """returns a line number for which incbin to edit
     if you were to insert bytes into main.asm"""
+    if rom_file == None:
+        rom_file = os.path.join(conf.path, "baserom.gbc")
     if type(address) == str: address = int(address, 16)
     if not (0 <= address <= os.lstat(rom_file).st_size):
         raise IndexError("address is out of bounds")
@@ -5952,7 +5969,7 @@ def find_incbin_to_replace_for(address, debug=False, rom_file="../baserom.gbc"):
             return incbin_key
     return None
 
-def split_incbin_line_into_three(line, start_address, byte_count, rom_file="../baserom.gbc"):
+def split_incbin_line_into_three(line, start_address, byte_count, rom_file=None):
     """
     splits an incbin line into three pieces.
     you can replace the middle one with the new content of length bytecount
@@ -5960,6 +5977,8 @@ def split_incbin_line_into_three(line, start_address, byte_count, rom_file="../b
     start_address: where you want to start inserting bytes
     byte_count: how many bytes you will be inserting
     """
+    if rom_file == None:
+        rom_file = os.path.join(conf.path, "baserom.gbc")
     if type(start_address) == str: start_address = int(start_address, 16)
     if not (0 <= start_address <= os.lstat(rom_file).st_size):
         raise IndexError("start_address is out of bounds")
@@ -6019,9 +6038,9 @@ def generate_diff_insert(line_number, newline, debug=False):
         CalledProcessError = None
 
     try:
-        diffcontent = subprocess.check_output("diff -u ../main.asm " + newfile_filename, shell=True)
+        diffcontent = subprocess.check_output("diff -u " + os.path.join(conf.path, "main.asm") + " " + newfile_filename, shell=True)
     except (AttributeError, CalledProcessError):
-        p = subprocess.Popen(["diff", "-u", "../main.asm", newfile_filename], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        p = subprocess.Popen(["diff", "-u", os.path.join(conf.path, "main.asm"), newfile_filename], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = p.communicate()
         diffcontent = out
 
@@ -6041,8 +6060,8 @@ def apply_diff(diff, try_fixing=True, do_compile=True):
     fh.close()
 
     # apply the patch
-    os.system("cp ../main.asm ../main1.asm")
-    os.system("patch ../main.asm temp.patch")
+    os.system("cp " + os.path.join(conf.path, "main.asm") + " " + os.path.join(conf.path, "main1.asm"))
+    os.system("patch " + os.path.join(conf.path, "main.asm") + " " + "temp.patch")
 
     # remove the patch
     os.system("rm temp.patch")
@@ -6050,11 +6069,11 @@ def apply_diff(diff, try_fixing=True, do_compile=True):
     # confirm it's working
     if do_compile:
         try:
-            subprocess.check_call("cd ../; make clean; make", shell=True)
+            subprocess.check_call("cd " + conf.path + "; make clean; make", shell=True)
             return True
         except Exception, exc:
             if try_fixing:
-                os.system("mv ../main1.asm ../main.asm")
+                os.system("mv " + os.path.join(conf.path, "main1.asm") + " " + os.path.join(conf.path, "main.asm"))
             return False
 
 import crystalparts.asmline
@@ -6179,9 +6198,21 @@ class AsmSection:
     def to_asm(self):
         return self.line
 
+new_asm = None
+def load_asm2(filename=None, force=False):
+    """loads the asm source code into memory"""
+    if filename == None:
+        filename = os.path.join(conf.path, "main.asm")
+    global new_asm
+    if new_asm == None or force:
+        new_asm = Asm(filename=filename)
+    return new_asm
+
 class Asm:
     """controls the overall asm output"""
-    def __init__(self, filename="../main.asm", debug=True):
+    def __init__(self, filename=None, debug=True):
+        if filename == None:
+            filename = os.path.join(conf.path, "main.asm")
         self.parts = []
         self.labels = []
         self.filename = filename

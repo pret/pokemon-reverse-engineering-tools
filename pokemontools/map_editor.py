@@ -6,12 +6,12 @@ from ttk import Frame, Style
 import PIL
 from PIL import Image, ImageTk
 
-import configuration
-conf = configuration.Config()
+import config
+conf = config.Config()
 
 
-version = 'crystal'
-#version = 'red'
+#version = 'crystal'
+version = 'red'
 
 if version == 'crystal':
 	map_dir = os.path.join(conf.path, 'maps/')
@@ -31,9 +31,6 @@ if version == 'crystal':
 
 	header_dir = os.path.join(conf.path, 'maps/')
 
-	# todo
-	display_connections = False
-
 elif version == 'red':
 	map_dir = os.path.join(conf.path, 'maps/')
 	gfx_dir = os.path.join(conf.path, 'gfx/tilesets/')
@@ -48,9 +45,6 @@ elif version == 'red':
 	constants_filename = os.path.join(conf.path, 'constants.asm')
 
 	header_path = os.path.join(conf.path, 'main.asm')
-
-	# todo
-	display_connections = False
 
 else:
 	raise Exception, 'version must be "crystal" or "red"'
@@ -67,6 +61,7 @@ get_constants()
 
 class Application(Frame):
 	def __init__(self, master=None):
+		self.display_connections = False
 		Frame.__init__(self, master)
 		self.grid()
 		Style().configure("TFrame", background="#444")
@@ -322,12 +317,15 @@ class Map:
 		# Draw one block (4x4 tiles)
 		block = self.blockdata[block_y * self.width + block_x]
 		for j, tile in enumerate(self.tileset.blocks[block]):
-			# Tile gfx are split in half to make vram mapping easier
-			if tile >= 0x80:
-				tile -= 0x20
-			tile_x = block_x * 32 + (j % 4) * 8
-			tile_y = block_y * 32 + (j / 4) * 8
-			self.canvas.create_image(index + tile_x, indey + tile_y, image=self.tileset.tiles[tile])
+			try:
+				# Tile gfx are split in half to make vram mapping easier
+				if tile >= 0x80:
+					tile -= 0x20
+				tile_x = block_x * 32 + (j % 4) * 8
+				tile_y = block_y * 32 + (j / 4) * 8
+				self.canvas.create_image(index + tile_x, indey + tile_y, image=self.tileset.tiles[tile])
+			except:
+				pass
 
 
 class Tileset:
@@ -348,11 +346,30 @@ class Tileset:
 		self.get_blocks()
 		self.get_tiles()
 
+	def get_tileset_gfx_filename(self):
+		filename = None
+
+		if version == 'red':
+			tileset_defs = open(os.path.join(conf.path, 'main.asm'), 'r').read()
+			incbin = asm_at_label(tileset_defs, 'Tset%.2X_GFX' % self.id)
+			print incbin
+			filename = read_header_macros(incbin, ['filename'], ['INCBIN'])[0][0].replace('"','').replace('.2bpp','.png')
+			filename = os.path.join(conf.path, filename)
+			print filename
+
+		if not filename:
+			filename = os.path.join(
+				gfx_dir,
+				to_gfx_name(self.id) + '.png'
+			)
+
+		return filename
+
 	def get_tiles(self):
-		filename = os.path.join(
-			gfx_dir,
-			to_gfx_name(self.id) + '.png'
-		)
+		filename = self.get_tileset_gfx_filename()
+		if not os.path.exists(filename):
+			import gfx
+			gfx.to_png(filename.replace('.png','.2bpp'), filename)
 		self.img = Image.open(filename)
 		self.img.width, self.img.height = self.img.size
 		self.tiles = []
@@ -457,7 +474,7 @@ def map_header(name):
 		headers = open(os.path.join(header_dir, 'map_headers.asm'), 'r').read()
 		label = name + '_MapHeader'
 		header = asm_at_label(headers, label)
-		macros = [ 'db', 'dw', 'db' ]
+		macros = [ 'db', 'db', 'db', 'dw', 'db', 'db', 'db', 'db' ]
 		attributes = [
 			'bank',
 			'tileset_id',
@@ -483,7 +500,7 @@ def map_header(name):
 		label = headers[i:i+len(lower_label)]
 
 		header = asm_at_label(headers, label)
-		macros = [ 'db', 'db', 'dw', 'db' ]
+		macros = [ 'db', 'db', 'db', 'dw', 'dw', 'dw', 'db' ]
 		attributes = [
 			'tileset_id',
 			'height',
@@ -514,7 +531,7 @@ def second_map_header(name):
 		headers = open(os.path.join(header_dir, 'second_map_headers.asm'), 'r').read()
 		label = name + '_SecondMapHeader'
 		header = asm_at_label(headers, label)
-		macros = [ 'db', 'db', 'dbw', 'dbw', 'dw', 'db' ]
+		macros = [ 'db', 'db', 'db', 'db', 'dw', 'db', 'dw', 'dw', 'db' ]
 		attributes = [
 			'border_block',
 			'height',
@@ -536,19 +553,21 @@ def second_map_header(name):
 
 def connections(which_connections, header, l=0):
 	directions = { 'north': {}, 'south': {}, 'west': {}, 'east': {} }
-	macros = [ 'db', 'dw', 'dw', 'db', 'db', 'dw' ]
 
 	if version == 'crystal':
+		macros = [ 'db', 'db' ] 
 		attributes = [
 			'map_group',
 			'map_no',
 		]
 
 	elif version == 'red':
+		macros = [ 'db' ]
 		attributes = [
 			'map_id',
 		]
 
+	macros += [ 'dw', 'dw', 'db', 'db', 'db', 'db', 'dw' ]
 	attributes += [
 		'strip_pointer',
 		'strip_destination',
@@ -575,8 +594,9 @@ def read_header_macros(header, attributes, macros):
 	l = 0
 	for l, (asm, comment) in enumerate(header):
 		if asm.strip() != '':
-			values += macro_values(asm, macros[i])
-			i += 1
+			mvalues = macro_values(asm, macros[i])
+			values += mvalues
+			i += len(mvalues)
 		if len(values) >= len(attributes):
 			l += 1
 			break
@@ -592,7 +612,10 @@ def script_header(asm, name):
 
 def macro_values(line, macro):
 	values = line[line.find(macro) + len(macro):].split(',')
-	return [v.replace('$','0x').strip() for v in values]
+	values = [v.replace('$','0x').strip() for v in values]
+	if values[0] == 'w': # dbw
+		values = values[1:]
+	return values
 
 def db_value(line):
 	macro = 'db'
@@ -607,8 +630,12 @@ from preprocessor import separate_comment
 
 def asm_at_label(asm, label):
 	label_def = label + ':'
-	start = asm.find(label_def) + len(label_def)
-	lines = asm[start:].split('\n')
+	lines = asm.split('\n')
+	for line in lines:
+		if line.startswith(label_def):
+			lines = lines[lines.index(line):]
+			lines[0] = lines[0][len(label_def):]
+			break
 	# go until the next label
 	content = []
 	for line in lines:
@@ -618,18 +645,23 @@ def asm_at_label(asm, label):
 		content += [[l, comment]]
 	return content
 
+def main():
+    """
+    Launches the map editor.
+    """
+    root = Tk()
+    root.wm_title("MAP EDITOR")
+    app = Application(master=root)
 
-root = Tk()
-root.wm_title("MAP EDITOR")
-app = Application(master=root)
+    try:
+        app.mainloop()
+    except KeyboardInterrupt:
+        pass
 
-try:
-	app.mainloop()
-except KeyboardInterrupt:
-	pass
+    try:
+        root.destroy()
+    except TclError:
+        pass
 
-try:
-	root.destroy()
-except TclError:
-	pass
-
+if __name__ == "__main__":
+    main()
