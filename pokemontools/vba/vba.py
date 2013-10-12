@@ -368,6 +368,9 @@ class crystal(object):
         return name
 
     def warp(self, map_group_id, map_id, x, y):
+        """
+        Warp into another map.
+        """
         self.vba.write_memory_at(0xdcb5, map_group_id)
         self.vba.write_memory_at(0xdcb6, map_id)
         self.vba.write_memory_at(0xdcb7, y)
@@ -378,10 +381,17 @@ class crystal(object):
         self.vba.write_memory_at(0xd434, 0 & 251)
 
     def warp_pokecenter(self):
+        """
+        Warp straight into a pokecenter.
+        """
         self.warp(1, 1, 3, 3)
         self.nstep(200)
 
     def masterballs(self):
+        """
+        Deposit some pokeballs into the first few slots of the pack. This
+        overrides whatever items were previously there.
+        """
         # masterball
         self.vba.write_memory_at(0xd8d8, 1)
         self.vba.write_memory_at(0xd8d9, 99)
