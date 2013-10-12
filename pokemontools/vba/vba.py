@@ -557,5 +557,5 @@ class crystal(object):
         """
         Returns the HP of the current enemy.
         """
-        hp = ((self.cry.vba.memory[0xd218] << 8) | self.cry.vba.memory[0xd217])
+        hp = ((self.vba.memory[0xd218] << 8) | self.vba.memory[0xd217])
         return hp
