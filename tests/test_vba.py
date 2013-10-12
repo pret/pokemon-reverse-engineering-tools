@@ -223,6 +223,29 @@ class VbaTests(unittest.TestCase):
         self.assertEqual(self.get_wram_value("MapGroup"), 24)
         self.assertEqual(self.get_wram_value("MapNumber"), 4)
 
+    def test_crystal_move_list(self):
+        runner = autoplayer.SpeedRunner(cry=None)
+        runner.setup()
+        runner.skip_intro(skip=True)
+        runner.handle_mom(skip=True)
+        runner.walk_into_new_bark_town(skip=False)
+
+        # must be in New Bark Town
+        self.assertEqual(self.get_wram_value("MapGroup"), 24)
+        self.assertEqual(self.get_wram_value("MapNumber"), 4)
+
+        first_map_x = self.get_wram_value("MapX")
+
+        runner.cry.move(["l", "l", "l"])
+
+        # x location should be different
+        second_map_x = self.get_wram_value("MapX")
+        self.assertNotEqual(first_map_x, second_map_x)
+
+        # must still be in New Bark Town
+        self.assertEqual(self.get_wram_value("MapGroup"), 24)
+        self.assertEqual(self.get_wram_value("MapNumber"), 4)
+
     def test_keyboard_typing_dumb_name(self):
         self.bootstrap_name_prompt()
 

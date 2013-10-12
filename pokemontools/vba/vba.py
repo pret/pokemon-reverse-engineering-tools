@@ -557,15 +557,19 @@ class crystal(object):
         """
         Attempt to move the player.
         """
-        self.vba.press(cmd, hold=10, after=0)
-        self.vba.press([])
+        if isinstance(cmd, list):
+            for command in cmd:
+                self.move(cmd)
+        else:
+            self.vba.press(cmd, hold=10, after=0)
+            self.vba.press([])
 
-        memory = self.vba.memory
-        #while memory[0xd4e1] == 2 and memory[0xd042] != 0x3e:
-        while memory[0xd043] in [0, 1, 2, 3]:
-        #while memory[0xd043] in [0, 1, 2, 3] or memory[0xd042] != 0x3e:
-            self.vba.step(count=10)
             memory = self.vba.memory
+            #while memory[0xd4e1] == 2 and memory[0xd042] != 0x3e:
+            while memory[0xd043] in [0, 1, 2, 3]:
+            #while memory[0xd043] in [0, 1, 2, 3] or memory[0xd042] != 0x3e:
+                self.vba.step(count=10)
+                memory = self.vba.memory
 
     def get_enemy_hp(self):
         """
