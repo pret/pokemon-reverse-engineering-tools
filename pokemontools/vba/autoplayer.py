@@ -387,7 +387,7 @@ class SpeedRunner(Runner):
             # wait for the move to be over
             self.cry.text_wait()
 
-            hp = ((self.cry.vba.memory[0xd218] << 8) | self.cry.vba.memory[0xd217])
+            hp = self.cry.get_enemy_hp()
             print "enemy hp is: " + str(hp)
 
             if hp == 0:
