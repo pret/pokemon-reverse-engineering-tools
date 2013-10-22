@@ -1,5 +1,5 @@
-import config
-config = config.Config()
+import configuration
+config = configuration.Config()
 rom = bytearray(open(config.rom_path, "r").read())
 
 songs = [
@@ -49,22 +49,26 @@ songs = [
 	"MeetFemaleTrainer",
 	"MeetMaleTrainer",
 	"UnusedSong",
-	#"SurfingPikachu",
-	#"MeetJessieJames",
-	#"YellowUnusedSong",
 	]
-
+"""
+songs = [
+	"YellowIntro",
+	"SurfingPikachu",
+	"MeetJessieJames",
+	"YellowUnusedSong",
+	]
+"""
 music_commands = {
 	0xd0: ["notetype", {"type": "nibble"}, 2],
 	0xe0: ["octave", 1],
-	0xe8: ["unknownmusic0xe8", 1],
+	0xe8: ["togglecall", 1],
 	0xea: ["vibrato", {"type": "byte"}, {"type": "nibble"}, 3],
 	0xeb: ["pitchbend", {"type": "byte"}, {"type": "byte"}, 3],
 	0xec: ["duty", {"type": "byte"}, 2],
 	0xed: ["tempo", {"type": "byte"}, {"type": "byte"}, 3],
 	0xee: ["unknownmusic0xee", {"type": "byte"}, 2],
 	0xf0: ["stereopanning", {"type": "byte"}, 2],
-	0xf8: ["unknownmusic0xf8", 1],
+	0xf8: ["executemusic", 1],
 	0xfc: ["dutycycle", {"type": "byte"}, 2],
 	0xfd: ["callchannel", {"type": "label"}, 3],
 	0xfe: ["loopchannel", {"type": "byte"}, {"type": "label"}, 4],
@@ -189,6 +193,7 @@ for i, songname in enumerate(songs):
 	if songname == "PalletTown": header = 0x822e
 	if songname == "GymLeaderBattle": header = 0x202be
 	if songname == "TitleScreen": header = 0x7c249
+	if songname == "YellowIntro": header = 0x7c294
 	if songname == "SurfingPikachu": header = 0x801cb
 	bank = header / 0x4000
 	startingaddress = rom[header + 2] * 0x100 + rom[header + 1] - 0x4000 + (0x4000 * bank)
@@ -212,6 +217,8 @@ for i, songname in enumerate(songs):
 			if curchannel == 1:
 				labels.append(0x719b)
 				labelsleft.append(0x719b)
+				labels.append(0x71a2)
+				labelsleft.append(0x71a2)
 			if curchannel == 2:
 				labels.append(0x721d)
 				labelsleft.append(0x721d)

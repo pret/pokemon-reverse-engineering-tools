@@ -1,5 +1,5 @@
-import config
-config = config.Config()
+import configuration
+config = configuration.Config()
 rom = bytearray(open(config.rom_path, "r").read())
 
 banks = {
@@ -11,28 +11,13 @@ banks = {
 music_commands = {
 	0xd0: ["notetype", {"type": "nibble"}, 2],
 	0xe0: ["octave", 1],
-	0xe8: ["unknownmusic0xe8", 1],
-	0xe9: ["unknownmusic0xe9", 1],
+	0xe8: ["togglecall", 1],
 	0xea: ["vibrato", {"type": "byte"}, {"type": "nibble"}, 3],
-	0xeb: ["pitchbend", {"type": "byte"}, {"type": "byte"}, 3],
 	0xec: ["duty", {"type": "byte"}, 2],
 	0xed: ["tempo", {"type": "byte"}, {"type": "byte"}, 3],
-	0xee: ["unknownmusic0xee", {"type": "byte"}, 2],
-	0xef: ["unknownmusic0xef", 1],
 	0xf0: ["stereopanning", {"type": "byte"}, 2],
-	0xf1: ["unknownmusic0xf1", 1],
-	0xf2: ["unknownmusic0xf2", 1],
-	0xf3: ["unknownmusic0xf3", 1],
-	0xf4: ["unknownmusic0xf4", 1],
-	0xf5: ["unknownmusic0xf5", 1],
-	0xf6: ["unknownmusic0xf6", 1],
-	0xf7: ["unknownmusic0xf7", 1],
-	0xf8: ["unknownmusic0xf8", 1],
-	0xf9: ["unknownmusic0xf9", 1],
-	0xfa: ["unknownmusic0xfa", 1],
-	#0xfb: ["unknownmusic0xfb", 1],
+	0xf8: ["executemusic", 1],
 	0xfc: ["dutycycle", {"type": "byte"}, 2],
-	0xfd: ["callchannel", {"type": "label"}, 3],
 	0xfe: ["loopchannel", {"type": "byte"}, {"type": "label"}, 4],
 	0xff: ["endchannel", 1],
 	}
@@ -62,45 +47,38 @@ for bank in banks:
 	header = bank * 0x4000 + 3
 	for sfx in range(1,banks[bank]):
 		sfxname = "SFX_{:02x}_{:02x}".format(bank, sfx)
-		sfxfile = open("music/sfx/" + sfxname.lower() + ".asm", 'a')
+		sfxfile = open("music/sfx/" + sfxname.lower() + ".asm", 'w')
 		startingaddress = rom[header + 2] * 0x100 + rom[header + 1] + (0x4000 * (bank - 1))
+		end = 0
 		curchannel = 1
 		lastchannel = (rom[header] >> 6) + 1
+		channelnumber = rom[header] % 0x10
 		output = ''
 		while 1:
-			# pass 1, build a list of all addresses pointed to by calls and loops
 			address = startingaddress
-			labels = []
-			labelsleft = []
-			while 1:
-				byte = rom[address]
-				if byte < 0xd0:
-					command_length = 1
-				elif byte < 0xe0:
-					command_length = 2
-				elif byte < 0xe8:
-					command_length = 1
-				else:
-					command_length = music_commands[byte][-1]
-					if byte == 0xfd or byte == 0xfe:
-						label = rom[address + command_length - 1] * 0x100 + rom[address + command_length - 2]
-						labels.append(label)
-						if label > address % 0x4000 + 0x4000: labelsleft.append(label)
-				address += command_length
-				if len(labelsleft) == 0 and (byte == 0xfe and rom[address - command_length + 1] == 0 and rom[address - 1] * 0x100 + rom[address - 2] < address % 0x4000 + 0x4000 or byte == 0xff): break
-				while address % 0x4000 + 0x4000 in labelsleft: labelsleft.remove(address % 0x4000 + 0x4000)
-			# once the loop breaks, start over from first address
-			end = address
-			if curchannel != lastchannel: end = rom[header + 5] * 0x100 + rom[header + 4] + (0x4000 * (bank - 1))
-			address = startingaddress
+			if curchannel != lastchannel:
+				end = rom[header + 5] * 0x100 + rom[header + 4] + (0x4000 * (bank - 1))
 			byte = rom[address]
-			# pass 2, print commands and labels for addresses that are in labels
-			while address != end:
-				if address == startingaddress:
-					output += "{}_Ch{}: ; {:02x} ({:0x}:{:02x})\n".format(sfxname, curchannel, address, bank, address % 0x4000 + 0x4000)
-				elif address % 0x4000 + 0x4000 in labels:
+			if byte == 0xf8 or (bank == 2 and sfx == 0x5e): executemusic = True
+			else: executemusic = False
+			output += "{}_Ch{}: ; {:02x} ({:0x}:{:02x})\n".format(sfxname, curchannel, address, bank, address % 0x4000 + 0x4000)
+			while 1:
+				if address == 0x2062a or address == 0x2063d or address == 0x20930:
 					output += "\n{}_branch_{:02x}:\n".format(sfxname, address)
-				if byte < 0xc0:
+				if byte < 0x10 and not executemusic:
+					output += "\tunknownsfx0x{:02x}".format(byte)
+					command_length = 1
+				elif byte == 0x10 and not executemusic:
+					output += "\tunknownsfx0x{:02x} {}".format(byte, rom[address + 1])
+					command_length = 2
+				elif byte < 0x30 and not executemusic:
+					if channelnumber == 7:
+						output += "\tunknownnoise0x20 {}, {}, {}".format(byte % 0x10, rom[address + 1], rom[address + 2])
+						command_length = 3
+					else:
+						output += "\tunknownsfx0x20 {}, {}, {}, {}".format(byte % 0x10, rom[address + 1], rom[address + 2], rom[address + 3])
+						command_length = 4
+				elif byte < 0xc0:
 					output += "\tnote {}, {}".format(music_notes[byte >> 4], byte % 0x10 + 1)
 					command_length = 1
 				elif byte < 0xd0:
@@ -138,12 +116,14 @@ for bank in banks:
 						if params != len(music_commands[byte]) - 1: output += ","
 				output += "\n"
 				address += command_length
+				if byte == 0xff or address == end: break
 				byte = rom[address]
 			header += 3
+			channelnumber = rom[header]
 			if curchannel == lastchannel:
 				output += "; {}".format(hex(address))
 				sfxfile.write(output)
 				break
 			output += "\n\n"
-			startingaddress = end
+			startingaddress = address
 			curchannel += 1
