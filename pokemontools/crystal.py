@@ -2889,41 +2889,65 @@ def create_command_classes(debug=False):
 command_classes = create_command_classes()
 
 
+class BigEndianParam:
+    """big-endian word"""
+    size = 2
+    should_be_decimal = False
 
-music_commands_new = {
-    0xD0: ["octave8"],
-    0xD1: ["octave7"],
-    0xD2: ["octave6"],
-    0xD3: ["octave5"],
-    0xD4: ["octave4"],
-    0xD5: ["octave3"],
-    0xD6: ["octave2"],
-    0xD7: ["octave1"],
-    0xD8: ["notetype", ["note_length", SingleByteParam], ["intensity", SingleByteParam]], # only 1 param on ch3
+    def __init__(self, *args, **kwargs):
+        self.prefix = '$'
+        for (key, value) in kwargs.items():
+            setattr(self, key, value)
+        self.parse()
+
+    def parse(self):
+        self.bytes = rom_interval(self.address, 2, strings=False)
+        self.parsed_number = self.bytes[0] * 0x100 + self.bytes[1]
+
+    def to_asm(self):
+        if not self.should_be_decimal:
+            return self.prefix+"".join([("%.2x")%x for x in self.bytes])
+        elif self.should_be_decimal:
+            decimal = int("0x"+"".join([("%.2x")%x for x in self.bytes]), 16)
+            return str(decimal)
+
+class DecimalBigEndianParam(BigEndianParam):
+	should_be_decimal = True
+
+music_commands = {
+    0xD0: ["octave 8"],
+    0xD1: ["octave 7"],
+    0xD2: ["octave 6"],
+    0xD3: ["octave 5"],
+    0xD4: ["octave 4"],
+    0xD5: ["octave 3"],
+    0xD6: ["octave 2"],
+    0xD7: ["octave 1"],
+    0xD8: ["notetype", ["note_length", SingleByteParam], ["intensity", SingleByteParam]], # no intensity on channel 4/8
     0xD9: ["forceoctave", ["octave", SingleByteParam]],
-    0xDA: ["tempo", ["tempo", MultiByteParam]],
+    0xDA: ["tempo", ["tempo", DecimalBigEndianParam]],
     0xDB: ["dutycycle", ["duty_cycle", SingleByteParam]],
     0xDC: ["intensity", ["intensity", SingleByteParam]],
     0xDD: ["soundinput", ["input", SingleByteParam]],
-    0xDE: ["unknownmusic0xde", ["unknown", SingleByteParam]], # also updates duty cycle
+    0xDE: ["unknownmusic0xde", ["unknown", SingleByteParam]],
     0xDF: ["unknownmusic0xdf"],
     0xE0: ["unknownmusic0xe0", ["unknown", SingleByteParam], ["unknown", SingleByteParam]],
     0xE1: ["vibrato", ["delay", SingleByteParam], ["extent", SingleByteParam]],
     0xE2: ["unknownmusic0xe2", ["unknown", SingleByteParam]],
-    0xE3: ["togglenoise", ["id", SingleByteParam]], # this can have 0-1 params!
+    0xE3: ["togglenoise", ["id", SingleByteParam]], # no parameters on toggle off
     0xE4: ["panning", ["tracks", SingleByteParam]],
     0xE5: ["volume", ["volume", SingleByteParam]],
-    0xE6: ["tone", ["tone", MultiByteParam]], # big endian
+    0xE6: ["tone", ["tone", BigEndianParam]],
     0xE7: ["unknownmusic0xe7", ["unknown", SingleByteParam]],
     0xE8: ["unknownmusic0xe8", ["unknown", SingleByteParam]],
-    0xE9: ["globaltempo", ["value", MultiByteParam]],
+    0xE9: ["globaltempo", ["value", DecimalBigEndianParam]],
     0xEA: ["restartchannel", ["address", PointerLabelParam]],
-    0xEB: ["newsong", ["id", MultiByteParam]],
+    0xEB: ["newsong", ["id", DecimalBigEndianParam]],
     0xEC: ["sfxpriorityon"],
     0xED: ["sfxpriorityoff"],
     0xEE: ["unknownmusic0xee", ["address", PointerLabelParam]],
     0xEF: ["stereopanning", ["tracks", SingleByteParam]],
-    0xF0: ["sfxtogglenoise", ["id", SingleByteParam]], # 0-1 params
+    0xF0: ["sfxtogglenoise", ["id", SingleByteParam]], # no parameters on toggle off
     0xF1: ["music0xf1"], # nothing
     0xF2: ["music0xf2"], # nothing
     0xF3: ["music0xf3"], # nothing
@@ -2936,19 +2960,29 @@ music_commands_new = {
     0xFA: ["setcondition", ["condition", SingleByteParam]],
     0xFB: ["jumpif", ["condition", SingleByteParam], ["address", PointerLabelParam]],
     0xFC: ["jumpchannel", ["address", PointerLabelParam]],
-    0xFD: ["loopchannel", ["count", SingleByteParam], ["address", PointerLabelParam]],
+    0xFD: ["loopchannel", ["count", DecimalParam], ["address", PointerLabelParam]],
     0xFE: ["callchannel", ["address", PointerLabelParam]],
     0xFF: ["endchannel"],
 }
 
-music_command_enders = [0xEA, 0xEB, 0xEE, 0xFC, 0xFF,]
-# special case for 0xFD (if loopchannel.count = 0, break)
+music_command_enders = [
+    "restartchannel",
+    "newsong",
+    "unknownmusic0xee",
+    "jumpchannel",
+    "endchannel",
+]
 
 def create_music_command_classes(debug=False):
     klasses = []
-    for (byte, cmd) in music_commands_new.items():
+    for (byte, cmd) in music_commands.items():
         cmd_name = cmd[0].replace(" ", "_")
-        params = {"id": byte, "size": 1, "end": byte in music_command_enders, "macro_name": cmd_name}
+        params = {
+            "id": byte,
+            "size": 1,
+            "end": cmd[0] in music_command_enders,
+            "macro_name": cmd[0]
+        }
         params["param_types"] = {}
         if len(cmd) > 1:
             param_types = cmd[1:]
@@ -2968,6 +3002,7 @@ def create_music_command_classes(debug=False):
         klasses.append(klass)
     # later an individual klass will be instantiated to handle something
     return klasses
+
 music_classes = create_music_command_classes()
 
 
