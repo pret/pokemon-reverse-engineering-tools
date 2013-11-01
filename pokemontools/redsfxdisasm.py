@@ -65,10 +65,7 @@ for bank in banks:
 			while 1:
 				if address == 0x2062a or address == 0x2063d or address == 0x20930:
 					output += "\n{}_branch_{:02x}:\n".format(sfxname, address)
-				if byte < 0x10 and not executemusic:
-					output += "\tunknownsfx0x{:02x}".format(byte)
-					command_length = 1
-				elif byte == 0x10 and not executemusic:
+				if byte == 0x10 and not executemusic:
 					output += "\tunknownsfx0x{:02x} {}".format(byte, rom[address + 1])
 					command_length = 2
 				elif byte < 0x30 and not executemusic:

@@ -1,5 +1,5 @@
-import config
-config = config.Config()
+import configuration
+config = configuration.Config()
 rom = bytearray(open(config.rom_path, "r").read())
 
 headerlist = (
@@ -7,13 +7,6 @@ headerlist = (
 	["sfxheaders08.asm", 0x20003, 0x202be],
 	["sfxheaders1f.asm", 0x7c003, 0x7c249],
 	)
-
-numberofchannels = {
-	0x0: 1,
-	0x4: 2,
-	0x8: 3,
-	0xC: 4,
-	}
 
 def printsfxheaders(filename, address, end):
 	file = open(filename, 'w')
@@ -24,7 +17,7 @@ def printsfxheaders(filename, address, end):
 	file.write("SFX_Headers_{:02x}:\n".format(bank))
 	file.write("\tdb $ff, $ff, $ff ; padding\n")
 	while address != end:
-		left = numberofchannels[byte >> 4]
+		left = (byte >> 6) + 1
 		file.write("\nSFX_{:02x}_{:02x}: ; {:02x} ({:0x}:{:02x})\n".format(bank, sfx, address, bank, address % 0x4000 + 0x4000))
 		while left != 0:
 			pointer = rom[address + 2] * 0x100 + rom[address + 1]
