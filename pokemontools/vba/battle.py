@@ -26,14 +26,11 @@ class Battle(EmulatorController):
     # now.
     emulator = emulator
 
-    def __init__(self, hook):
+    def __init__(self, emulator=emulator):
         """
         Setup the battle.
-
-        @param hook: object that implements handle_turn and handle_mandatory_switch
-        @type hook: BattleHook
         """
-        self.hook = hook
+        self.emulator = emulator
 
     @classmethod
     def is_in_battle(cls):
@@ -62,17 +59,22 @@ class Battle(EmulatorController):
         # "how did i lose? wah"
         self.skip_end_text()
 
-class BattleHook(object):
-    """
-    Hooks that are called during a battle.
-    """
+    def handle_mandatory_switch(self):
+        """
+        Something fainted, pick the next mon.
+        """
+        raise NotImplementedError
 
-    def __init__(self, battle):
+    def handle_turn(self):
         """
-        Makes references to some common objects.
+        Take actions inside of a battle based on the game state.
         """
-        self.battle = battle
-        self.emulator = battle.emulator
+        raise NotImplementedError
+
+class BattleStrategy(Battle):
+    """
+    Throw a pokeball until everyone dies.
+    """
 
     def handle_mandatory_switch(self):
         """
@@ -93,7 +95,7 @@ class BattleHook(object):
         """
         self.battle.throw_pokeball()
 
-class SimpleBattleHook(BattleHook):
+class SimpleBattleStrategy(BattleStrategy):
     """
     Attack the enemy with the first move.
     """
@@ -102,4 +104,4 @@ class SimpleBattleHook(BattleHook):
         """
         Always attack the enemy with the first move.
         """
-        self.battle.attack(self.battle.party[0].moves[0].name)
+        self.attack(self.battle.party[0].moves[0].name)
