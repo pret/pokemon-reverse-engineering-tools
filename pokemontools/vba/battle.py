@@ -50,9 +50,9 @@ class Battle(EmulatorController):
             self.skip_crap()
 
             if self.is_player_turn():
-                self.hook.handle_turn()
+                self.handle_turn()
             elif self.is_mandatory_switch():
-                self.hook.handle_mandatory_switch()
+                self.handle_mandatory_switch()
             else:
                 raise BattleException("unknown state, aborting")
 
