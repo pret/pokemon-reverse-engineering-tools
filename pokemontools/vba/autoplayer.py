@@ -567,7 +567,7 @@ def bootstrap(runner=None, cry=None):
     # keep a reference of the current state
     state = runner.cry.vba.state
 
-    cry.vba.shutdown()
+    runner.cry.vba.shutdown()
 
     return state
 
