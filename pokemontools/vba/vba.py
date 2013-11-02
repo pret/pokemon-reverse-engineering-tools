@@ -577,3 +577,17 @@ class crystal(object):
         """
         hp = ((self.vba.memory[0xd218] << 8) | self.vba.memory[0xd217])
         return hp
+
+    def start_trainer_battle(self, trainer_group, trainer_id):
+        memory = self.vba.memory
+
+        # setup the battle
+        memory[0xd459] = 0x81
+        memory[0xd22f] = trainer_group
+        memory[0xd231] = trainer_id
+
+        self.vba.memory = memory
+
+        Script_startbattle_address = 0x97436
+
+        self.call(0x25, Script_startbattle_address)
