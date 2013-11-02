@@ -551,6 +551,26 @@ class SpeedRunner(Runner):
         self.cry.move("d")
         self.cry.move("d")
 
+def bootstrap(runner=None, cry=None):
+    """
+    Setup the initial game and return the state. This skips the intro and
+    performs some other actions to get the game to a reasonable starting state.
+    """
+    if not runner:
+        runner = SpeedRunner(cry=cry)
+    runner.setup()
+
+    # skip=False means always run the skip_intro function regardless of the
+    # presence of a saved after state.
+    runner.skip_intro(skip=True)
+
+    # keep a reference of the current state
+    state = runner.cry.vba.state
+
+    cry.vba.shutdown()
+
+    return state
+
 def main():
     """
     Setup a basic ``SpeedRunner`` instance and then run the runner.
