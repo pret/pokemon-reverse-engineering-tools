@@ -127,14 +127,7 @@ class crystal(object):
             0x3bb7,
         ]
 
-        for value in push:
-            self.registers.sp -= 2
-            self.vba.write_memory_at(self.registers.sp + 1, value >> 8)
-            self.vba.write_memory_at(self.registers.sp, value & 0xFF)
-            if list(self.vba.memory[self.registers.sp : self.registers.sp + 2]) != [value & 0xFF, value >> 8]:
-                print "desired memory values: " + str([value & 0xFF, value >> 8] )
-                print "actual memory values: " + str(list(self.vba.memory[self.registers.sp : self.registers.sp + 2]))
-                print "wrong value at " + hex(self.registers.sp) + " expected " + hex(value) + " but got " + hex(self.vba.read_memory_at(self.registers.sp))
+        self.push_stack(push)
 
         if bank != 0:
             self.registers["af"] = (bank << 8) | (self.registers["af"] & 0xFF)
@@ -142,6 +135,16 @@ class crystal(object):
             self.registers["pc"] = 0x2d63 # FarJump
         else:
             self.registers["pc"] = address
+
+    def push_stack(self, push):
+        for value in push:
+            self.registers["sp"] -= 2
+            self.vba.write_memory_at(self.registers.sp + 1, value >> 8)
+            self.vba.write_memory_at(self.registers.sp, value & 0xFF)
+            if list(self.vba.memory[self.registers.sp : self.registers.sp + 2]) != [value & 0xFF, value >> 8]:
+                print "desired memory values: " + str([value & 0xFF, value >> 8] )
+                print "actual memory values: " + str(list(self.vba.memory[self.registers.sp : self.registers.sp + 2]))
+                print "wrong value at " + hex(self.registers.sp) + " expected " + hex(value) + " but got " + hex(self.vba.read_memory_at(self.registers.sp))
 
     def get_stack(self):
         """
@@ -578,16 +581,74 @@ class crystal(object):
         hp = ((self.vba.memory[0xd218] << 8) | self.vba.memory[0xd217])
         return hp
 
-    def start_trainer_battle(self, trainer_group, trainer_id):
+    def start_trainer_battle(self, map_group=0x1, map_id=0xc, x=6, y=8, direction="l", loop_limit=10):
+        """
+        Starts a trainer battle by warping into a map at the designated
+        coordinates, pressing the direction button for a full walk step (which
+        ideally should be blocked, this is mainly to establish direction), and
+        then pressing "a" to initiate the trainer battle.
+        """
+        self.warp(map_group, map_id, x, y)
+
+        # finish loading the map, might not be necessary?
+        self.nstep(100)
+
+        # face towards the trainer (or whatever direction was specified). If
+        # this direction is blocked, then this will only change which direction
+        # the character is facing. However, if this direction is not blocked by
+        # the map or by an npc, then this will cause an entire step to be
+        # taken.
+        self.vba.press([direction])
+
+        # talk to the trainer, don't assume line of sight will be triggered
+        self.vba.press(["a"])
+        self.vba.press([])
+
+        # trainer might talk, skip any text until the player can choose moves
+        while not self.is_in_battle() and loop_limit > 0:
+            self.text_wait()
+            loop_limit -= 1
+
+    def broken_start_battle(self):
+        # go to a map with wildmons
+        self.warp(0x1, 0xc, 6, 8)
+        self.nstep(200)
+
         memory = self.vba.memory
 
-        # setup the battle
-        memory[0xd459] = 0x81
-        memory[0xd22f] = trainer_group
-        memory[0xd231] = trainer_id
-
-        self.vba.memory = memory
-
         Script_startbattle_address = 0x97436
+        CallScript_address = 0x261f
+        RockSmashBattleScript_address = 0x97cf9
+        RockSmashEncounter_address = 0x97cc0
+        StartBattle_address = 0x3f4c1
+        ScriptRunning = 0xd438
+        ScriptBank = 0xd439
+        ScriptPos = 0xd43a
+        start_wild_battle = 0x3f4dd
+        script = 0x1a1dc6
 
-        self.call(0x25, Script_startbattle_address)
+        # setup the battle
+        #memory[0xd459] = 0x81
+        #memory[0xd22f] = trainer_group
+        #memory[0xd231] = trainer_id
+
+        #self.vba.memory = memory
+
+        #self.call(0x25, Script_startbattle_address % 0x4000)
+
+        #self.vba.registers["af"] = ((RockSmashBattleScript_address / 0x4000) << 8) | (self.vba.registers.af & 0xff)
+        #self.vba.registers["hl"] = RockSmashBattleScript_address % 0x4000
+        #self.call(0x0, CallScript_address)
+
+        #self.call(StartBattle_address / 0x4000, StartBattle_address % 0x4000)
+        #self.call(RockSmashEncounter_address / 0x4000, RockSmashEncounter_address % 0x4000)
+
+        #self.push_stack([self.registers.pc])
+        #memory[ScriptBank] = script / 0x4000
+        #memory[ScriptPos] = ((script % 0x4000) & 0xff00) >> 8
+        #memory[ScriptPos+1] = ((script % 0x4000) & 0xff)
+        #memory[ScriptRunning] = 0xff
+
+        #self.call(start_wild_battle / 0x4000, start_wild_battle % 0x4000)
+
+        #self.vba.memory = memory
