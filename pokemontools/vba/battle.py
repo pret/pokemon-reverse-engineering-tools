@@ -3,6 +3,7 @@ Code that attempts to model a battle.
 """
 
 from pokemontools.vba.vba import crystal as emulator
+import pokemontools.vba.vba as vba
 
 class BattleException(Exception):
     """
@@ -21,23 +22,62 @@ class Battle(EmulatorController):
     battle through python.
     """
 
-    # Maybe this should be an instance variable instead, but since there can
-    # only be one emulator per instance (??) it doesn't really matter right
-    # now.
-    emulator = emulator
-
-    def __init__(self, emulator=emulator):
+    def __init__(self, emulator=None):
         """
         Setup the battle.
         """
         self.emulator = emulator
 
-    @classmethod
-    def is_in_battle(cls):
+    def is_in_battle(self):
         """
         @rtype: bool
         """
-        return cls.emulator.is_in_battle()
+        return self.emulator.is_in_battle()
+
+    def is_fight_pack_run_menu(self):
+        """
+        Attempts to detect if the current menu is fight-pack-run. This is only
+        for whether or not the player needs to choose what to do next.
+        """
+        signs = ["FIGHT", "PACK", "RUN"]
+        screentext = self.emulator.get_text()
+        return all([sign in screentext for sign in signs])
+
+    def is_player_turn(self):
+        return is_fight_pack_run_menu()
+
+    def is_mandatory_switch(self):
+        return False # TODO
+
+    def skip_start_text(self, max_loops=20):
+        """
+        Skip any initial conversation until the battle has begun.
+        """
+        if not self.is_in_battle():
+            while not self.is_in_battle() and max_loops > 0:
+                self.emulator.text_wait()
+                max_loops -= 1
+
+            if max_loops <= 0:
+                raise Exception("Couldn't start the battle.")
+        else:
+            self.emulator.text_wait()
+
+    def skip_end_text(self, loops=20):
+        if not self.is_in_battle():
+            # TODO: keep talking until the character can move?
+            self.emulator.text_wait()
+        else:
+            while self.is_in_battle() and loops > 0:
+                self.emulator.text_wait()
+                loops -= 1
+
+            if loops <= 0:
+                raise Exception("Couldn't get out of the battle.")
+
+    def skip_crap(self):
+        while not self.is_flight_pack_run_menu():
+            self.emulator.text_wait()
 
     def run(self):
         """
