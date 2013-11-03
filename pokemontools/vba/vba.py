@@ -581,7 +581,7 @@ class crystal(object):
         hp = ((self.vba.memory[0xd218] << 8) | self.vba.memory[0xd217])
         return hp
 
-    def start_trainer_battle(self, map_group=0x1, map_id=0xc, x=6, y=8, direction="l", loop_limit=10):
+    def start_trainer_battle_lamely(self, map_group=0x1, map_id=0xc, x=6, y=8, direction="l", loop_limit=10):
         """
         Starts a trainer battle by warping into a map at the designated
         coordinates, pressing the direction button for a full walk step (which
@@ -614,14 +614,52 @@ class crystal(object):
         self.registers["pc"] = address % 0x4000
         self.call(address / 0x4000, address % 0x4000)
 
-    def broken_start_battle(self):
-        # go to a map with wildmons
-        self.warp(0x1, 0xc, 6, 8)
-        self.nstep(200)
+    def start_trainer_battle(self, trainer_group=0x1, trainer_id=0x1):
+        """
+        This will fail after the first mon is defeated.
+        """
+        Script_startbattle_address = 0x97436
+
+        # setup the battle
+        memory = self.vba.memory
+        memory[0xd459] = 0x81
+        memory[0xd22f] = trainer_group
+        memory[0xd231] = trainer_id
+        self.vba.memory = memory
+
+        self.call(0x25, (Script_startbattle_address % 0x4000) + 0x4000)
+
+    def broken_start_random_battle_by_rocksmash_battle_script(self):
+        """
+        This doesn't start a battle.
+        """
+        CallScript_address = 0x261f
+        RockSmashBattleScript_address = 0x97cf9
+        ScriptRunning = 0xd438
+        ScriptBank = 0xd439
+        ScriptPos = 0xd43a
 
         memory = self.vba.memory
+        memory[ScriptBank] = RockSmashBattleScript_address / 0x4000
+        memory[ScriptPos] = ((RockSmashBattleScript_address % 0x4000 + 0x4000) & 0xff00) >> 8
+        memory[ScriptPos+1] = ((RockSmashBattleScript_address % 0x4000 + 0x4000) & 0xff)
+        memory[ScriptRunning] = 0xff
+        self.vba.memory = memory
 
-        Script_startbattle_address = 0x97436
+        self.vba.registers["af"] = ((RockSmashBattleScript_address / 0x4000) << 8) | (self.vba.registers.af & 0xff)
+        self.vba.registers["hl"] = (RockSmashBattleScript_address % 0x4000) + 0x4000
+        self.call(0x0, CallScript_address)
+
+    #def attempt_start_battle_by_startbattle(self):
+    #    StartBattle_address = 0x3f4c1
+    #    self.call(StartBattle_address / 0x4000, (StartBattle_address % 0x4000) + 0x4000)
+
+    #def attempt_start_random_battle_by_wild_battle(self):
+    #    start_wild_battle = 0x3f4dd
+    #    #self.call(start_wild_battle / 0x4000, start_wild_battle % 0x4000)
+    #    #self.vba.registers["pc"] = ...
+
+    def old_crap(self):
         CallScript_address = 0x261f
         RockSmashBattleScript_address = 0x97cf9
         RockSmashEncounter_address = 0x97cc0
@@ -631,19 +669,6 @@ class crystal(object):
         ScriptPos = 0xd43a
         start_wild_battle = 0x3f4dd
         script = 0x1a1dc6
-
-        # setup the battle
-        #memory[0xd459] = 0x81
-        #memory[0xd22f] = trainer_group
-        #memory[0xd231] = trainer_id
-
-        #self.vba.memory = memory
-
-        #self.call(0x25, Script_startbattle_address % 0x4000)
-
-        #self.vba.registers["af"] = ((RockSmashBattleScript_address / 0x4000) << 8) | (self.vba.registers.af & 0xff)
-        #self.vba.registers["hl"] = RockSmashBattleScript_address % 0x4000
-        #self.call(0x0, CallScript_address)
 
         #self.call(StartBattle_address / 0x4000, StartBattle_address % 0x4000)
         #self.call(RockSmashEncounter_address / 0x4000, RockSmashEncounter_address % 0x4000)
