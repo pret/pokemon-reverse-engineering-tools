@@ -609,6 +609,11 @@ class crystal(object):
             self.text_wait()
             loop_limit -= 1
 
+    def broken_start_random_battle(self):
+        self.push_stack([self.registers.pc])
+        self.registers["pc"] = address % 0x4000
+        self.call(address / 0x4000, address % 0x4000)
+
     def broken_start_battle(self):
         # go to a map with wildmons
         self.warp(0x1, 0xc, 6, 8)
