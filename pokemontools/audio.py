@@ -267,9 +267,17 @@ def dump_crystal_music():
 	from song_names import song_names
 	dump_sounds(0xe906e, song_names, os.path.join(conf.path, 'audio', 'music'), 'Music_')
 
+def generate_crystal_music_pointers():
+	from song_names import song_names
+	return '\n'.join('\tdbw BANK({0}), {0}'.format('Music_' + label) for label in song_names)
+
 def dump_crystal_sfx():
 	from sfx_names import sfx_names
 	dump_sounds(0xe927c, sfx_names, os.path.join(conf.path, 'audio', 'sfx'), 'Sfx_')
+
+def generate_crystal_sfx_pointers():
+	from sfx_names import sfx_names
+	return '\n'.join('\tdbw BANK({0}), {0}'.format('Sfx_' + label) for label in sfx_names)
 
 
 if __name__ == '__main__':
