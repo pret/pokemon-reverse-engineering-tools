@@ -113,13 +113,13 @@ class Channel:
 			if class_.macro_name == 'notetype':
 				if self.channel in [4, 8]:
 					class_.size -= 1
-					class_.params = dict(class_.params.items()[:-1])
+					del class_.params[class_.size - 1]
 
 			# togglenoise only has a param when toggled on
 			elif class_.macro_name in ['togglenoise', 'sfxtogglenoise']:
 				if noise:
 					class_.size -= 1
-					class_.params = dict(class_.params.items()[:-1])
+					del class_.params[class_.size - 1]
 				noise = not noise
 
 			asm = class_.to_asm()
