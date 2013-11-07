@@ -764,6 +764,10 @@ class SingleByteParam():
         else:
             return str(self.byte)
 
+    @staticmethod
+    def from_asm(value):
+        return value
+
 class DollarSignByte(SingleByteParam):
     def to_asm(self):
         return hex(self.byte).replace("0x", "$")
@@ -821,6 +825,10 @@ class MultiByteParam():
         elif self.should_be_decimal:
             decimal = int("0x"+"".join([("%.2x")%x for x in reversed(self.bytes)]), 16)
             return str(decimal)
+
+    @staticmethod
+    def from_asm(value):
+        return value
 
 
 class PointerLabelParam(MultiByteParam):
@@ -1000,6 +1008,7 @@ class RAMAddressParam(MultiByteParam):
 
 class MoneyByteParam(MultiByteParam):
     size = 3
+    byte_type = "db"
     max_value = 0x0F423F
     should_be_decimal = True
     def parse(self):
@@ -1236,6 +1245,7 @@ class Command:
     # use this when the "byte id" doesn't matter
     # .. for example, a non-script command doesn't use the "byte id"
     override_byte_check = False
+    is_rgbasm_macro = False
     base_label = "UnseenLabel_"
 
     def __init__(self, address=None, *pargs, **kwargs):
@@ -1722,6 +1732,7 @@ class TextCommand(Command):
     # so this doesn't need to be specified by TextCommand as long as it extends Command
     #def get_dependencies(self, recompute=False, global_dependencies=set()):
     #    return []
+
 
 # this is a regular command in a TextScript for writing text
 # but unlike other macros that preprocessor.py handles,
@@ -2376,6 +2387,7 @@ class BigEndianParam:
     """big-endian word"""
     size = 2
     should_be_decimal = False
+    byte_type = "bigdw"
 
     def __init__(self, *args, **kwargs):
         self.prefix = '$'
@@ -2393,6 +2405,10 @@ class BigEndianParam:
         elif self.should_be_decimal:
             decimal = int("0x"+"".join([("%.2x")%x for x in self.bytes]), 16)
             return str(decimal)
+
+    @staticmethod
+    def from_asm(value):
+        return value
 
 class DecimalBigEndianParam(BigEndianParam):
 	should_be_decimal = True

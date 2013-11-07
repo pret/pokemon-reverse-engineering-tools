@@ -556,8 +556,6 @@ class Preprocessor(object):
         # remove trailing newline
         if line[-1] == "\n":
             line = line[:-1]
-        else:
-            original_line += "\n"
 
         # remove first tab
         has_tab = False
@@ -589,6 +587,12 @@ class Preprocessor(object):
             sys.stdout.write(original_line)
             return
 
+	# rgbasm can handle other macros too
+        if "is_rgbasm_macro" in dir(macro):
+            if macro.is_rgbasm_macro:
+                sys.stdout.write(original_line)
+	        return
+
         # certain macros don't need an initial byte written
         # do: all scripting macros
         # don't: signpost, warp_def, person_event, xy_trigger
@@ -608,7 +612,7 @@ class Preprocessor(object):
         index = 0
         while index < len(params):
             param_type  = macro.param_types[index - correction]
-            description = param_type["name"]
+            description = param_type["name"].strip()
             param_klass = param_type["class"]
             byte_type   = param_klass.byte_type # db or dw
             size        = param_klass.size
@@ -638,7 +642,7 @@ class Preprocessor(object):
                     index += 2
                     correction += 1
                 elif size == 3 and "from_asm" in dir(param_klass):
-                    output += ("db " + param_klass.from_asm(param) + "\n")
+                    output += ("\t" + byte_type + " " + param_klass.from_asm(param) + "\n")
                     index += 1
                 else:
                     raise exceptions.MacroException(
@@ -649,9 +653,13 @@ class Preprocessor(object):
                         )
                     )
 
+            elif "from_asm" in dir(param_klass):
+                output += ("\t" + byte_type + " " + param_klass.from_asm(param) + " ; " +  description +  "\n")
+                index += 1
+
             # or just print out the byte
             else:
-                output += (byte_type + " " + param + " ; " + description + "\n")
+                output += ("\t" + byte_type + " " + param + " ; " + description + "\n")
 
                 index += 1
 
