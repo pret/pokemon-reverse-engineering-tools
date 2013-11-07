@@ -326,6 +326,14 @@ def generate_crystal_sfx_pointers():
 	from sfx_names import sfx_names
 	return '\n'.join('\tdbw BANK({0}), {0}'.format('Sfx_' + label) for label in sfx_names)
 
+def dump_crystal_cries():
+	from cry_names import cry_names
+	dump_sounds(0xe91b0, cry_names, os.path.join(conf.path, 'audio', 'cries'), 'Cry_')
+
+def generate_crystal_cry_pointers():
+	from cry_names import cry_names
+	return '\n'.join('\tdbw BANK({0}), {0}'.format('Cry_' + label) for label in cry_names)
+
 
 if __name__ == '__main__':
 	dump_crystal_music()
