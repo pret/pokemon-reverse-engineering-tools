@@ -174,7 +174,7 @@ def how_many_until(byte, starting, rom):
 def load_map_group_offsets(map_group_pointer_table, map_group_count, rom=None):
     """reads the map group table for the list of pointers"""
     map_group_offsets = [] # otherwise this method can only be used once
-    data = rom_interval(map_group_pointer_table, map_group_count*2, strings=False, rom=rom)
+    data = rom.interval(map_group_pointer_table, map_group_count*2, strings=False, rom=rom)
     data = helpers.grouper(data)
     for pointer_parts in data:
         pointer = pointer_parts[0] + (pointer_parts[1] << 8)
@@ -548,7 +548,7 @@ def parse_text_from_bytes(bytes, debug=True, japanese=False):
 def parse_text_at(address, count=10, debug=True):
     """returns a list of bytes from an address
     see parse_text_at2 for pretty printing"""
-    return parse_text_from_bytes(rom_interval(address, count, strings=False), debug=debug)
+    return parse_text_from_bytes(rom.interval(address, count, strings=False), debug=debug)
 
 def parse_text_at2(address, count=10, debug=True, japanese=False):
     """returns a string of text from an address
@@ -569,7 +569,7 @@ def parse_text_at3(address, map_group=None, map_id=None, debug=False):
 def rom_text_at(address, count=10):
     """prints out raw text from the ROM
     like for 0x112110"""
-    return "".join([chr(x) for x in rom_interval(address, count, strings=False)])
+    return "".join([chr(x) for x in rom.interval(address, count, strings=False)])
 
 def get_map_constant_label(map_group=None, map_id=None, map_internal_ids=None):
     """returns PALLET_TOWN for some map group/id pair"""
@@ -807,7 +807,7 @@ class MultiByteParam():
         self.parse()
 
     def parse(self):
-        self.bytes = rom_interval(self.address, self.size, strings=False)
+        self.bytes = rom.interval(self.address, self.size, strings=False)
         self.parsed_number = self.bytes[0] + (self.bytes[1] << 8)
         if hasattr(self, "bank"):
             self.parsed_address = calculate_pointer_from_bytes_at(self.address, bank=self.bank)
@@ -1780,7 +1780,7 @@ class MainText(TextCommand):
 
         # read the text bytes into a structure
         # skip the first offset byte because that's the command byte
-        self.bytes = rom_interval(offset, jump, strings=False)
+        self.bytes = rom.interval(offset, jump, strings=False)
 
         # include the original command in the size calculation
         self.size = jump
@@ -2396,7 +2396,7 @@ class BigEndianParam:
         self.parse()
 
     def parse(self):
-        self.bytes = rom_interval(self.address, 2, strings=False)
+        self.bytes = rom.interval(self.address, 2, strings=False)
         self.parsed_number = self.bytes[0] * 0x100 + self.bytes[1]
 
     def to_asm(self):
@@ -4323,7 +4323,7 @@ class Signpost(Command):
         address = self.address
         bank = self.bank
         self.last_address = self.address + self.size
-        bytes = rom_interval(self.address, self.size) #, signpost_byte_size)
+        bytes = rom.interval(self.address, self.size) #, signpost_byte_size)
 
         self.y = int(bytes[0], 16)
         self.x = int(bytes[1], 16)
@@ -4577,7 +4577,7 @@ class SecondMapHeader:
 
     def parse(self):
         address = self.address
-        bytes = rom_interval(address, second_map_header_byte_size, strings=False)
+        bytes = rom.interval(address, second_map_header_byte_size, strings=False)
         size = second_map_header_byte_size
 
         # for later
@@ -5390,7 +5390,7 @@ class MapBlockData:
             os.mkdir(self.maps_path)
         if not os.path.exists(map_path):
             # dump to file
-            #bytes = rom_interval(self.address, self.width.byte*self.height.byte, strings=True)
+            #bytes = rom.interval(self.address, self.width.byte*self.height.byte, strings=True)
             bytes = rom[self.address : self.address + self.width.byte*self.height.byte]
             file_handler = open(map_path, "w")
             file_handler.write(bytes)
@@ -5458,7 +5458,7 @@ class MapEventHeader:
         # signposts
         signpost_count = ord(rom[after_triggers])
         signpost_byte_count = signpost_byte_size * signpost_count
-        # signposts = rom_interval(after_triggers+1, signpost_byte_count)
+        # signposts = rom.interval(after_triggers+1, signpost_byte_count)
         signposts = parse_signposts(after_triggers+1, signpost_count, bank=bank, map_group=map_group, map_id=map_id, debug=debug)
         after_signposts = after_triggers + 1 + signpost_byte_count
         self.signpost_count = signpost_count
@@ -5467,7 +5467,7 @@ class MapEventHeader:
         # people events
         people_event_count = ord(rom[after_signposts])
         people_event_byte_count = people_event_byte_size * people_event_count
-        # people_events_bytes = rom_interval(after_signposts+1, people_event_byte_count)
+        # people_events_bytes = rom.interval(after_signposts+1, people_event_byte_count)
         # people_events = parse_people_event_bytes(people_events_bytes, address=after_signposts+1, map_group=map_group, map_id=map_id)
         people_events = parse_people_events(after_signposts+1, people_event_count, bank=pointers.calculate_bank(after_signposts+2), map_group=map_group, map_id=map_id, debug=debug)
         self.people_event_count = people_event_count
@@ -5628,7 +5628,7 @@ class MapScriptHeader:
         self.trigger_count = ord(rom[address])
         self.triggers = []
         ptr_line_size = 4
-        groups = helpers.grouper(rom_interval(address+1, self.trigger_count * ptr_line_size, strings=False), count=ptr_line_size)
+        groups = helpers.grouper(rom.interval(address+1, self.trigger_count * ptr_line_size, strings=False), count=ptr_line_size)
         current_address = address+1
         for (index, trigger_bytes) in enumerate(groups):
             logging.debug(
