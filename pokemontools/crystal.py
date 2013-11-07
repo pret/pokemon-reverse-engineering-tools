@@ -2529,22 +2529,26 @@ class ChannelCommand(Command):
         1: {"name": "address", "class": PointerLabelParam},
     }
 
+
+# pokered
+
 class callchannel(Command):
-	id = 0xFD
-	macro_name = "callchannel"
-	size = 3
-	param_types = {
-		0: {"name": "address", "class": PointerLabelParam},
-		}
+    id = 0xFD
+    macro_name = "callchannel"
+    size = 3
+    param_types = {
+        0: {"name": "address", "class": PointerLabelParam},
+    }
 
 class loopchannel(Command):
-	id = 0xFE
-	macro_name = "loopchannel"
-	size = 4
-	param_types = {
-		0: {"name": "count", "class": SingleByteParam},
-		1: {"name": "address", "class": PointerLabelParam},
-		}
+    id = 0xFE
+    macro_name = "loopchannel"
+    size = 4
+    param_types = {
+        0: {"name": "count", "class": SingleByteParam},
+        1: {"name": "address", "class": PointerLabelParam},
+    }
+
 
 effect_commands = {
     0x1: ['checkturn'],
