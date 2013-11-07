@@ -18,6 +18,11 @@ import config
 conf = config.Config()
 
 
+def sort_asms(asms):
+	"""sort and remove duplicates from a list of tuples
+	format (address, asm, last_address)"""
+	return sorted(set(asms), key=lambda (x,y,z):(x,z,not y.startswith(';'), ':' not in y))
+
 class NybbleParam:
 	size = 0.5
 	byte_type = 'dn'
@@ -45,24 +50,29 @@ class LoNybbleParam(NybbleParam):
 
 class PitchParam(HiNybbleParam):
 	def to_asm(self):
+		"""E and B cant be sharp"""
 		if self.nybble == 0:
-			pitch = 'Rst'
+			pitch = '__'
 		else:
-			pitch = 'CDEFGAB'[(self.nybble - 1) / 2]
-			if not self.nybble & 1:
+			pitch = 'CCDDEFFGGAAB'[(self.nybble - 1)]
+			if self.nybble in [2, 4, 7, 9, 11]:
 				pitch += '#'
+			else:
+				pitch += '_'
 		return pitch
 
 
 class Note(Command):
 	macro_name = "note"
-	size = 0
+	size = 1
 	end = False
 	param_types = {
 		0: {"name": "pitch", "class": PitchParam},
 		1: {"name": "duration", "class": LoNybbleParam},
 	}
 	allowed_lengths = [2]
+	override_byte_check = True
+	is_rgbasm_macro = True
 
 	def parse(self):
 		self.params = []
@@ -77,7 +87,6 @@ class Note(Command):
 			self.params += [obj]
 
 			current_address += obj.size
-			self.size += obj.size
 
 		self.params = dict(enumerate(self.params))
 
@@ -99,6 +108,7 @@ class Channel:
 		self.channel = channel
 		self.base_label = base_label
 		self.output = []
+		self.labels = []
 		self.parse()
 
 	def parse(self):
@@ -134,16 +144,16 @@ class Channel:
 					)
 					label_output = (
 						label_address,
-						'%s: ; %x' % (label, label_address)
+						'\n%s: ; %x' % (label, label_address),
+						label_address
 					)
-					if label_output not in self.output:
-						self.output += [label_output]
+					self.labels += [label_output]
 					asm = asm.replace(
 						'$%x' % (get_local_address(label_address)),
 						label
 					)
 
-			self.output += [(self.address, '\t' + asm)]
+			self.output += [(self.address, '\t' + asm, self.address + class_.size)]
 			self.address += class_.size
 
 			done = class_.end
@@ -153,9 +163,9 @@ class Channel:
 					done = True
 
 			# keep going past enders if theres more to parse
-			if any(self.address <= address for address, asm in self.output):
+			if any(self.address <= address for address, asm, last_address in self.output + self.labels):
 				if done:
-					self.output += [(self.address, '; %x' % self.address)]
+					self.output += [(self.address, '; %x' % self.address, self.address)]
 				done = False
 
 			# dumb safety checks
@@ -167,22 +177,18 @@ class Channel:
 				raise Exception, 'reached the end of the bank without finishing!'
 
 	def to_asm(self):
-		self.output = sorted(
-			self.output,
-			# comment then label then asm
-			key=lambda (x, y):(x, not y.startswith(';'), ':' not in y)
-		)
+		output = sort_asms(self.output + self.labels)
 		text = ''
-		for i, (address, asm) in enumerate(self.output):
+		for i, (address, asm, last_address) in enumerate(output):
 			if ':' in asm:
 				# dont print labels for empty chunks
-				for (x, y) in self.output[i:]:
+				for (x, y, z) in output[i:]:
 					if ':' not in y:
 						text += '\n' + asm + '\n'
 						break
 			else:
 				text += asm + '\n'
-		text += '; %x' % (address + 1) + '\n'
+		text += '; %x' % (last_address) + '\n'
 		return text
 
 	def get_sound_class(self, i):
@@ -206,6 +212,8 @@ class Sound:
 			self.base_label = self.name
 
 		self.output = []
+		self.labels = []
+		self.asms = []
 		self.parse()
 
 	def parse(self):
@@ -220,44 +228,83 @@ class Sound:
 			channel = Channel(address, current_channel, self.base_label)
 			self.channels += [(current_channel, channel)]
 
-	def to_asm(self):
-		asms = {}
+			self.labels += channel.labels
 
-		text = ''
-		text += '%s: ; %x' % (self.base_label, self.start_address) + '\n'
-		for num, channel in self.channels:
-			text += '\tchannel %d, %s_Ch%d' % (num, self.base_label, num) + '\n'
-		text += '; %x' % self.address + '\n'
-		asms[self.start_address] = text
-
-		text = ''
-		for ch, (num, channel) in enumerate(self.channels):
-			text += '%s_Ch%d: ; %x' % (
+			label_text = '\n%s_Ch%d: ; %x' % (
 				self.base_label,
-				num,
+				current_channel,
 				channel.start_address
-			) + '\n'
-			# stack labels at the same address
-			if ch < len(self.channels) - 1:
-				next_channel = self.channels[ch + 1][1]
-				if next_channel.start_address == channel.start_address:
-					continue
-			text += channel.to_asm()
-			asms[channel.start_address] = text
-			text = ''
+			)
+			label_output = (channel.start_address, label_text, channel.start_address)
+			self.labels += [label_output]
 
-		return '\n'.join(asm for address, asm in sorted(asms.items()))
+		asms = []
+
+		text = '%s: ; %x' % (self.base_label, self.start_address) + '\n'
+		for i, (num, channel) in enumerate(self.channels):
+			channel_id = num - 1
+			if i == 0:
+				channel_id += (len(self.channels) - 1) << 6
+			text += '\tdbw $%.2x, %s_Ch%d' % (channel_id, self.base_label, num) + '\n'
+		text += '; %x\n' % self.address
+		asms += [(self.start_address, text, self.start_address + len(self.channels) * 3)]
+
+		for num, channel in self.channels:
+			asms += channel.output
+
+		asms = sort_asms(asms)
+		self.last_address = asms[-1][2]
+		asms += [(self.last_address,'; %x' % self.last_address, self.last_address)]
+
+		self.asms += asms
+
+	def to_asm(self, labels=[]):
+		"""insert outside labels here"""
+		asms = self.asms
+
+		# incbins dont really count as parsed data
+		incbins = []
+		for i, (address, asm, last_address) in enumerate(asms):
+			if i + 1 < len(asms):
+                                next_address = asms[i + 1][0]
+				if last_address != next_address:
+					incbins += [(last_address, 'INCBIN "baserom.gbc", $%x, $%x - $%x' % (last_address, next_address, last_address), next_address)]
+		asms += incbins
+		for label in self.labels + labels:
+			if self.start_address <= label[0] < self.last_address:
+				asms += [label]
+
+		return '\n'.join(asm for address, asm, last_address in sort_asms(asms))
 
 
 def dump_sounds(origin, names, path, base_label='Sound_'):
 	"""Dump sound data from a pointer table."""
-	for i, name in enumerate(names):
-		addr = origin + i * 3
+	def get_sound_at(addr):
 		bank, address = rom[addr], rom[addr+1] + rom[addr+2] * 0x100
-		sound_at = get_global_address(address, bank)
+		return get_global_address(address, bank)
 
+	# first pass to grab labels and boundaries
+	labels = []
+	addresses = []
+	for i, name in enumerate(names):
+		sound_at = get_sound_at(origin + i * 3)
 		sound = Sound(sound_at, base_label + name)
-		output = sound.to_asm()
+		labels += sound.labels
+		addresses += [(sound.start_address, sound.last_address)]
+	addresses = sorted(addresses)
+
+	for i, name in enumerate(names):
+		sound_at = get_sound_at(origin + i * 3)
+		sound = Sound(sound_at, base_label + name)
+		output = sound.to_asm(labels) + '\n'
+
+		# incbin trailing commands that didnt get picked up
+		index = addresses.index((sound.start_address, sound.last_address))
+		if index + 1 < len(addresses):
+			next_address = addresses[index + 1][0]
+			if 5 > next_address - sound.last_address > 0:
+				if next_address / 0x4000 == sound.last_address / 0x4000:
+					output += '\nINCBIN "baserom.gbc", $%x, $%x - $%x\n' % (sound.last_address, next_address, sound.last_address)
 
 		filename = name.lower() + '.asm'
 		with open(os.path.join(path, filename), 'w') as out:
