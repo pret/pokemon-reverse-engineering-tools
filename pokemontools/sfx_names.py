@@ -148,7 +148,7 @@ sfx_names = [
 	'LevelUp',
 	'KeyItem',
 	'Fanfare2',
-	'RegisterPhone#',
+	'RegisterPhoneNumber',
 	'3RdPlace',
 	'GetEggFromDaycareMan',
 	'GetEggFromDaycareLady',
