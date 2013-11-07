@@ -2411,7 +2411,7 @@ class BigEndianParam:
         return value
 
 class DecimalBigEndianParam(BigEndianParam):
-	should_be_decimal = True
+    should_be_decimal = True
 
 music_commands = {
     0xD0: ["octave 8"],
@@ -2503,6 +2503,31 @@ def create_music_command_classes(debug=False):
     return klasses
 
 music_classes = create_music_command_classes()
+
+class OctaveParam(DecimalParam):
+    @staticmethod
+    def from_asm(value):
+        value = int(value)
+        return hex(0xd8 - value).replace("0x", "$")
+
+class OctaveCommand(Command):
+    macro_name = "octave"
+    size = 0
+    end = False
+    param_types = {
+        0: {"name": "octave", "class": OctaveParam},
+    }
+    allowed_lengths = [1]
+    override_byte_check = True
+
+class ChannelCommand(Command):
+    macro_name = "channel"
+    size = 3
+    override_byte_check = True
+    param_types = {
+        0: {"name": "id", "class": DecimalParam},
+        1: {"name": "address", "class": PointerLabelParam},
+    }
 
 class callchannel(Command):
 	id = 0xFD
