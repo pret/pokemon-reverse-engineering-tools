@@ -168,7 +168,7 @@ class BattleStrategy(Battle):
             # the game failed to do a blackout.. not sure what to do now.
             raise BattleException("No partymons left. wtf?")
 
-       return pokemon.id
+        return pokemon.id
 
     def handle_turn(self):
         """
