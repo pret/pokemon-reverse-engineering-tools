@@ -55,5 +55,19 @@ class BattleTests(unittest.TestCase):
         # should not be asking for a switch so soon in the battle
         self.assertFalse(self.battle.is_mandatory_switch())
 
+    def test_attack_loop(self):
+        self.battle.skip_start_text()
+        self.battle.skip_until_input_required()
+
+        # press "FIGHT"
+        self.vba.press(["a"], after=20)
+
+        # press the first move ("SCRATCH")
+        self.vba.press(["a"], after=20)
+
+        self.battle.skip_until_input_required()
+
+        self.assertTrue(self.battle.is_player_turn())
+
 if __name__ == "__main__":
     unittest.main()
