@@ -46,9 +46,14 @@ class BattleTests(unittest.TestCase):
 
     def test_is_player_turn(self):
         self.battle.skip_start_text()
+        self.battle.skip_until_input_required()
 
         # the initial state should be the player's turn
         self.assertTrue(self.battle.is_player_turn())
+
+    def test_is_mandatory_switch_initial(self):
+        # should not be asking for a switch so soon in the battle
+        self.assertFalse(self.battle.is_mandatory_switch())
 
 if __name__ == "__main__":
     unittest.main()
