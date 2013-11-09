@@ -6,14 +6,18 @@ import unittest
 
 import pokemontools.vba.vba as vba
 
+from pokemontools.vba.battle import (
+    Battle,
+    BattleException,
+)
+
 try:
     import pokemontools.vba.vba_autoplayer as autoplayer
 except ImportError:
     import pokemontools.vba.autoplayer as autoplayer
+autoplayer.vba = vba
 
 import pokemontools.vba.keyboard as keyboard
-
-autoplayer.vba = vba
 
 def setup_wram():
     """
