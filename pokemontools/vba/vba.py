@@ -562,7 +562,7 @@ class crystal(object):
         """
         if isinstance(cmd, list):
             for command in cmd:
-                self.move(cmd)
+                self.move(command)
         else:
             self.vba.press(cmd, hold=10, after=0)
             self.vba.press([])
