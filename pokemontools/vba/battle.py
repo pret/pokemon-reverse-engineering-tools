@@ -34,6 +34,12 @@ class Battle(EmulatorController):
         """
         return self.emulator.is_in_battle()
 
+    def is_input_required(self):
+        """
+        Detects if the battle is waiting for player input.
+        """
+        return self.is_player_turn() or self.is_mandatory_switch()
+
     def is_fight_pack_run_menu(self):
         """
         Attempts to detect if the current menu is fight-pack-run. This is only
@@ -44,14 +50,28 @@ class Battle(EmulatorController):
         return all([sign in screentext for sign in signs])
 
     def is_player_turn(self):
-        return is_fight_pack_run_menu()
+        """
+        Detects if the battle is waiting for the player to choose an attack.
+        """
+        return self.is_fight_pack_run_menu()
 
     def is_mandatory_switch(self):
-        return False # TODO
+        """
+        Detects if the battle is waiting for the player to choose a next
+        pokemon.
+        """
+        # TODO: detect the mandatry switch menu
+        # The following conditions are probably sufficient:
+        #   1) current pokemon hp is 0
+        #   2) game is polling for input
+        return False
 
     def skip_start_text(self, max_loops=20):
         """
-        Skip any initial conversation until the battle has begun.
+        Skip any initial conversation until the player can select an action.
+        This includes skipping any text that appears on a map from an NPC as
+        well as text that appears prior to the first time the action selection
+        menu appears.
         """
         if not self.is_in_battle():
             while not self.is_in_battle() and max_loops > 0:
@@ -64,6 +84,9 @@ class Battle(EmulatorController):
             self.emulator.text_wait()
 
     def skip_end_text(self, loops=20):
+        """
+        Skip through any text that appears after the final attack.
+        """
         if not self.is_in_battle():
             # TODO: keep talking until the character can move?
             self.emulator.text_wait()
@@ -75,29 +98,39 @@ class Battle(EmulatorController):
             if loops <= 0:
                 raise Exception("Couldn't get out of the battle.")
 
-    def skip_crap(self):
-        while not self.is_flight_pack_run_menu():
+    def skip_until_input_required(self):
+        """
+        Waits until the battle needs player input.
+        """
+        while not self.is_input_required():
             self.emulator.text_wait()
 
     def run(self):
         """
         Step through the entire battle.
         """
-        # xyz wants to battle
+        # Advance to the battle from either of these states:
+        #   1) the player is talking with an npc
+        #   2) the battle has already started but there's initial text
+        # xyz wants to battle, a wild foobar appeared
         self.skip_start_text()
 
         while self.is_in_battle():
-            self.skip_crap()
+            self.skip_until_input_required()
 
             if self.is_player_turn():
+                # battle hook provides input to handle this situation
                 self.handle_turn()
             elif self.is_mandatory_switch():
+                # battle hook provides input to handle this situation too
                 self.handle_mandatory_switch()
             else:
                 raise BattleException("unknown state, aborting")
 
         # "how did i lose? wah"
         self.skip_end_text()
+
+        # TODO: return should indicate win/loss (blackout)
 
     def handle_mandatory_switch(self):
         """
@@ -133,7 +166,7 @@ class BattleStrategy(Battle):
         """
         Take actions inside of a battle based on the game state.
         """
-        self.battle.throw_pokeball()
+        self.throw_pokeball()
 
 class SimpleBattleStrategy(BattleStrategy):
     """
