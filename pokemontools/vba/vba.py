@@ -19,8 +19,8 @@ from pokemontools.map_names import map_names
 import keyboard
 
 # just use a default config for now until the globals are removed completely
-import pokemontools.config as conf
-config = conf.Config()
+import pokemontools.configuration as configuration
+config = configuration.Config()
 project_path = config.path
 save_state_path = config.save_state_path
 rom_path = config.rom_path
