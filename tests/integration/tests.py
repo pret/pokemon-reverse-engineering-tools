@@ -42,6 +42,10 @@ from pokemontools.helpers import (
     index,
 )
 
+from pokemontools.crystalparts.old_parsers import (
+    old_parse_map_header_at,
+)
+
 from pokemontools.crystal import (
     rom,
     load_rom,
@@ -65,7 +69,6 @@ from pokemontools.crystal import (
     all_labels,
     write_all_labels,
     parse_map_header_at,
-    old_parse_map_header_at,
     process_00_subcommands,
     parse_all_map_headers,
     translate_command_byte,
