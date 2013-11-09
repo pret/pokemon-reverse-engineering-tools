@@ -55,6 +55,29 @@ def bootstrap():
 
     return state
 
+def bootstrap_trainer_battle():
+    """
+    Start a trainer battle.
+    """
+    # setup
+    cry = vba.crystal(config=None)
+    runner = autoplayer.SpeedRunner(cry=cry)
+
+    runner.skip_intro(skip=True)
+    runner.handle_mom(skip=True)
+    runner.walk_into_new_bark_town(skip=True)
+    runner.handle_elm("totodile", skip=True)
+
+    # levelgrind a pokemon
+    # TODO: make new_bark_level_grind able to figure out how to construct its
+    # initial state if none is provided.
+    runner.new_bark_level_grind(17, skip=True)
+
+    # TODO: figure out a better way to start a trainer battle :(
+    runner.cry.start_trainer_battle_lamely()
+
+    return runner.cry.vba.state
+
 class OtherVbaTests(unittest.TestCase):
     def test_keyboard_planner(self):
         button_sequence = keyboard.plan_typing("an")
@@ -301,6 +324,14 @@ class VbaTests(unittest.TestCase):
 
             pname = self.cry.get_player_name().replace("@", "")
             self.assertEqual(name, pname)
+
+    def test_battle_is_player_turn(self):
+        state = bootstrap_trainer_battle()
+        self.cry.vba.state = state
+
+        battle = Battle(emulator=self.cry)
+
+        self.assertTrue(battle.is_player_turn())
 
 if __name__ == "__main__":
     unittest.main()
