@@ -182,8 +182,8 @@ class Channel:
 		for i, (address, asm, last_address) in enumerate(output):
 			if ':' in asm:
 				# dont print labels for empty chunks
-				for (x, y, z) in output[i:]:
-					if ':' not in y:
+				for (address_, asm_, last_address_) in output[i:]:
+					if ':' not in asm_:
 						text += '\n' + asm + '\n'
 						break
 			else:
@@ -336,7 +336,7 @@ def dump_sound_clump(origin, names, base_label='Sound_'):
 def export_sound_clump(origin, names, path, base_label='Sound_'):
 	output = dump_sound_clump(origin, names, base_label)
 	with open(path, 'w') as out:
-		out.write('\n'.join(y for x, y, z in output))
+		out.write('\n'.join(asm for address, asm, last_address in output))
 
 
 def dump_crystal_music():
