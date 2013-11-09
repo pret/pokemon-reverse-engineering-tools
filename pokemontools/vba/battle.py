@@ -60,10 +60,14 @@ class Battle(EmulatorController):
         Detects if the battle is waiting for the player to choose a next
         pokemon.
         """
-        # TODO: detect the mandatry switch menu
+        # TODO: test when "no" fails to escape for wild battles.
+        # trainer battles: menu asks to select the next mon
+        # wild battles: yes/no box first
         # The following conditions are probably sufficient:
         #   1) current pokemon hp is 0
         #   2) game is polling for input
+
+        # TODO: detect the mandatory switch menu
         return False
 
     def skip_start_text(self, max_loops=20):
@@ -88,7 +92,11 @@ class Battle(EmulatorController):
         Skip through any text that appears after the final attack.
         """
         if not self.is_in_battle():
-            # TODO: keep talking until the character can move?
+            # TODO: keep talking until the character can move? A battle can be
+            # triggered inside of a script, and after the battle is ver the
+            # player may not be able to move until the script is done. The
+            # script might only finish after other player input is given, so
+            # using "text_wait() until the player can move" is a bad idea here.
             self.emulator.text_wait()
         else:
             while self.is_in_battle() and loops > 0:
