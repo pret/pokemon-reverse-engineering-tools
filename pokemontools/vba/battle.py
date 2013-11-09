@@ -113,6 +113,9 @@ class Battle(EmulatorController):
         while not self.is_input_required():
             self.emulator.text_wait()
 
+        # let the text draw so that the state is more obvious
+        self.emulator.vba.step(count=10)
+
     def run(self):
         """
         Step through the entire battle.
