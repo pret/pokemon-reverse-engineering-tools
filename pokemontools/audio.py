@@ -277,24 +277,27 @@ class Sound:
 		return '\n'.join(asm for address, asm, last_address in sort_asms(asms))
 
 
-def dump_sounds(origin, names, path, base_label='Sound_'):
+def read_bank_address_pointer(addr):
+	bank, address = rom[addr], rom[addr+1] + rom[addr+2] * 0x100
+	return get_global_address(address, bank)
+	
+
+def dump_sounds(origin, names, base_label='Sound_'):
 	"""Dump sound data from a pointer table."""
-	def get_sound_at(addr):
-		bank, address = rom[addr], rom[addr+1] + rom[addr+2] * 0x100
-		return get_global_address(address, bank)
 
 	# first pass to grab labels and boundaries
 	labels = []
 	addresses = []
 	for i, name in enumerate(names):
-		sound_at = get_sound_at(origin + i * 3)
+		sound_at = read_bank_address_pointer(origin + i * 3)
 		sound = Sound(sound_at, base_label + name)
 		labels += sound.labels
 		addresses += [(sound.start_address, sound.last_address)]
 	addresses = sorted(addresses)
 
+	outputs = []
 	for i, name in enumerate(names):
-		sound_at = get_sound_at(origin + i * 3)
+		sound_at = read_bank_address_pointer(origin + i * 3)
 		sound = Sound(sound_at, base_label + name)
 		output = sound.to_asm(labels) + '\n'
 
@@ -307,12 +310,38 @@ def dump_sounds(origin, names, path, base_label='Sound_'):
 					output += '\nINCBIN "baserom.gbc", $%x, $%x - $%x\n' % (sound.last_address, next_address, sound.last_address)
 
 		filename = name.lower() + '.asm'
+		outputs += [(filename, output)]
+	return outputs
+
+
+def export_sounds(origin, names, path, base_label='Sound_'):
+	for filename, output in dump_sounds(origin, names, base_label):
 		with open(os.path.join(path, filename), 'w') as out:
 			out.write(output)
 
+
+def dump_sound_clump(origin, names, base_label='Sound_'):
+	"""some sounds are grouped together and/or share most components.
+	these can't reasonably be split into files for each sound."""
+
+	output = []
+	for i, name in enumerate(names):
+		sound_at = read_bank_address_pointer(origin + i * 3)
+		sound = Sound(sound_at, base_label + name)
+		output += sound.asms + sound.labels
+	output = sort_asms(output)
+	return output
+
+
+def export_sound_clump(origin, names, path, base_label='Sound_'):
+	output = dump_sound_clump(origin, names, base_label)
+	with open(path, 'w') as out:
+		out.write('\n'.join(y for x, y, z in output))
+
+
 def dump_crystal_music():
 	from song_names import song_names
-	dump_sounds(0xe906e, song_names, os.path.join(conf.path, 'audio', 'music'), 'Music_')
+	export_sounds(0xe906e, song_names, os.path.join(conf.path, 'audio', 'music'), 'Music_')
 
 def generate_crystal_music_pointers():
 	from song_names import song_names
@@ -320,7 +349,7 @@ def generate_crystal_music_pointers():
 
 def dump_crystal_sfx():
 	from sfx_names import sfx_names
-	dump_sounds(0xe927c, sfx_names, os.path.join(conf.path, 'audio', 'sfx'), 'Sfx_')
+	export_sound_clump(0xe927c, sfx_names, os.path.join(conf.path, 'audio', 'sfx.asm'), 'Sfx_')
 
 def generate_crystal_sfx_pointers():
 	from sfx_names import sfx_names
@@ -328,7 +357,7 @@ def generate_crystal_sfx_pointers():
 
 def dump_crystal_cries():
 	from cry_names import cry_names
-	dump_sounds(0xe91b0, cry_names, os.path.join(conf.path, 'audio', 'cries'), 'Cry_')
+	export_sound_clump(0xe91b0, cry_names, os.path.join(conf.path, 'audio', 'cries.asm'), 'Cry_')
 
 def generate_crystal_cry_pointers():
 	from cry_names import cry_names
