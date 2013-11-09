@@ -4,20 +4,16 @@ Tests for VBA automation tools
 
 import unittest
 
-import pokemontools.vba.vba as vba
-
-from pokemontools.vba.battle import (
-    Battle,
-    BattleException,
+from setup_vba import (
+    vba,
+    autoplayer,
+    keyboard,
 )
 
-try:
-    import pokemontools.vba.vba_autoplayer as autoplayer
-except ImportError:
-    import pokemontools.vba.autoplayer as autoplayer
-autoplayer.vba = vba
-
-import pokemontools.vba.keyboard as keyboard
+from bootstrapping import (
+    bootstrap,
+    bootstrap_trainer_battle,
+)
 
 def setup_wram():
     """
@@ -38,49 +34,6 @@ def setup_wram():
     wram["XCoord"] = 0xdcb8
 
     return wram
-
-def bootstrap():
-    """
-    Every test needs to be run against a certain minimum context. That context
-    is constructed by this function.
-    """
-
-    cry = vba.crystal(config=None)
-    runner = autoplayer.SpeedRunner(cry=cry)
-
-    # skip=False means run the skip_intro function instead of just skipping to
-    # a saved state.
-    runner.skip_intro(skip=True)
-
-    state = cry.vba.state
-
-    # clean everything up again
-    cry.vba.shutdown()
-
-    return state
-
-def bootstrap_trainer_battle():
-    """
-    Start a trainer battle.
-    """
-    # setup
-    cry = vba.crystal(config=None)
-    runner = autoplayer.SpeedRunner(cry=cry)
-
-    runner.skip_intro(skip=True)
-    runner.handle_mom(skip=True)
-    runner.walk_into_new_bark_town(skip=True)
-    runner.handle_elm("totodile", skip=True)
-
-    # levelgrind a pokemon
-    # TODO: make new_bark_level_grind able to figure out how to construct its
-    # initial state if none is provided.
-    runner.new_bark_level_grind(17, skip=True)
-
-    # TODO: figure out a better way to start a trainer battle :(
-    runner.cry.start_trainer_battle_lamely()
-
-    return runner.cry.vba.state
 
 class OtherVbaTests(unittest.TestCase):
     def test_keyboard_planner(self):
@@ -328,14 +281,6 @@ class VbaTests(unittest.TestCase):
 
             pname = self.cry.get_player_name().replace("@", "")
             self.assertEqual(name, pname)
-
-    def test_battle_is_player_turn(self):
-        state = bootstrap_trainer_battle()
-        self.cry.vba.state = state
-
-        battle = Battle(emulator=self.cry)
-
-        self.assertTrue(battle.is_player_turn())
 
 if __name__ == "__main__":
     unittest.main()
