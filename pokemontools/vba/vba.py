@@ -140,7 +140,7 @@ class crystal(object):
         Go into the start menu, pause the game and try call(1, 0x1078) to see a
         string printed to the screen.
         """
-        if not bank:
+        if bank is None:
             bank = calculate_bank(address)
 
         push = [
