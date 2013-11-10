@@ -118,13 +118,16 @@ class crystal(object):
 
         return state
 
-    def call(self, bank, address):
+    def call(self, address):
         """
         Jumps into a function at a certain address.
 
         Go into the start menu, pause the game and try call(1, 0x1078) to see a
         string printed to the screen.
         """
+        bank = address / 0x4000
+        address = (address % 0x4000) + 0x4000
+
         push = [
             self.registers.pc,
             self.registers.hl,
@@ -288,7 +291,7 @@ class crystal(object):
         """
         for step_counter in range(0, steplimit):
             self.walk_through_walls()
-            #call(0x1, 0x1078)
+            #call(0x1078)
             self.vba.step()
 
     def disable_triggers(self):
@@ -617,9 +620,10 @@ class crystal(object):
             loop_limit -= 1
 
     def broken_start_random_battle(self):
+        address = None
         self.push_stack([self.registers.pc])
         self.registers["pc"] = address % 0x4000
-        self.call(address / 0x4000, address % 0x4000)
+        self.call(address)
 
     def start_trainer_battle(self, trainer_group=0x1, trainer_id=0x1):
         """
@@ -634,7 +638,7 @@ class crystal(object):
         memory[0xd231] = trainer_id
         self.vba.memory = memory
 
-        self.call(0x25, (Script_startbattle_address % 0x4000) + 0x4000)
+        self.call(Script_startbattle_address)
 
     def set_script(self, address):
         """
@@ -664,7 +668,7 @@ class crystal(object):
 
         self.set_script(givepoke_data_address)
 
-        self.call(givepoke_address / 0x4000, (givepoke_address % 0x4000) + 0x4000)
+        self.call(givepoke_address)
 
     def broken_start_random_battle_by_rocksmash_battle_script(self):
         """
@@ -685,15 +689,15 @@ class crystal(object):
 
         self.vba.registers["af"] = ((RockSmashBattleScript_address / 0x4000) << 8) | (self.vba.registers.af & 0xff)
         self.vba.registers["hl"] = (RockSmashBattleScript_address % 0x4000) + 0x4000
-        self.call(0x0, CallScript_address)
+        self.call(CallScript_address)
 
     #def attempt_start_battle_by_startbattle(self):
     #    StartBattle_address = 0x3f4c1
-    #    self.call(StartBattle_address / 0x4000, (StartBattle_address % 0x4000) + 0x4000)
+    #    self.call(StartBattle_address)
 
     #def attempt_start_random_battle_by_wild_battle(self):
     #    start_wild_battle = 0x3f4dd
-    #    #self.call(start_wild_battle / 0x4000, start_wild_battle % 0x4000)
+    #    #self.call(start_wild_battle)
     #    #self.vba.registers["pc"] = ...
 
     def old_crap(self):
@@ -707,8 +711,8 @@ class crystal(object):
         start_wild_battle = 0x3f4dd
         script = 0x1a1dc6
 
-        #self.call(StartBattle_address / 0x4000, StartBattle_address % 0x4000)
-        #self.call(RockSmashEncounter_address / 0x4000, RockSmashEncounter_address % 0x4000)
+        #self.call(StartBattle_address)
+        #self.call(RockSmashEncounter_address)
 
         #self.push_stack([self.registers.pc])
         #memory[ScriptBank] = script / 0x4000
@@ -716,6 +720,6 @@ class crystal(object):
         #memory[ScriptPos+1] = ((script % 0x4000) & 0xff)
         #memory[ScriptRunning] = 0xff
 
-        #self.call(start_wild_battle / 0x4000, start_wild_battle % 0x4000)
+        #self.call(start_wild_battle)
 
         #self.vba.memory = memory
