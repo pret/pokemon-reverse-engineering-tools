@@ -35,6 +35,21 @@ import vba_wrapper
 button_masks = vba_wrapper.core.VBA.button_masks
 button_combiner = vba_wrapper.core.VBA.button_combine
 
+def calculate_bank(address):
+    """
+    Which bank does this address exist in?
+    """
+    return address / 0x4000
+
+def calculate_address(address):
+    """
+    Gives the relative address once the bank is loaded.
+
+    This is not the same as the calculate_pointer in the
+    pokemontools.crystal.pointers module.
+    """
+    return (address % 0x4000) + 0x4000
+
 def translate_chars(charz):
     """
     Translate a string from the in-game format to readable form. This is
@@ -118,15 +133,15 @@ class crystal(object):
 
         return state
 
-    def call(self, address):
+    def call(self, address, bank=None):
         """
         Jumps into a function at a certain address.
 
         Go into the start menu, pause the game and try call(1, 0x1078) to see a
         string printed to the screen.
         """
-        bank = address / 0x4000
-        address = (address % 0x4000) + 0x4000
+        if not bank:
+            bank = calculate_bank(address)
 
         push = [
             self.registers.pc,
@@ -619,12 +634,6 @@ class crystal(object):
             self.text_wait()
             loop_limit -= 1
 
-    def broken_start_random_battle(self):
-        address = None
-        self.push_stack([self.registers.pc])
-        self.registers["pc"] = address % 0x4000
-        self.call(address)
-
     def start_trainer_battle(self, trainer_group=0x1, trainer_id=0x1):
         """
         This will fail after the first mon is defeated.
@@ -648,9 +657,10 @@ class crystal(object):
         ScriptPos = 0xd43a
 
         memory = self.vba.memory
-        memory[ScriptBank] = address / 0x4000
-        memory[ScriptPos] = (((address % 0x4000) + 0x4000) & 0xff00) >> 8
-        memory[ScriptPos] = ((address % 0x4000) + 0x4000) & 0xff
+        memory[ScriptBank] = calculate_bank(address)
+        pointer = calculate_address(address)
+        memory[ScriptPos] = (calculate_address(address) & 0xff00) >> 8
+        memory[ScriptPos] = calculate_address(address) & 0xff
 
         # TODO: determine if this is necessary
         #memory[ScriptRunning] = 0xff
@@ -681,14 +691,14 @@ class crystal(object):
         ScriptPos = 0xd43a
 
         memory = self.vba.memory
-        memory[ScriptBank] = RockSmashBattleScript_address / 0x4000
-        memory[ScriptPos] = ((RockSmashBattleScript_address % 0x4000 + 0x4000) & 0xff00) >> 8
-        memory[ScriptPos+1] = ((RockSmashBattleScript_address % 0x4000 + 0x4000) & 0xff)
+        memory[ScriptBank] = calculate_bank(RockSmashBattleScript_address)
+        memory[ScriptPos] = (calculate_address(RockSmashBattleScript_address) & 0xff00) >> 8
+        memory[ScriptPos+1] = calculate_address(RockSmashBattleScript_address) & 0xff
         memory[ScriptRunning] = 0xff
         self.vba.memory = memory
 
-        self.vba.registers["af"] = ((RockSmashBattleScript_address / 0x4000) << 8) | (self.vba.registers.af & 0xff)
-        self.vba.registers["hl"] = (RockSmashBattleScript_address % 0x4000) + 0x4000
+        self.vba.registers["af"] = (calculate_bank(RockSmashBattleScript_address) << 8) | (self.vba.registers.af & 0xff)
+        self.vba.registers["hl"] = calculate_address(RockSmashBattleScript_address)
         self.call(CallScript_address)
 
     #def attempt_start_battle_by_startbattle(self):
@@ -715,9 +725,7 @@ class crystal(object):
         #self.call(RockSmashEncounter_address)
 
         #self.push_stack([self.registers.pc])
-        #memory[ScriptBank] = script / 0x4000
-        #memory[ScriptPos] = ((script % 0x4000) & 0xff00) >> 8
-        #memory[ScriptPos+1] = ((script % 0x4000) & 0xff)
+        #self.set_script(script)
         #memory[ScriptRunning] = 0xff
 
         #self.call(start_wild_battle)
