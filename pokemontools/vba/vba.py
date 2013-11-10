@@ -884,26 +884,13 @@ class crystal(object):
 
         self.call(calculate_address(givepoke_address), bank=calculate_bank(givepoke_address))
 
-    def broken_start_random_battle_by_rocksmash_battle_script(self):
+    def start_random_battle_by_rocksmash_battle_script(self):
         """
-        This doesn't start a battle.
+        Initiates a wild battle using the same function that using rocksmash
+        would call.
         """
-        CallScript_address = 0x261f
         RockSmashBattleScript_address = 0x97cf9
-        ScriptRunning = 0xd438
-        ScriptBank = 0xd439
-        ScriptPos = 0xd43a
-
-        memory = self.vba.memory
-        memory[ScriptBank] = calculate_bank(RockSmashBattleScript_address)
-        memory[ScriptPos] = (calculate_address(RockSmashBattleScript_address) & 0xff00) >> 8
-        memory[ScriptPos+1] = calculate_address(RockSmashBattleScript_address) & 0xff
-        memory[ScriptRunning] = 0xff
-        self.vba.memory = memory
-
-        self.vba.registers["af"] = (calculate_bank(RockSmashBattleScript_address) << 8) | (self.vba.registers.af & 0xff)
-        self.vba.registers["hl"] = calculate_address(RockSmashBattleScript_address)
-        self.call(calculate_address(CallScript_address), bank=calculate_bank(CallScript_address))
+        self.call_script(RockSmashBattleScript_address)
 
     #def attempt_start_battle_by_startbattle(self):
     #    StartBattle_address = 0x3f4c1
