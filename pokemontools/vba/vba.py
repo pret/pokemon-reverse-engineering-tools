@@ -647,7 +647,7 @@ class crystal(object):
         memory[0xd231] = trainer_id
         self.vba.memory = memory
 
-        self.call(Script_startbattle_address)
+        self.call(calculate_address(Script_startbattle_address), bank=calculate_bank(Script_startbattle_address,))
 
     def set_script(self, address):
         """
@@ -678,7 +678,7 @@ class crystal(object):
 
         self.set_script(givepoke_data_address)
 
-        self.call(givepoke_address)
+        self.call(calculate_address(givepoke_address), bank=calculate_bank(givepoke_address))
 
     def broken_start_random_battle_by_rocksmash_battle_script(self):
         """
@@ -699,11 +699,11 @@ class crystal(object):
 
         self.vba.registers["af"] = (calculate_bank(RockSmashBattleScript_address) << 8) | (self.vba.registers.af & 0xff)
         self.vba.registers["hl"] = calculate_address(RockSmashBattleScript_address)
-        self.call(CallScript_address)
+        self.call(calculate_address(CallScript_address), bank=calculate_bank(CallScript_address))
 
     #def attempt_start_battle_by_startbattle(self):
     #    StartBattle_address = 0x3f4c1
-    #    self.call(StartBattle_address)
+    #    self.call(calculate_address(StartBattle_address), bank=calculate_bank(StartBattle_address))
 
     #def attempt_start_random_battle_by_wild_battle(self):
     #    start_wild_battle = 0x3f4dd
