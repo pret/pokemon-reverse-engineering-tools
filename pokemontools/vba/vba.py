@@ -340,6 +340,54 @@ class crystal(object):
                 )
             )
 
+    def call_script(self, address, bank=None, wram=False, force=False):
+        """
+        Sets wram values so that the engine plays a script.
+
+        :param address: address of the map script
+        :param bank: override for bank calculation (based on address)
+        :param wram: force bank to 0
+        :param force: override an already-running script
+        """
+
+        ScriptFlags      = 0xd434
+        ScriptMode       = 0xd437
+        ScriptRunning    = 0xd438
+        ScriptBank       = 0xd439
+        ScriptPos        = 0xd43a
+        NumScriptParents = 0xd43c
+        ScriptParents    = 0xd43d
+
+        num_possible_parents = 4
+        len_parent = 3
+
+        mem = list(self.vba.memory)
+
+        if mem[ScriptRunning] == 0xff:
+            if force:
+                # wipe the parent routine array
+                mem[NumScriptParents] = 0
+                for i in xrange(num_possible_parents * len_parent):
+                    mem[ScriptParents + i] = 0
+            else:
+                raise Exception("a script is already running, use force=True")
+
+        if wram:
+            bank = 0
+        elif not bank:
+            bank = calculate_bank(address)
+            address = address % 0x4000 + 0x4000 * bool(bank)
+
+        mem[ScriptFlags]  |= 4
+        mem[ScriptMode]    = 1
+        mem[ScriptRunning] = 0xff
+
+        mem[ScriptBank]    = bank
+        mem[ScriptPos]     = address % 0x100
+        mem[ScriptPos+1]   = address / 0x100
+
+        self.vba.memory = mem
+
     def text_wait(self, step_size=1, max_wait=200, sfx_limit=0, debug=False, callback=None):
         """
         Presses the "A" button when text is done being drawn to screen.
