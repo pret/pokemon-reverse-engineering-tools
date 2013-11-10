@@ -187,7 +187,7 @@ class crystal(object):
 
         return addresses
 
-    def inject_asm(self, asm, address=0xc6d4):
+    def inject_asm(self, asm=[], address=0xdfcf):
         """
         Writes asm to memory. Makes the emulator run the asm.
 
@@ -198,7 +198,7 @@ class crystal(object):
         The first byte at the given address is reserved for whether the asm has
         finished executing.
         """
-        memory = self.vba.memory
+        memory = list(self.vba.memory)
 
         # the first byte is reserved for whether the script has finished
         has_finished = address
@@ -216,10 +216,10 @@ class crystal(object):
             0xf5,
 
             # ld a, 1
-            0xfa, 1,
+            0x3e, 1,
 
             # ld [has_finished], a
-            0x77, has_finished & 0xff, has_finished >> 8,
+            0xea, has_finished & 0xff, has_finished >> 8,
 
             # pop af
             0xf1,
@@ -229,7 +229,7 @@ class crystal(object):
         ]
 
         # append the last opcodes to the script
-        asm.extend(set_has_finished)
+        asm = bytearray(asm) + bytearray(set_has_finished)
 
         memory[script_address : script_address + len(asm)] = asm
         self.vba.memory = memory
@@ -238,7 +238,7 @@ class crystal(object):
         self.call(script_address, bank=0)
 
         # make the emulator step forward
-        self.vba.step(count=1)
+        self.vba.step(count=50)
 
         # check if the script has executed
         # TODO: should this raise an exception if the script didn't finish?
