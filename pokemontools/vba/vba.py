@@ -871,7 +871,7 @@ class crystal(object):
 
         self.vba.memory = memory
 
-    def givepoke(self, pokemon_id, level, nickname):
+    def givepoke(self, pokemon_id, level, nickname=None):
         """
         Give the player a pokemon.
         """
@@ -899,9 +899,12 @@ class crystal(object):
             0x91, # end
         ]
 
+        # picked this region of wram because it looks like it's probably unused
+        # in situations where givepoke will work.
         #address = 0xd073
         #address = 0xc000
-        address = 0xd8f1
+        #address = 0xd8f1
+        address = 0xd280
 
         mem = list(self.vba.memory)
         backup_wram = mem[address : address + len(script)]
@@ -928,8 +931,11 @@ class crystal(object):
             self.vba.press("a", hold=5, after=50)
         else:
             # no nickname
-            self.vba.press("d", hold=10, after=20)
-            self.vba.press("a", hold=5, after=30)
+            self.vba.press("b", hold=10, after=20)
+
+        # Wait for the script to end in the engine before copying the original
+        # wram values back in.
+        self.vba.step(count=100)
 
         # reset whatever was in wram before this script was called
         mem = list(self.vba.memory)
