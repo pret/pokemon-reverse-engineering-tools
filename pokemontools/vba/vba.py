@@ -495,9 +495,12 @@ class crystal(object):
         self.vba.write_memory_at(0xC2FC, 0)
         self.vba.write_memory_at(0xC2FD, 0)
 
-    #@staticmethod
-    #def set_enemy_level(level):
-    #    vba.write_memory_at(0xd213, level)
+    def lower_enemy_hp(self):
+        """
+        Dramatically lower the enemy's HP.
+        """
+        self.vba.write_memory_at(0xd216, 0)
+        self.vba.write_memory_at(0xd217, 1)
 
     def nstep(self, steplimit=500):
         """
