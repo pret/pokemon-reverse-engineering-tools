@@ -636,6 +636,36 @@ class crystal(object):
 
         self.call(0x25, (Script_startbattle_address % 0x4000) + 0x4000)
 
+    def set_script(self, address):
+        """
+        Sets the current script in wram to whatever address.
+        """
+        ScriptBank = 0xd439
+        ScriptPos = 0xd43a
+
+        memory = self.vba.memory
+        memory[ScriptBank] = address / 0x4000
+        memory[ScriptPos] = (((address % 0x4000) + 0x4000) & 0xff00) >> 8
+        memory[ScriptPos] = ((address % 0x4000) + 0x4000) & 0xff
+
+        # TODO: determine if this is necessary
+        #memory[ScriptRunning] = 0xff
+
+        self.vba.memory = memory
+
+    def attempt_call_givepoke(self):
+        """
+        An attempt at calling the givepoke command directly.
+        """
+        givepoke_address = 0x97932
+
+        # 0, 50, 0, 0
+        givepoke_data_address = 0x6ca5
+
+        self.set_script(givepoke_data_address)
+
+        self.call(givepoke_address / 0x4000, (givepoke_address % 0x4000) + 0x4000)
+
     def broken_start_random_battle_by_rocksmash_battle_script(self):
         """
         This doesn't start a battle.
