@@ -871,18 +871,70 @@ class crystal(object):
 
         self.vba.memory = memory
 
-    def attempt_call_givepoke(self):
+    def givepoke(self, pokemon_id, level, nickname):
         """
-        An attempt at calling the givepoke command directly.
+        Give the player a pokemon.
         """
-        givepoke_address = 0x97932
+        if isinstance(nickname, str):
+            if len(nickname) == 0:
+                raise Exception("invalid nickname")
+            elif len(nickname) > 11:
+                raise Exception("nickname too long")
+        else:
+            if not nickname:
+                nickname = False
+            else:
+                raise Exception("nickname needs to be a string, False or None")
 
-        # 0, 50, 0, 0
-        givepoke_data_address = 0x6ca5
+        # script to inject into wram
+        script = [
+            0x47, # loadfont
+            #0x55, # keeptextopen
 
-        self.set_script(givepoke_data_address)
+            # givepoke pokemon_id, level, 0, 0
+            0x2d, pokemon_id, level, 0, 0,
 
-        self.call(calculate_address(givepoke_address), bank=calculate_bank(givepoke_address))
+            #0x54, # closetext
+            0x49, # loadmovesprites
+            0x91, # end
+        ]
+
+        #address = 0xd073
+        #address = 0xc000
+        address = 0xd8f1
+
+        mem = list(self.vba.memory)
+        backup_wram = mem[address : address + len(script)]
+        mem[address : address + len(script)] = script
+        self.vba.memory = mem
+
+        self.call_script(address, wram=True)
+
+        # "would you like to give it a nickname?"
+        self.text_wait()
+
+        if nickname:
+            # yes
+            self.vba.press("a", hold=10)
+
+            # wait for the keyboard to appear
+            # TODO: this wait should be moved into write()
+            self.vba.step(count=20)
+
+            # type the requested nicknameb
+            self.write(nickname)
+
+            self.vba.press("start", hold=5, after=10)
+            self.vba.press("a", hold=5, after=50)
+        else:
+            # no nickname
+            self.vba.press("d", hold=10, after=20)
+            self.vba.press("a", hold=5, after=30)
+
+        # reset whatever was in wram before this script was called
+        mem = list(self.vba.memory)
+        mem[address : address + len(script)] = backup_wram
+        self.vba.memory = mem
 
     def start_random_battle_by_rocksmash_battle_script(self):
         """
