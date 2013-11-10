@@ -187,7 +187,93 @@ class crystal(object):
 
         return addresses
 
-    def inject_asm(self, asm=[], address=0xdfcf):
+    def inject_asm_into_rom(self, asm=[], address=0x75 * 0x4000, has_finished_address=0xdb75):
+        """
+        Writes asm to the loaded ROM. Calls the asm.
+
+        :param address: ROM address for where to store the injected asm script.
+        The default value is an address in pokecrystal that isn't used for
+        anything.
+
+        :param has_finished_address: address for where to store whether the
+        script executed or not. This value is restored when the script has been
+        confirmed to work. It's conceivable that some injected asm might need
+        to change that address if the asm needs to access the original wram
+        value itself.
+        """
+        if len(asm) > 0x4000:
+            raise Exception("too much asm")
+
+        # temporarily use wram
+        cached_wram_value = self.vba.memory[has_finished_address]
+
+        # set the value at has_finished_address to 0
+        reset_wram_mem = list(self.vba.memory)
+        reset_wram_mem[has_finished_address] = 0
+        self.vba.memory = reset_wram_mem
+
+        # set a value to indicate that the script has executed
+        set_has_finished = [
+            # push af
+            0xf5,
+
+            # ld a, 1
+            0x3e, 1,
+
+            # ld [has_finished], a
+            0xea, has_finished_address & 0xff, has_finished_address >> 8,
+
+            # pop af
+            0xf1,
+
+            # ret
+            0xc9,
+        ]
+
+        # TODO: check if asm ends with a byte that causes a return or call or
+        # other "ender". Raise an exception if it already returns on its own.
+
+        # combine the given asm with the setter bytes
+        total_asm = asm + set_has_finished
+
+        # get a copy of the current rom
+        rom = list(self.vba.rom)
+
+        # inject the asm
+        rom[address : address + len(total_asm)] = total_asm
+
+        # set the rom with the injected asm
+        self.vba.rom = rom
+
+        # call the injected asm
+        self.call(calculate_address(address), bank=calculate_bank(address))
+
+        # make the emulator step forward
+        self.vba.step(count=20)
+
+        # check if the script has executed (see below)
+        current_mem = self.vba.memory
+
+        # reset the wram value to its original value
+        another_mem = list(self.vba.memory)
+        another_mem[has_finished_address] = cached_wram_value
+        self.vba.memory = another_mem
+
+        # check if the script has actually executed
+        # TODO: should this raise an exception if the script didn't finish?
+        if current_mem[has_finished_address] == 0:
+            return False
+        elif current_mem[has_finished_address] == 1:
+            return True
+        else:
+            raise Exception(
+                "has_finished_address at {has_finished_address} was overwritten with an unexpected value {value}".format(
+                    has_finished_address=hex(has_finished_address),
+                    value=current_mem[has_finished_address],
+                )
+            )
+
+    def inject_asm_into_wram(self, asm=[], address=0xdfcf):
         """
         Writes asm to memory. Makes the emulator run the asm.
 
