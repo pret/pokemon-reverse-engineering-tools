@@ -187,6 +187,73 @@ class crystal(object):
 
         return addresses
 
+    def inject_asm(self, asm, address=0xc6d4):
+        """
+        Writes asm to memory. Makes the emulator run the asm.
+
+        This function will append "ret" to the list of bytes. Before returning,
+        it updates the value at the first byte to indicate that the function
+        has executed.
+
+        The first byte at the given address is reserved for whether the asm has
+        finished executing.
+        """
+        memory = self.vba.memory
+
+        # the first byte is reserved for whether the script has finished
+        has_finished = address
+        memory[has_finished] = 0
+
+        # the second byte is where the script will be stored
+        script_address = address + 1
+
+        # TODO: error checking; make sure the last byte doesn't already return.
+        # Use some functions from gbz80disasm to perform this check.
+
+        # set a value to indicate that the script has executed
+        set_has_finished = [
+            # push af
+            0xf5,
+
+            # ld a, 1
+            0xfa, 1,
+
+            # ld [has_finished], a
+            0x77, has_finished & 0xff, has_finished >> 8,
+
+            # pop af
+            0xf1,
+
+            # ret
+            0xc9,
+        ]
+
+        # append the last opcodes to the script
+        asm.extend(set_has_finished)
+
+        memory[script_address : script_address + len(asm)] = asm
+        self.vba.memory = memory
+
+        # make the emulator call the script
+        self.call(script_address, bank=0)
+
+        # make the emulator step forward
+        self.vba.step(count=1)
+
+        # check if the script has executed
+        # TODO: should this raise an exception if the script didn't finish?
+        if self.vba.memory[has_finished] == 0:
+            return False
+        elif self.vba.memory[has_finished] == 1:
+            return True
+        else:
+            raise Exception(
+                "has_finished at {has_finished} was overwritten with an unexpected value {value}".format(
+                    has_finished=hex(has_finished),
+                    value=self.vba.memory[has_finished],
+                )
+            )
+
     def text_wait(self, step_size=1, max_wait=200, sfx_limit=0, debug=False, callback=None):
         """
         Presses the "A" button when text is done being drawn to screen.
