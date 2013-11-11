@@ -832,6 +832,8 @@ class crystal(object):
         coordinates, pressing the direction button for a full walk step (which
         ideally should be blocked, this is mainly to establish direction), and
         then pressing "a" to initiate the trainer battle.
+
+        Consider using start_trainer_battle instead.
         """
         self.warp(map_group, map_id, x, y)
 
@@ -853,21 +855,6 @@ class crystal(object):
         while not self.is_in_battle() and loop_limit > 0:
             self.text_wait()
             loop_limit -= 1
-
-    def broken_start_trainer_battle(self, trainer_group=0x1, trainer_id=0x1):
-        """
-        This will fail after the first mon is defeated.
-        """
-        Script_startbattle_address = 0x97436
-
-        # setup the battle
-        memory = self.vba.memory
-        memory[0xd459] = 0x81
-        memory[0xd22f] = trainer_group
-        memory[0xd231] = trainer_id
-        self.vba.memory = memory
-
-        self.call(calculate_address(Script_startbattle_address), bank=calculate_bank(Script_startbattle_address,))
 
     def start_trainer_battle(self, trainer_group=0x1, trainer_id=0x1, text_win="YOU WIN", text_address=0xdb90):
         """
