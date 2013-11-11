@@ -1113,15 +1113,12 @@ class crystal(object):
         RockSmashBattleScript_address = 0x97cf9
         self.call_script(RockSmashBattleScript_address)
 
-    #def attempt_start_battle_by_startbattle(self):
-    #    StartBattle_address = 0x3f4c1
-    #    self.call(calculate_address(StartBattle_address), bank=calculate_bank(StartBattle_address))
-
     #def attempt_start_random_battle_by_wild_battle(self):
     #    start_wild_battle = 0x3f4dd
     #    #self.call(start_wild_battle)
     #    #self.vba.registers["pc"] = ...
 
+    # why is this here?
     def old_crap(self):
         CallScript_address = 0x261f
         RockSmashBattleScript_address = 0x97cf9
@@ -1132,14 +1129,3 @@ class crystal(object):
         ScriptPos = 0xd43a
         start_wild_battle = 0x3f4dd
         script = 0x1a1dc6
-
-        #self.call(StartBattle_address)
-        #self.call(RockSmashEncounter_address)
-
-        #self.push_stack([self.registers.pc])
-        #self.set_script(script)
-        #memory[ScriptRunning] = 0xff
-
-        #self.call(start_wild_battle)
-
-        #self.vba.memory = memory
