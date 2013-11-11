@@ -60,6 +60,22 @@ def translate_chars(charz):
         result += chars[each]
     return result
 
+def translate_text(text, chars=chars):
+    """
+    Converts text to the in-game byte coding.
+    """
+    output = []
+    for given_char in text:
+        for (byte, char) in chars.iteritems():
+            if char == given_char:
+                output.append(byte)
+                break
+        else:
+            raise Exception(
+                "no match for {0}".format(given_char)
+            )
+    return output
+
 class crystal(object):
     """
     Just a simple namespace to store a bunch of functions for Pokémon Crystal.
@@ -853,6 +869,85 @@ class crystal(object):
 
         self.call(calculate_address(Script_startbattle_address), bank=calculate_bank(Script_startbattle_address,))
 
+    def start_trainer_battle(self, trainer_group=0x1, trainer_id=0x1, text_win="YOU WIN", text_address=0xdb90):
+        """
+        Start a trainer battle with the trainer located by trainer_group and
+        trainer_id.
+
+        :param trainer_group: trainer group id
+        :param trainer_id: trainer id within the group
+        :param text_win: text to show if player wins
+        :param text_address: where to store text_win in wram
+        """
+        # where the script will be written
+        rom_address = 0x75 * 0x4000
+
+        # battle win message
+        translated_text = translate_text(text_win)
+
+        # also include the first and last bytes needed for text
+        translated_text = [0] + translated_text + [0x57]
+
+        mem = self.vba.memory
+
+        # create a backup of the current data
+        wram_backup = mem[text_address : text_address + len(translated_text)]
+
+        # manipulate the memory
+        mem[text_address : text_address + len(translated_text)] = translated_text
+        self.vba.memory = mem
+
+        text_pointer_hi = text_address / 0x100
+        text_pointer_lo = text_address % 0x100
+
+        script = [
+            # loadfont
+            #0x47,
+
+            # winlosstext address, address
+            0x64, text_pointer_lo, text_pointer_hi, 0, 0,
+
+            # loadtrainer group, id
+            0x5e, trainer_group, trainer_id,
+
+            # startbattle
+            0x5f,
+
+            # returnafterbattle
+            0x60,
+
+            # reloadmapmusic
+            0x83,
+
+            # reloadmap
+            0x7B,
+        ]
+
+        # Now make the script restore wram at the end (after the text has been
+        # used). The assumption here is that this particular subset of wram
+        # data would not be needed during the bulk of the script.
+        address = text_address
+        for byte in wram_backup:
+            address_hi = address / 0x100
+            address_lo = address % 0x100
+
+            script += [
+                # loadvar
+                0x1b, address_lo, address_hi, byte,
+            ]
+
+            address += 1
+
+        script += [
+            # end
+            0x91,
+        ]
+
+        # Use a different wram address because the default is something related
+        # to trainers.
+        # use a higher loop limit because otherwise it doesn't start fast enough?
+        self.inject_script_into_rom(asm=script, rom_address=rom_address, wram_address=0xdb75, limit=1000)
+
     def set_script(self, address):
         """
         Sets the current script in wram to whatever address.
@@ -901,11 +996,8 @@ class crystal(object):
 
         # initial script that runs first to tell python that execution started
         execution_indicator_script = [
-            # writebyte to say that the script has executed
-            0x15, execution_started,
-
-            # copyvartobyte
-            0x1a, execution_indicator_address & 0xff, execution_indicator_address >> 8,
+            # loadvar address, value
+            0x1b, execution_indicator_address & 0xff, execution_indicator_address >> 8, execution_started,
         ]
 
         # make the indicator script run before the user script
