@@ -1112,20 +1112,3 @@ class crystal(object):
         """
         RockSmashBattleScript_address = 0x97cf9
         self.call_script(RockSmashBattleScript_address)
-
-    #def attempt_start_random_battle_by_wild_battle(self):
-    #    start_wild_battle = 0x3f4dd
-    #    #self.call(start_wild_battle)
-    #    #self.vba.registers["pc"] = ...
-
-    # why is this here?
-    def old_crap(self):
-        CallScript_address = 0x261f
-        RockSmashBattleScript_address = 0x97cf9
-        RockSmashEncounter_address = 0x97cc0
-        StartBattle_address = 0x3f4c1
-        ScriptRunning = 0xd438
-        ScriptBank = 0xd439
-        ScriptPos = 0xd43a
-        start_wild_battle = 0x3f4dd
-        script = 0x1a1dc6
