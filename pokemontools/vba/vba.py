@@ -838,7 +838,7 @@ class crystal(object):
             self.text_wait()
             loop_limit -= 1
 
-    def start_trainer_battle(self, trainer_group=0x1, trainer_id=0x1):
+    def broken_start_trainer_battle(self, trainer_group=0x1, trainer_id=0x1):
         """
         This will fail after the first mon is defeated.
         """
@@ -870,6 +870,86 @@ class crystal(object):
         #memory[ScriptRunning] = 0xff
 
         self.vba.memory = memory
+
+    def inject_script_into_rom(self, asm=[0x91], rom_address=0x75 * 0x4000, wram_address=0xd280, limit=50):
+        """
+        Writes a script to the ROM in a blank location. Calls call_script to
+        make the game engine aware of the script. Then executes the script and
+        looks for confirmation thta the script has started to run.
+
+        The script must end itself.
+
+        :param asm: scripting command bytes
+        :param rom_address: rom location to write asm to
+        :param wram_address: temporary storage for indicating if the script has
+        started yet
+        :param limit: number of frames to emulate before giving up on the start
+        script
+        """
+        execution_pending = 0
+        execution_started = 1
+        valid_execution_states = (execution_pending, execution_started)
+
+        # location for byte for whether script has started executing
+        execution_indicator_address = wram_address
+
+        # backup whatever exists at the current wram location
+        backup_wram = self.vba.read_memory_at(execution_indicator_address)
+
+        # .. and set it to "pending"
+        self.vba.write_memory_at(execution_indicator_address, execution_pending)
+
+        # initial script that runs first to tell python that execution started
+        execution_indicator_script = [
+            # writebyte to say that the script has executed
+            0x15, execution_started,
+
+            # copyvartobyte
+            0x1a, execution_indicator_address & 0xff, execution_indicator_address >> 8,
+        ]
+
+        # make the indicator script run before the user script
+        full_script = execution_indicator_script + asm
+
+        # inject the asm
+        rom = list(self.vba.rom)
+        rom[rom_address : rom_address + len(full_script)] = full_script
+
+        # set the rom with the injected bytes
+        self.vba.rom = rom
+
+        # setup the script for execution
+        self.call_script(rom_address)
+
+        status = execution_pending
+        while status != execution_started and limit > 0:
+            # emulator time travel
+            self.vba.step(count=1)
+
+            # get latest wram
+            status = self.vba.read_memory_at(execution_indicator_address)
+            if status not in valid_execution_states:
+                raise Exception(
+                    "The execution indicator at {addr} has invalid state {value}".format(
+                        addr=hex(execution_indicator_address),
+                        value=status,
+                    )
+                )
+            elif status == execution_started:
+                break # hooray
+
+            limit -= 1
+
+        if status == execution_pending and limit == 0:
+            raise Exception(
+                "Emulation timeout while waiting for script to start."
+            )
+
+        # The script has started so it's okay to reset wram back to whatever it
+        # was.
+        self.vba.write_memory_at(execution_indicator_address, backup_wram)
+
+        return True
 
     def givepoke(self, pokemon_id, level, nickname=None):
         """
