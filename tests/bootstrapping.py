@@ -45,6 +45,10 @@ def bootstrap_trainer_battle():
     # initial state if none is provided.
     runner.new_bark_level_grind(17, skip=True)
 
+    cry.givepoke(64, 31, "kAdAbRa")
+    cry.givepoke(224, 60, "OcTiLlErY")
+    cry.givepoke(126, 87, "magmar")
+
     # TODO: figure out a better way to start a trainer battle :(
     runner.cry.start_trainer_battle_lamely()
 
