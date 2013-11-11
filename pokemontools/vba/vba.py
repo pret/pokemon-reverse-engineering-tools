@@ -951,7 +951,7 @@ class crystal(object):
 
         return True
 
-    def givepoke(self, pokemon_id, level, nickname=None):
+    def givepoke(self, pokemon_id, level, nickname=None, wram=False):
         """
         Give the player a pokemon.
         """
@@ -986,12 +986,15 @@ class crystal(object):
         #address = 0xd8f1
         address = 0xd280
 
-        mem = list(self.vba.memory)
-        backup_wram = mem[address : address + len(script)]
-        mem[address : address + len(script)] = script
-        self.vba.memory = mem
+        if not wram:
+            self.inject_script_into_rom(asm=script, wram_address=address)
+        else:
+            mem = list(self.vba.memory)
+            backup_wram = mem[address : address + len(script)]
+            mem[address : address + len(script)] = script
+            self.vba.memory = mem
 
-        self.call_script(address, wram=True)
+            self.call_script(address, wram=True)
 
         # "would you like to give it a nickname?"
         self.text_wait()
@@ -1013,14 +1016,15 @@ class crystal(object):
             # no nickname
             self.vba.press("b", hold=10, after=20)
 
-        # Wait for the script to end in the engine before copying the original
-        # wram values back in.
-        self.vba.step(count=100)
+        if wram:
+            # Wait for the script to end in the engine before copying the original
+            # wram values back in.
+            self.vba.step(count=100)
 
-        # reset whatever was in wram before this script was called
-        mem = list(self.vba.memory)
-        mem[address : address + len(script)] = backup_wram
-        self.vba.memory = mem
+            # reset whatever was in wram before this script was called
+            mem = list(self.vba.memory)
+            mem[address : address + len(script)] = backup_wram
+            self.vba.memory = mem
 
     def start_random_battle_by_rocksmash_battle_script(self):
         """
