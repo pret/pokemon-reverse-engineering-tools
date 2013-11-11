@@ -49,7 +49,6 @@ def bootstrap_trainer_battle():
     cry.givepoke(224, 60, "OcTiLlErY")
     cry.givepoke(126, 87, "magmar")
 
-    # TODO: figure out a better way to start a trainer battle :(
-    runner.cry.start_trainer_battle_lamely()
+    cry.start_trainer_battle()
 
     return runner.cry.vba.state

@@ -40,6 +40,7 @@ class BattleTests(unittest.TestCase):
         # reset to whatever the bootstrapper created
         self.vba.state = self.bootstrap_state
         self.battle = Battle(emulator=self.cry)
+        self.battle.skip_start_text()
 
     def test_is_in_battle(self):
         self.assertTrue(self.battle.is_in_battle())
