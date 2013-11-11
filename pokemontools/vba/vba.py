@@ -431,12 +431,17 @@ class crystal(object):
                 # set CurSFX
                 self.vba.write_memory_at(0xc2bf, 0)
 
-                self.vba.press("a", hold=10, after=1)
+                self.vba.press("a", hold=10, after=50)
 
                 # check if CurSFX is SFX_READ_TEXT_2
                 if self.vba.read_memory_at(0xc2bf) == 0x8:
-                    print "cursfx is set to SFX_READ_TEXT_2, looping.."
-                    return self.text_wait(step_size=step_size, max_wait=max_wait, debug=debug, callback=callback, sfx_limit=sfx_limit)
+                    if "CANCEL Which" in self.get_text():
+                        print "probably the 'switch pokemon' menu"
+                        return
+                    else:
+                        print "cursfx is set to SFX_READ_TEXT_2, looping.."
+                        print self.get_text()
+                        return self.text_wait(step_size=step_size, max_wait=max_wait, debug=debug, callback=callback, sfx_limit=sfx_limit)
                 else:
                     if sfx_limit > 0:
                         sfx_limit = sfx_limit - 1

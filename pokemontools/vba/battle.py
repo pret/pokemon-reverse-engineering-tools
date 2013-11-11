@@ -67,8 +67,10 @@ class Battle(EmulatorController):
         #   1) current pokemon hp is 0
         #   2) game is polling for input
 
-        # TODO: detect the mandatory switch menu
-        return False
+        if "CANCEL Which ?" in self.emulator.get_text():
+            return True
+        else:
+            return False
 
     def skip_start_text(self, max_loops=20):
         """

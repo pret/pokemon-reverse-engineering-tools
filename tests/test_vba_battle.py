@@ -56,6 +56,25 @@ class BattleTests(unittest.TestCase):
         # should not be asking for a switch so soon in the battle
         self.assertFalse(self.battle.is_mandatory_switch())
 
+    def test_is_mandatory_switch(self):
+        self.battle.skip_start_text()
+        self.battle.skip_until_input_required()
+
+        # press "FIGHT"
+        self.vba.press(["a"], after=20)
+
+        # press the first move ("SCRATCH")
+        self.vba.press(["a"], after=20)
+
+        # set partymon1 hp to very low
+        self.vba.write_memory_at(0xc63c, 0)
+        self.vba.write_memory_at(0xc63d, 1)
+
+        # let the enemy attack and kill the pokemon
+        self.battle.skip_until_input_required()
+
+        self.assertTrue(self.battle.is_mandatory_switch())
+
     def test_attack_loop(self):
         self.battle.skip_start_text()
         self.battle.skip_until_input_required()
