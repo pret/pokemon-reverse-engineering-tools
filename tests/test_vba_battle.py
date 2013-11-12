@@ -105,7 +105,7 @@ class BattleTests(unittest.TestCase):
         self.battle.skip_until_input_required()
 
         # yes/no menu is present, should be detected
-        self.assertTrue(self.battle.is_switch_prompt())
+        self.assertTrue(self.battle.is_trainer_switch_prompt())
 
         # and input should be required
         self.assertTrue(self.is_input_required())

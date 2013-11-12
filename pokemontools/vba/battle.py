@@ -38,7 +38,7 @@ class Battle(EmulatorController):
         """
         Detects if the battle is waiting for player input.
         """
-        return self.is_player_turn() or self.is_mandatory_switch() or self.is_switch_prompt()
+        return self.is_player_turn() or self.is_mandatory_switch() or self.is_trainer_switch_prompt()
 
     def is_fight_pack_run_menu(self):
         """
@@ -55,14 +55,14 @@ class Battle(EmulatorController):
         """
         return self.is_fight_pack_run_menu()
 
-    def is_switch_prompt(self):
+    def is_trainer_switch_prompt(self):
         """
         Detects if the battle is waiting for the player to choose whether or
         not to switch pokemon. This is the prompt that asks yes/no for whether
         to switch pokemon, like if the trainer is switching pokemon at the end
         of a turn set.
         """
-        return self.emulator.is_battle_switch_prompt()
+        return self.emulator.is_trainer_switch_prompt()
 
     def is_mandatory_switch(self):
         """
@@ -143,8 +143,8 @@ class Battle(EmulatorController):
             if self.is_player_turn():
                 # battle hook provides input to handle this situation
                 self.handle_turn()
-            elif self.is_switch_prompt():
-                self.handle_switch_prompt()
+            elif self.is_trainer_switch_prompt():
+                self.handle_trainer_switch_prompt()
             elif self.is_mandatory_switch():
                 # battle hook provides input to handle this situation too
                 self.handle_mandatory_switch()
@@ -162,7 +162,7 @@ class Battle(EmulatorController):
         """
         raise NotImplementedError
 
-    def handle_switch_prompt(self):
+    def handle_trainer_switch_prompt(self):
         """
         The trainer is switching pokemon. The game asks yes/no for whether or
         not the player would like to switch.
