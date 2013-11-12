@@ -1,3 +1,49 @@
+pokemontools
+==============================
+
+``pokemontools`` is a python module that provides various reverse engineering
+components for various Pokémon games. This includes:
+
+* a utility to disassemble bytes from games into asm
+* map editor
+* python bindings for Pokémon games running in the vba-linux emulator
+* in-game graphics converter (png, lz, 2bpp)
+* preprocessor that dumps out rgbds-compatible asm
+* stuff that parses and dumps data from ROMs
+
+# installing
+
+To install this python library in ``site-packages``:
+
+```
+pip install --upgrade pokemontools
+```
+
+And for local development work:
+
+```
+python setup.py develop
+```
+
+And of course local installation:
+
+```
+python setup.py install
+```
+
+# testing
+
+Run the tests with:
+
+```
+nosetests-2.7
+```
+
+# see also
+
+* [Pokémon Crystal source code](https://github.com/kanzure/pokecrystal)
+* [Pokémon Red source code](https://github.com/iimarckus/pokered)
+
 Pokémon Crystal utilities and extras
 ==============================
 
