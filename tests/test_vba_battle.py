@@ -67,8 +67,7 @@ class BattleTests(unittest.TestCase):
         self.vba.press(["a"], after=20)
 
         # set partymon1 hp to very low
-        self.vba.write_memory_at(0xc63c, 0)
-        self.vba.write_memory_at(0xc63d, 1)
+        self.cry.set_battle_mon_hp(1)
 
         # let the enemy attack and kill the pokemon
         self.battle.skip_until_input_required()
