@@ -160,6 +160,8 @@ class Battle(EmulatorController):
                 self.handle_turn()
             elif self.is_trainer_switch_prompt():
                 self.handle_trainer_switch_prompt()
+            elif self.is_wild_switch_prompt():
+                self.handle_wild_switch_prompt()
             elif self.is_mandatory_switch():
                 # battle hook provides input to handle this situation too
                 self.handle_mandatory_switch()
@@ -167,6 +169,7 @@ class Battle(EmulatorController):
                 raise BattleException("unknown state, aborting")
 
         # "how did i lose? wah"
+        # TODO: this doesn't happen for wild battles
         self.skip_end_text()
 
         # TODO: return should indicate win/loss (blackout)
@@ -181,6 +184,13 @@ class Battle(EmulatorController):
         """
         The trainer is switching pokemon. The game asks yes/no for whether or
         not the player would like to switch.
+        """
+        raise NotImplementedError
+
+    def handle_wild_switch_prompt(self):
+        """
+        The wild pokemon defeated the party pokemon. This is the yes/no box for
+        whether to switch pokemon or not.
         """
         raise NotImplementedError
 
