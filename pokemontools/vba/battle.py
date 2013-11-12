@@ -58,7 +58,9 @@ class Battle(EmulatorController):
     def is_switch_prompt(self):
         """
         Detects if the battle is waiting for the player to choose whether or
-        not to switch pokemon.
+        not to switch pokemon. This is the prompt that asks yes/no for whether
+        to switch pokemon, like if the trainer is switching pokemon at the end
+        of a turn set.
         """
         return self.emulator.is_battle_switch_prompt()
 

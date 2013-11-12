@@ -602,8 +602,12 @@ class crystal(object):
     def is_battle_switch_prompt(self):
         """
         Checks if the game is currently displaying the yes/no prompt for
-        whether or not to switch pokemon.
+        whether or not to switch pokemon. This happens when the trainer is
+        switching pokemon out.
         """
+        # TODO: this method should return False if the game options have been
+        # set to not use the battle switching style.
+
         # get on-screen text
         text = self.get_text()
 
