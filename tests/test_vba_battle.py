@@ -108,7 +108,7 @@ class BattleTests(unittest.TestCase):
         self.assertTrue(self.battle.is_trainer_switch_prompt())
 
         # and input should be required
-        self.assertTrue(self.is_input_required())
+        self.assertTrue(self.battle.is_input_required())
 
         # but it's not mandatory
         self.assertFalse(self.battle.is_mandatory_switch())
