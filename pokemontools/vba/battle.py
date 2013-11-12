@@ -64,6 +64,21 @@ class Battle(EmulatorController):
         """
         return self.emulator.is_trainer_switch_prompt()
 
+    def is_wild_switch_prompt(self):
+        """
+        Detects if the battle is waiting for the player to choose whether or
+        not to continue to fight the wild pokemon.
+        """
+        return self.emulator.is_wild_switch_prompt()
+
+    def is_switch_prompt(self):
+        """
+        Detects both trainer and wild switch prompts (for prompting whether to
+        switch pokemon). This is a yes/no box and not the actual pokemon
+        selection menu.
+        """
+        return self.is_trainer_switch_prompt() or self.is_wild_switch_prompt()
+
     def is_mandatory_switch(self):
         """
         Detects if the battle is waiting for the player to choose a next

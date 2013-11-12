@@ -620,6 +620,21 @@ class crystal(object):
 
         return all([requirement in text for requirement in requirements])
 
+    def is_wild_switch_prompt(self):
+        """
+        Detects if the battle is waiting for the player to choose whether or
+        not to continue to fight the wild pokemon.
+        """
+        # TODO: make a better implementation
+        return False
+
+    def is_switch_prompt(self):
+        """
+        Detects both the trainer-style switch prompt and the wild-style switch
+        prompt. This is the yes/no prompt for whether to switch pokemon.
+        """
+        return self.is_trainer_switch_prompt() or self.is_wild_switch_prompt()
+
     def unlock_flypoints(self):
         """
         Unlocks different destinations for flying.
