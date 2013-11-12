@@ -625,8 +625,16 @@ class crystal(object):
         Detects if the battle is waiting for the player to choose whether or
         not to continue to fight the wild pokemon.
         """
-        # TODO: make a better implementation
-        return False
+        # get on-screen text
+        screen_text = self.get_text()
+
+        requirements = [
+            "YES",
+            "NO",
+            "Use next POKMON?",
+        ]
+
+        return all([requirement in text for requirement in requirements])
 
     def is_switch_prompt(self):
         """
