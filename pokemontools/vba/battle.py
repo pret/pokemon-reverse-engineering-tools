@@ -202,35 +202,31 @@ class Battle(EmulatorController):
 
 class BattleStrategy(Battle):
     """
-    Throw a pokeball until everyone dies.
+    This class shows the relevant methods to make a battle handler.
     """
 
     def handle_mandatory_switch(self):
         """
         Something fainted, pick the next mon.
         """
-        for pokemon in self.emulator.party:
-            if pokemon.hp > 0:
-                break
-        else:
-            # the game failed to do a blackout.. not sure what to do now.
-            raise BattleException("No partymons left. wtf?")
+        raise NotImplementedError
 
-        return pokemon.id
+    def handle_trainer_switch_prompt(self):
+        """
+        The trainer is switching pokemon. The game asks yes/no for whether or
+        not the player would like to switch.
+        """
+        raise NotImplementedError
+
+    def handle_wild_switch_prompt(self):
+        """
+        The wild pokemon defeated the party pokemon. This is the yes/no box for
+        whether to switch pokemon or not.
+        """
+        raise NotImplementedError
 
     def handle_turn(self):
         """
         Take actions inside of a battle based on the game state.
         """
-        self.throw_pokeball()
-
-class SimpleBattleStrategy(BattleStrategy):
-    """
-    Attack the enemy with the first move.
-    """
-
-    def handle_turn(self):
-        """
-        Always attack the enemy with the first move.
-        """
-        self.attack(self.battle.party[0].moves[0].name)
+        raise NotImplementedError
