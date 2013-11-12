@@ -55,6 +55,13 @@ class Battle(EmulatorController):
         """
         return self.is_fight_pack_run_menu()
 
+    def is_switch_prompt(self):
+        """
+        Detects if the battle is waiting for the player to choose whether or
+        not to switch pokemon.
+        """
+        return self.emulator.is_battle_switch_prompt()
+
     def is_mandatory_switch(self):
         """
         Detects if the battle is waiting for the player to choose a next

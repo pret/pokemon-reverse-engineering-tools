@@ -599,6 +599,23 @@ class crystal(object):
     def is_in_link_battle(self):
         return self.vba.read_memory_at(0xc2dc) != 0
 
+    def is_battle_switch_prompt(self):
+        """
+        Checks if the game is currently displaying the yes/no prompt for
+        whether or not to switch pokemon.
+        """
+        # get on-screen text
+        text = self.get_text()
+
+        requirements = [
+            "YES",
+            "NO",
+            "Will ",
+            "change POKMON?",
+        ]
+
+        return all([requirement in text for requirement in requirements])
+
     def unlock_flypoints(self):
         """
         Unlocks different destinations for flying.
