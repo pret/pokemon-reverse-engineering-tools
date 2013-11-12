@@ -143,6 +143,8 @@ class Battle(EmulatorController):
             if self.is_player_turn():
                 # battle hook provides input to handle this situation
                 self.handle_turn()
+            elif self.is_switch_prompt():
+                self.handle_switch_prompt()
             elif self.is_mandatory_switch():
                 # battle hook provides input to handle this situation too
                 self.handle_mandatory_switch()
@@ -157,6 +159,13 @@ class Battle(EmulatorController):
     def handle_mandatory_switch(self):
         """
         Something fainted, pick the next mon.
+        """
+        raise NotImplementedError
+
+    def handle_switch_prompt(self):
+        """
+        The trainer is switching pokemon. The game asks yes/no for whether or
+        not the player would like to switch.
         """
         raise NotImplementedError
 
