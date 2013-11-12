@@ -523,6 +523,13 @@ class crystal(object):
         self.vba.write_memory_at(0xd216, 0)
         self.vba.write_memory_at(0xd217, 1)
 
+    def set_battle_mon_hp(self, hp):
+        """
+        Set the BattleMonHP variable to the given hp.
+        """
+        self.vba.write_memory_at(0xc63c, hp / 0x100)
+        self.vba.write_memory_at(0xc63c + 1, hp % 0x100)
+
     def nstep(self, steplimit=500):
         """
         Steps the CPU forward and calls some functions in between each step.
