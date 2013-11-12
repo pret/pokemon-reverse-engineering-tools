@@ -655,6 +655,12 @@ class crystal(object):
         self.vba.write_memory_at(0xDCA7, 0xFF)
         self.vba.write_memory_at(0xDCA8, 0xFF)
 
+    def set_battle_type(self, battle_type):
+        """
+        Changes the battle type value.
+        """
+        self.vba.write_memory_at(0xd230, battle_type)
+
     def get_gender(self):
         """
         Returns 'male' or 'female'.
