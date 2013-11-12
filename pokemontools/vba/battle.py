@@ -49,6 +49,56 @@ class Battle(EmulatorController):
         screentext = self.emulator.get_text()
         return all([sign in screentext for sign in signs])
 
+    def select_battle_menu_action(self, action, execute=True):
+        """
+        Moves the cursor to the requested action and selects it.
+
+        :param action: fight, pkmn, pack, run
+        """
+        if not self.is_fight_pack_run_menu():
+            raise Exception(
+                "This isn't the fight-pack-run menu."
+            )
+
+        action = action.lower()
+
+        action_map = {
+            "fight": (1, 1),
+            "pkmn":  (1, 2),
+            "pack":  (2, 1),
+            "run":   (2, 2),
+        }
+
+        if action not in action_map.keys():
+            raise Exception(
+                "Unexpected requested action {0}".format(action)
+            )
+
+        current_row = self.vba.read_memory_at(0xcfa9)
+        current_column = self.vba.read_memory_at(0xcfaa)
+
+        direction = None
+        if current_row != action_map[action][0]:
+            if current_row > action_map[action][0]:
+                direction = "u"
+            elif current_row < action_map[action][0]:
+                direction = "d"
+
+            self.vba.press(direction, hold=5, after=10)
+
+        direction = None
+        if current_column != action_map[action][1]:
+            if current_column > action_map[action][1]:
+                direction = "l"
+            elif current_column < action_map[action][1]:
+                direction = "r"
+
+            self.vba.press(direction, hold=5, after=10)
+
+        # now select the action
+        if execute:
+            self.vba.press(a, hold=5, after=100)
+
     def is_player_turn(self):
         """
         Detects if the battle is waiting for the player to choose an attack.
