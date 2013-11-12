@@ -88,5 +88,30 @@ class BattleTests(unittest.TestCase):
 
         self.assertTrue(self.battle.is_player_turn())
 
+    def test_is_battle_switch_prompt(self):
+        self.battle.skip_start_text()
+        self.battle.skip_until_input_required()
+
+        # press "FIGHT"
+        self.vba.press(["a"], after=20)
+
+        # press the first move ("SCRATCH")
+        self.vba.press(["a"], after=20)
+
+        # set enemy hp to very low
+        self.cry.lower_enemy_hp()
+
+        # attack the enemy and kill it
+        self.battle.skip_until_input_required()
+
+        import time
+        time.sleep(1)
+
+        # yes/no menu is present, should be detected
+        self.assertTrue(self.battle.is_switch_prompt())
+
+        # but it's not mandatory
+        self.assertFalse(self.battle.is_mandatory_switch())
+
 if __name__ == "__main__":
     unittest.main()
