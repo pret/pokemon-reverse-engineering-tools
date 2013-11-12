@@ -104,11 +104,11 @@ class BattleTests(unittest.TestCase):
         # attack the enemy and kill it
         self.battle.skip_until_input_required()
 
-        import time
-        time.sleep(1)
-
         # yes/no menu is present, should be detected
         self.assertTrue(self.battle.is_switch_prompt())
+
+        # and input should be required
+        self.assertTrue(self.is_input_required())
 
         # but it's not mandatory
         self.assertFalse(self.battle.is_mandatory_switch())
