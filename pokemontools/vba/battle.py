@@ -280,3 +280,15 @@ class BattleStrategy(Battle):
         Take actions inside of a battle based on the game state.
         """
         raise NotImplementedError
+
+class SpamBattleStrategy(BattleStrategy):
+    """
+    A really simple battle strategy that always picks the first move of the
+    first pokemon to attack the enemy.
+    """
+
+    def handle_turn(self):
+        """
+        Always picks the first move of the current pokemon.
+        """
+        pass
