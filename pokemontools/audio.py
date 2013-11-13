@@ -98,6 +98,20 @@ class Note(Command):
 		return True
 
 
+class Noise(Note):
+	macro_name = "noise"
+	size = 0
+	end = False
+	param_types = {
+		0: {"name": "duration", "class": LoNybbleParam},
+		1: {"name": "intensity", "class": SingleByteParam},
+		2: {"name": "frequency", "class": MultiByteParam},
+	}
+	allowed_lengths = [2,3]
+	override_byte_check = True
+	is_rgbasm_macro = False
+
+
 
 class Channel:
 	"""A sound channel data parser."""
@@ -195,6 +209,7 @@ class Channel:
 		for class_ in sound_classes:
 			if class_.id == i:
 				return class_
+		if self.channel in [4. 8]: return Noise
 		return Note
 
 
