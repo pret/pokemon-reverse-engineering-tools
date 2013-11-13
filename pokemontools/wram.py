@@ -112,6 +112,8 @@ class WRAMProcessor(object):
         self.setup_hram_constants()
         self.setup_gbhw_constants()
 
+        self.reformat_wram_labels()
+
     def read_wram_sections(self):
         """
         Opens the wram file and calls read_bss_sections.
@@ -166,3 +168,14 @@ class WRAMProcessor(object):
         """
         self.gbhw_constants = self.read_gbhw_constants()
         return self.gbhw_constants
+
+    def reformat_wram_labels(self):
+        """
+        Flips the wram_constants dictionary the other way around to access
+        addresses by label.
+        """
+        self.wram = {}
+
+        for (address, labels) in self.wram_constants.iteritems():
+            for label in labels:
+                self.wram[label] = address
