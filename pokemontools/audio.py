@@ -131,7 +131,7 @@ class Channel:
 		while not done:
 			cmd = rom[self.address]
 
-			class_ = self.get_sound_class(cmd)(address=self.address)
+			class_ = self.get_sound_class(cmd)(address=self.address, channel=self.channel)
 
 			# notetype loses the intensity param on channel 4
 			if class_.macro_name == 'notetype':
