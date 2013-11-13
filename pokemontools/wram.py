@@ -5,6 +5,10 @@ RGBDS BSS section and constant parsing.
 
 import os
 
+# TODO: parse these constants from constants.asm
+NUM_OBJECTS = 0x10
+OBJECT_LENGTH = 0x10
+
 def make_wram_labels(wram_sections):
     wram_labels = {}
     for section in wram_sections:
