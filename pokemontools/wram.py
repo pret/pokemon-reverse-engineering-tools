@@ -171,11 +171,11 @@ class WRAMProcessor(object):
 
     def reformat_wram_labels(self):
         """
-        Flips the wram_constants dictionary the other way around to access
+        Flips the wram_labels dictionary the other way around to access
         addresses by label.
         """
         self.wram = {}
 
-        for (address, labels) in self.wram_constants.iteritems():
+        for (address, labels) in self.wram_labels.iteritems():
             for label in labels:
                 self.wram[label] = address
