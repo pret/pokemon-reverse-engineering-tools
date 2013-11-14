@@ -38,7 +38,7 @@ class Battle(EmulatorController):
         """
         Detects if the battle is waiting for player input.
         """
-        return self.is_player_turn() or self.is_mandatory_switch() or self.is_trainer_switch_prompt()
+        return self.is_player_turn() or self.is_mandatory_switch() or self.is_switch_prompt()
 
     def is_fight_pack_run_menu(self):
         """
