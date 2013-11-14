@@ -97,7 +97,7 @@ class Battle(EmulatorController):
 
         # now select the action
         if execute:
-            self.emulator.vba.press(a, hold=5, after=100)
+            self.emulator.vba.press("a", hold=5, after=100)
 
     def select_attack(self, move_number=1, hold=5, after=10):
         """
