@@ -260,8 +260,12 @@ class Battle(EmulatorController):
         """
         Waits until the battle needs player input.
         """
-        while not self.is_input_required():
-            self.emulator.text_wait()
+        # callback causes text_wait to exit when the callback returns True
+        def is_in_battle_checker():
+            return (self.emulator.vba.read_memory_at(0xd22d) == 0)
+
+        while not self.is_input_required() and self.is_in_battle():
+            self.emulator.text_wait(callback=is_in_battle_checker)
 
         # let the text draw so that the state is more obvious
         self.emulator.vba.step(count=10)
@@ -276,8 +280,13 @@ class Battle(EmulatorController):
         # xyz wants to battle, a wild foobar appeared
         self.skip_start_text()
 
+        wild = (self.emulator.vba.read_memory_at(0xd22d) == 1)
+
         while self.is_in_battle():
             self.skip_until_input_required()
+
+            if not self.is_in_battle():
+                continue
 
             if self.is_player_turn():
                 # battle hook provides input to handle this situation
@@ -294,7 +303,8 @@ class Battle(EmulatorController):
 
         # "how did i lose? wah"
         # TODO: this doesn't happen for wild battles
-        self.skip_end_text()
+        if not wild:
+            self.skip_end_text()
 
         # TODO: return should indicate win/loss (blackout)
 
@@ -365,4 +375,36 @@ class SpamBattleStrategy(BattleStrategy):
         """
         Always picks the first move of the current pokemon.
         """
-        pass
+        self.fight(1)
+
+    def handle_trainer_switch_prompt(self):
+        """
+        The trainer is switching pokemon. The game asks yes/no for whether or
+        not the player would like to switch.
+        """
+        # decline
+        self.emulator.vba.press(["b"], hold=5, after=10)
+
+    def handle_wild_switch_prompt(self):
+        """
+        The wild pokemon defeated the party pokemon. This is the yes/no box for
+        whether to switch pokemon or not.
+        """
+        # why not just make a battle strategy that doesn't lose?
+        # TODO: Note that the longer "after" value is required here.
+        self.emulator.vba.press("a", hold=5, after=30)
+
+        self.handle_mandatory_switch()
+
+    def handle_mandatory_switch(self):
+        """
+        Something fainted, pick the next mon.
+        """
+
+        # TODO: make a better selector for which pokemon.
+
+        # now scroll down
+        self.emulator.vba.press("d", hold=5, after=10)
+
+        # select this mon
+        self.emulator.vba.press("a", hold=5, after=30)
