@@ -462,8 +462,7 @@ class crystal(object):
                 # date/time box (day choice)
                 # 0x47ab is the one from the intro, 0x49ab is the one from mom.
                 elif 0x47ab in stack or 0x49ab in stack: # was any([x in stack for x in range(0x46EE, 0x47AB)])
-                    # if not in battle
-                    if self.vba.read_memory_at(0xd22d) == 0:
+                    if not self.is_in_battle():
                         print "probably at a date/time box ? exiting."
                         break
 
