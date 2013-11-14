@@ -220,6 +220,22 @@ class Battle(EmulatorController):
         else:
             return False
 
+    def is_levelup_screen(self):
+        """
+        Detects the levelup stats screen.
+        """
+        requirements = [
+            "ATTACK ",
+            "DEFENSE ",
+            "SPCL.ATK ",
+            "SPCL.DEF ",
+            "SPEED ",
+        ]
+
+        screen_text = self.emulator.get_text()
+
+        return all([requirement in screen_text for requirement in requirements])
+
     def skip_start_text(self, max_loops=20):
         """
         Skip any initial conversation until the player can select an action.
@@ -262,7 +278,12 @@ class Battle(EmulatorController):
         """
         # callback causes text_wait to exit when the callback returns True
         def is_in_battle_checker():
-            return (self.emulator.vba.read_memory_at(0xd22d) == 0) and (self.emulator.vba.read_memory_at(0xc734) != 0)
+            result = (self.emulator.vba.read_memory_at(0xd22d) == 0) and (self.emulator.vba.read_memory_at(0xc734) != 0)
+
+            # but also, jump out if it's the stats screen
+            result = result or self.is_levelup_screen()
+
+            return result
 
         while not self.is_input_required() and self.is_in_battle():
             self.emulator.text_wait(callback=is_in_battle_checker)
@@ -298,6 +319,8 @@ class Battle(EmulatorController):
             elif self.is_mandatory_switch():
                 # battle hook provides input to handle this situation too
                 self.handle_mandatory_switch()
+            elif self.is_levelup_screen():
+                self.emulator.vba.press("a", hold=5, after=30)
             else:
                 raise BattleException("unknown state, aborting")
 
