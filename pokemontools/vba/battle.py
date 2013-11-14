@@ -236,6 +236,27 @@ class Battle(EmulatorController):
         else:
             return True
 
+    def is_evolution_screen(self):
+        """
+        What? MEW is evolving!
+        """
+        address = 0xc5e4
+
+        values = [164, 181, 174, 171, 181, 168, 173, 166, 231]
+
+        for (index, value) in enumerate(values):
+            if self.emulator.vba.read_memory_at(address + index) != value:
+                return False
+        else:
+            # also check "What?"
+            what_address = 0xc5b9
+            what_values = [150, 167, 160, 179, 230]
+            for (index, value) in enumerate(what_values):
+                if self.emulator.vba.read_memory_at(what_address + index) != value:
+                    return False
+            else:
+                return True
+
     def skip_start_text(self, max_loops=20):
         """
         Skip any initial conversation until the player can select an action.
@@ -282,6 +303,9 @@ class Battle(EmulatorController):
 
             # but also, jump out if it's the stats screen
             result = result or self.is_levelup_screen()
+
+            # stay in text_wait if it's the evolution screen
+            result = result and not self.is_evolution_screen()
 
             return result
 
