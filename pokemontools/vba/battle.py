@@ -262,7 +262,7 @@ class Battle(EmulatorController):
         """
         # callback causes text_wait to exit when the callback returns True
         def is_in_battle_checker():
-            return (self.emulator.vba.read_memory_at(0xd22d) == 0)
+            return (self.emulator.vba.read_memory_at(0xd22d) == 0) and (self.emulator.vba.read_memory_at(0xc734) != 0)
 
         while not self.is_input_required() and self.is_in_battle():
             self.emulator.text_wait(callback=is_in_battle_checker)
