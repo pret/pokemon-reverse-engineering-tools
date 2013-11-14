@@ -74,8 +74,8 @@ class Battle(EmulatorController):
                 "Unexpected requested action {0}".format(action)
             )
 
-        current_row = self.vba.read_memory_at(0xcfa9)
-        current_column = self.vba.read_memory_at(0xcfaa)
+        current_row = self.emulator.vba.read_memory_at(0xcfa9)
+        current_column = self.emulator.vba.read_memory_at(0xcfaa)
 
         direction = None
         if current_row != action_map[action][0]:
@@ -84,7 +84,7 @@ class Battle(EmulatorController):
             elif current_row < action_map[action][0]:
                 direction = "d"
 
-            self.vba.press(direction, hold=5, after=10)
+            self.emulator.vba.press(direction, hold=5, after=10)
 
         direction = None
         if current_column != action_map[action][1]:
@@ -93,11 +93,11 @@ class Battle(EmulatorController):
             elif current_column < action_map[action][1]:
                 direction = "r"
 
-            self.vba.press(direction, hold=5, after=10)
+            self.emulator.vba.press(direction, hold=5, after=10)
 
         # now select the action
         if execute:
-            self.vba.press(a, hold=5, after=100)
+            self.emulator.vba.press(a, hold=5, after=100)
 
     def select_attack(self, move_number=1, hold=5, after=10):
         """
@@ -112,7 +112,7 @@ class Battle(EmulatorController):
         # TODO: detect fight menu and make sure it's detected here.
 
         pp_address = 0xc634 + (move_number - 1)
-        pp = self.vba.read_memory_at(pp_address)
+        pp = self.emulator.vba.read_memory_at(pp_address)
 
         # detect zero pp because i don't want to write a way to inform the
         # caller that there was no more pp. Just check the pp yourself.
@@ -125,7 +125,7 @@ class Battle(EmulatorController):
 
         valid_selection_states = (1, 2, 3, 4)
 
-        selection = self.vba.read_memory_at(0xcfa9)
+        selection = self.emulator.vba.read_memory_at(0xcfa9)
 
         while selection != move_number:
             if selection not in valid_selection_states:
@@ -148,13 +148,13 @@ class Battle(EmulatorController):
                 )
 
             # press the arrow button
-            self.vba.press(direction, hold=hold, after=after)
+            self.emulator.vba.press(direction, hold=hold, after=after)
 
             # let's see what the current selection is
-            selection = self.vba.read_memory_at(0xcfa9)
+            selection = self.emulator.vba.read_memory_at(0xcfa9)
 
         # press to choose the attack
-        self.vba.press("a", hold=hold, after=after)
+        self.emulator.vba.press("a", hold=hold, after=after)
 
     def fight(self, move_number):
         """
