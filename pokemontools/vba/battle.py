@@ -38,7 +38,7 @@ class Battle(EmulatorController):
         """
         Detects if the battle is waiting for player input.
         """
-        return self.is_player_turn() or self.is_mandatory_switch() or self.is_switch_prompt()
+        return self.is_player_turn() or self.is_mandatory_switch() or self.is_switch_prompt() or self.is_levelup_screen()
 
     def is_fight_pack_run_menu(self):
         """
@@ -224,17 +224,17 @@ class Battle(EmulatorController):
         """
         Detects the levelup stats screen.
         """
-        requirements = [
-            "ATTACK ",
-            "DEFENSE ",
-            "SPCL.ATK ",
-            "SPCL.DEF ",
-            "SPEED ",
-        ]
+        # This is implemented as reading some text on the screen instead of
+        # using get_text() because checking every loop is really slow.
 
-        screen_text = self.emulator.get_text()
+        address = 0xc50f
+        values = [146, 143, 130, 139]
 
-        return all([requirement in screen_text for requirement in requirements])
+        for (index, value) in enumerate(values):
+            if self.emulator.vba.read_memory_at(address + index) != value:
+                return False
+        else:
+            return True
 
     def skip_start_text(self, max_loops=20):
         """
