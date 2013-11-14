@@ -718,14 +718,14 @@ class crystal(object):
         self.vba.write_memory_at(0xd8dc, 5)
         self.vba.write_memory_at(0xd8dd, 99)
 
-    def get_text(self, chars=chars):
+    def get_text(self, chars=chars, offset=0, bounds=1000):
         """
         Returns alphanumeric text on the screen.
 
         Other characters will not be shown.
         """
         output = ""
-        tiles = self.vba.memory[0xc4a0:0xc4a0 + 1000]
+        tiles = self.vba.memory[0xc4a0 + offset:0xc4a0 + offset + bounds]
         for each in tiles:
             if each in chars.keys():
                 thing = chars[each]
