@@ -462,16 +462,17 @@ class crystal(object):
                 # date/time box (day choice)
                 # 0x47ab is the one from the intro, 0x49ab is the one from mom.
                 elif 0x47ab in stack or 0x49ab in stack: # was any([x in stack for x in range(0x46EE, 0x47AB)])
-                    print "probably at a date/time box ? exiting."
-                    break
+                    # if not in battle
+                    if self.vba.read_memory_at(0xd22d) == 0:
+                        print "probably at a date/time box ? exiting."
+                        break
 
                 # "How many minutes?" selection box
                 elif 0x4826 in stack:
                     print "probably at a \"How many minutes?\" box ? exiting."
                     break
 
-                else:
-                    self.vba.step(count=step_size)
+                self.vba.step(count=step_size)
 
             # if there is a callback, then call the callback and exit when the
             # callback returns True. This is especially useful during the
