@@ -1453,6 +1453,19 @@ def png_to_lz(filein):
 
 
 
+def convert_2bpp_to_1bpp(data):
+    """
+    Convert planar 2bpp image data to 1bpp. Assume images are two colors.
+    """
+    return data[::2]
+
+def convert_1bpp_to_2bpp(data):
+    """
+    Convert 1bpp image data to planar 2bpp (black/white).
+    """
+    return type(data)(byte for byte in data for _ in (0, 1))
+
+
 
 def mass_to_png(debug=False):
     # greyscale
