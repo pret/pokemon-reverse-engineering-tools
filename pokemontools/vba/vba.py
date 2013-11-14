@@ -1130,6 +1130,8 @@ class crystal(object):
         if not wram:
             self.inject_script_into_rom(asm=script, wram_address=address)
         else:
+            # TODO: move this into a separate function. Maybe use a context
+            # manager to restore wram at the end.
             mem = list(self.vba.memory)
             backup_wram = mem[address : address + len(script)]
             mem[address : address + len(script)] = script
