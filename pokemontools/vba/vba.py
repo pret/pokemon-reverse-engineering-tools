@@ -634,7 +634,7 @@ class crystal(object):
             "Use next POKMON?",
         ]
 
-        return all([requirement in text for requirement in requirements])
+        return all([requirement in screen_text for requirement in requirements])
 
     def is_switch_prompt(self):
         """
