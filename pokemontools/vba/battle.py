@@ -99,6 +99,80 @@ class Battle(EmulatorController):
         if execute:
             self.vba.press(a, hold=5, after=100)
 
+    def select_attack(self, move_number=1, hold=5, after=10):
+        """
+        Moves the cursor to the correct attack in the menu and presses the
+        button.
+
+        :param move_number: the attack number on the FIGHT menu. Note that this
+        starts from 1.
+        :param hold: how many frames to hold each button press
+        :param after: how many frames to wait after each button press
+        """
+        # TODO: detect fight menu and make sure it's detected here.
+
+        pp_address = 0xc634 + (move_number - 1)
+        pp = self.vba.read_memory_at(pp_address)
+
+        # detect zero pp because i don't want to write a way to inform the
+        # caller that there was no more pp. Just check the pp yourself.
+        if pp == 0:
+            raise BattleException(
+                "Move {num} has no more PP.".format(
+                    num=move_number,
+                )
+            )
+
+        valid_selection_states = (1, 2, 3, 4)
+
+        selection = self.vba.read_memory_at(0xcfa9)
+
+        while selection != move_number:
+            if selection not in valid_selection_states:
+                raise BattleException(
+                    "The current selected attack is out of bounds: {num}".format(
+                        num=selection,
+                    )
+                )
+
+            direction = None
+
+            if selection > move_number:
+                direction = "d"
+            elif selection < move_number:
+                direction = "u"
+            else:
+                # probably never happens
+                raise BattleException(
+                    "Not sure what to do here."
+                )
+
+            # press the arrow button
+            self.vba.press(direction, hold=hold, after=after)
+
+            # let's see what the current selection is
+            selection = self.vba.read_memory_at(0xcfa9)
+
+        # press to choose the attack
+        self.vba.press("a", hold=hold, after=after)
+
+    def fight(self, move_number):
+        """
+        Select FIGHT from the flight-pack-run menu and select the move
+        identified by move_number.
+        """
+        # make sure the menu is detected
+        if not self.is_fight_pack_run_menu():
+            raise BattleException(
+                "Wrong menu. Can't press FIGHT here."
+            )
+
+        # select FIGHT
+        self.select_battle_menu_action("fight")
+
+        # select the requested attack
+        self.select_attack(move_number)
+
     def is_player_turn(self):
         """
         Detects if the battle is waiting for the player to choose an attack.
