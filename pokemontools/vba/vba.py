@@ -462,16 +462,16 @@ class crystal(object):
                 # date/time box (day choice)
                 # 0x47ab is the one from the intro, 0x49ab is the one from mom.
                 elif 0x47ab in stack or 0x49ab in stack: # was any([x in stack for x in range(0x46EE, 0x47AB)])
-                    print "probably at a date/time box ? exiting."
-                    break
+                    if not self.is_in_battle():
+                        print "probably at a date/time box ? exiting."
+                        break
 
                 # "How many minutes?" selection box
                 elif 0x4826 in stack:
                     print "probably at a \"How many minutes?\" box ? exiting."
                     break
 
-                else:
-                    self.vba.step(count=step_size)
+                self.vba.step(count=step_size)
 
             # if there is a callback, then call the callback and exit when the
             # callback returns True. This is especially useful during the
@@ -522,6 +522,13 @@ class crystal(object):
         """
         self.vba.write_memory_at(0xd216, 0)
         self.vba.write_memory_at(0xd217, 1)
+
+    def set_battle_mon_hp(self, hp):
+        """
+        Set the BattleMonHP variable to the given hp.
+        """
+        self.vba.write_memory_at(0xc63c, hp / 0x100)
+        self.vba.write_memory_at(0xc63c + 1, hp % 0x100)
 
     def nstep(self, steplimit=500):
         """
@@ -592,6 +599,50 @@ class crystal(object):
     def is_in_link_battle(self):
         return self.vba.read_memory_at(0xc2dc) != 0
 
+    def is_trainer_switch_prompt(self):
+        """
+        Checks if the game is currently displaying the yes/no prompt for
+        whether or not to switch pokemon. This happens when the trainer is
+        switching pokemon out.
+        """
+        # TODO: this method should return False if the game options have been
+        # set to not use the battle switching style.
+
+        # get on-screen text
+        text = self.get_text()
+
+        requirements = [
+            "YES",
+            "NO",
+            "Will ",
+            "change POKMON?",
+        ]
+
+        return all([requirement in text for requirement in requirements])
+
+    def is_wild_switch_prompt(self):
+        """
+        Detects if the battle is waiting for the player to choose whether or
+        not to continue to fight the wild pokemon.
+        """
+        # get on-screen text
+        screen_text = self.get_text()
+
+        requirements = [
+            "YES",
+            "NO",
+            "Use next POKMON?",
+        ]
+
+        return all([requirement in screen_text for requirement in requirements])
+
+    def is_switch_prompt(self):
+        """
+        Detects both the trainer-style switch prompt and the wild-style switch
+        prompt. This is the yes/no prompt for whether to switch pokemon.
+        """
+        return self.is_trainer_switch_prompt() or self.is_wild_switch_prompt()
+
     def unlock_flypoints(self):
         """
         Unlocks different destinations for flying.
@@ -603,6 +654,12 @@ class crystal(object):
         self.vba.write_memory_at(0xDCA6, 0xFF)
         self.vba.write_memory_at(0xDCA7, 0xFF)
         self.vba.write_memory_at(0xDCA8, 0xFF)
+
+    def set_battle_type(self, battle_type):
+        """
+        Changes the battle type value.
+        """
+        self.vba.write_memory_at(0xd230, battle_type)
 
     def get_gender(self):
         """
@@ -661,14 +718,14 @@ class crystal(object):
         self.vba.write_memory_at(0xd8dc, 5)
         self.vba.write_memory_at(0xd8dd, 99)
 
-    def get_text(self, chars=chars):
+    def get_text(self, chars=chars, offset=0, bounds=1000):
         """
         Returns alphanumeric text on the screen.
 
         Other characters will not be shown.
         """
         output = ""
-        tiles = self.vba.memory[0xc4a0:0xc4a0 + 1000]
+        tiles = self.vba.memory[0xc4a0 + offset:0xc4a0 + offset + bounds]
         for each in tiles:
             if each in chars.keys():
                 thing = chars[each]
