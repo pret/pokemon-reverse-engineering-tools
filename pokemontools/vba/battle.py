@@ -38,7 +38,7 @@ class Battle(EmulatorController):
         """
         Detects if the battle is waiting for player input.
         """
-        return self.is_player_turn() or self.is_mandatory_switch() or self.is_switch_prompt() or self.is_levelup_screen()
+        return self.is_player_turn() or self.is_mandatory_switch() or self.is_switch_prompt() or self.is_levelup_screen() or self.is_make_room_for_move_prompt()
 
     def is_fight_pack_run_menu(self):
         """
@@ -340,6 +340,9 @@ class Battle(EmulatorController):
             # but also, jump out if it's the stats screen
             result = result or self.is_levelup_screen()
 
+            # jump out if it's the "make room for a new move" screen
+            result = result or self.is_make_room_for_move_prompt()
+
             # stay in text_wait if it's the evolution screen
             result = result and not self.is_evolution_screen()
 
@@ -360,6 +363,9 @@ class Battle(EmulatorController):
         #   2) the battle has already started but there's initial text
         # xyz wants to battle, a wild foobar appeared
         self.skip_start_text()
+
+        # skip a few hundred frames
+        self.emulator.vba.step(count=100)
 
         wild = (self.emulator.vba.read_memory_at(0xd22d) == 1)
 
@@ -383,6 +389,8 @@ class Battle(EmulatorController):
                 self.emulator.vba.press("a", hold=5, after=30)
             elif self.is_evolved_screen():
                 self.emulator.vba.step(count=30)
+            elif self.is_make_room_for_move_prompt():
+                self.handle_make_room_for_move()
             else:
                 raise BattleException("unknown state, aborting")
 
@@ -450,6 +458,12 @@ class BattleStrategy(Battle):
         """
         raise NotImplementedError
 
+    def handle_make_room_for_move(self):
+        """
+        Choose yes/no then handle learning the move.
+        """
+        raise NotImplementedError
+
 class SpamBattleStrategy(BattleStrategy):
     """
     A really simple battle strategy that always picks the first move of the
@@ -493,3 +507,15 @@ class SpamBattleStrategy(BattleStrategy):
 
         # select this mon
         self.emulator.vba.press("a", hold=5, after=30)
+
+    def handle_make_room_for_move(self):
+        """
+        Choose yes/no then handle learning the move.
+        """
+        # make room? no
+        self.emulator.vba.press("b", hold=5, after=100)
+
+        # stop learning? yes
+        self.emulator.vba.press("a", hold=5, after=20)
+
+        self.emulator.text_wait()
