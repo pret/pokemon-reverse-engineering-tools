@@ -365,6 +365,8 @@ class Battle(EmulatorController):
                 self.handle_mandatory_switch()
             elif self.is_levelup_screen():
                 self.emulator.vba.press("a", hold=5, after=30)
+            elif self.is_evolved_screen():
+                self.emulator.vba.step(count=30)
             else:
                 raise BattleException("unknown state, aborting")
 
