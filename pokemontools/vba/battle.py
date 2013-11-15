@@ -257,6 +257,26 @@ class Battle(EmulatorController):
             else:
                 return True
 
+    def is_evolved_screen(self):
+        """
+        Checks if the screen is the "evolved into METAPOD!" screen. Note that
+        this only works inside of a battle. This is because there may be other
+        text boxes that have the same text when outside of battle. But within a
+        battle, this is probably the only time the text "evolved into ... !" is
+        seen.
+        """
+        if not self.is_in_battle():
+            return False
+
+        address = 0x4bb1
+        values = [164, 181, 174, 171, 181, 164, 163, 127, 168, 173, 179, 174, 79]
+
+        for (index, value) in enumerate(values):
+            if self.emulator.vba.read_memory_at(address + index) != value:
+                return False
+        else:
+            return True
+
     def skip_start_text(self, max_loops=20):
         """
         Skip any initial conversation until the player can select an action.
