@@ -277,6 +277,22 @@ class Battle(EmulatorController):
         else:
             return True
 
+    def is_make_room_for_move_prompt(self):
+        """
+        Detects the prompt that asks whether to make room for a move.
+        """
+        if not self.is_in_battle():
+            return False
+
+        address = 0xc5b9
+        values = [172, 174, 181, 164, 127, 179, 174, 127, 172, 160, 170, 164, 127, 177, 174, 174, 172]
+
+        for (index, value) in enumerate(values):
+            if self.emulator.vba.read_memory_at(address + index) != value:
+                return False
+        else:
+            return True
+
     def skip_start_text(self, max_loops=20):
         """
         Skip any initial conversation until the player can select an action.
