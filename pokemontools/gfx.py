@@ -1321,133 +1321,149 @@ def to_png(filein, fileout=None, pal_file=None, height=None, width=None):
         w.write(file, map)
 
 
+def export_png_to_2bpp(filein, fileout=None, palout=None):
+    image, palette = png_to_2bpp(filein)
+
+    if fileout == None:
+        fileout = os.path.splitext(filein)[0] + '.2bpp'
+    to_file(fileout, image)
+
+    if palout == None:
+        palout = os.path.splitext(fileout)[0] + '.pal'
+    export_palette(palette, palout)
 
 
-def to_2bpp(filein, fileout=None, palout=None):
+def get_image_padding(width, height, wstep=8, hstep=8):
+
+    padding = {
+        'left':   0,
+        'right':  0,
+        'top':    0,
+        'bottom': 0,
+    }
+
+    if width % wstep:
+       pad = float(width % wstep) / 2
+       padding['left']   = int(ceil(pad))
+       padding['right']  = int(floor(pad))
+
+    if height % hstep:
+       pad = float(height % hstep) / 2
+       padding['top']    = int(ceil(pad))
+       padding['bottom'] = int(floor(pad))
+
+    return padding
+
+
+def png_to_2bpp(filein):
     """
-    Take a png and converts it to planar 2bpp.
+    Convert a png image to planar 2bpp.
     """
 
-    if fileout == None: fileout = '.'.join(filein.split('.')[:-1]) + '.2bpp'
+    with open(filein, 'rb') as data:
+        width, height, rgba, info = png.Reader(data).asRGBA8()
+        rgba = list(rgba)
+        greyscale = info['greyscale']
 
-    with open(filein, 'rb') as file:
-
-        r = png.Reader(file)
-        info  = r.asRGBA8()
-
-        width     = info[0]
-        height    = info[1]
-
-        rgba      = list(info[2])
-        greyscale = info[3]['greyscale']
-
-
-    padding = { 'left':   0,
-                'right':  0,
-                'top':    0,
-                'bottom': 0, }
-    #if width  % 8 != 0:
-    #   padding['left']   =    int(ceil((width / 8 + 8 - width) / 2))
-    #   padding['right']  =   int(floor((width / 8 + 8 - width) / 2))
-    #if height % 8 != 0:
-    #   padding['top']    =  int(ceil((height / 8 + 8 - height) / 2))
-    #   padding['bottom'] = int(floor((height / 8 + 8 - height) / 2))
-
-
-    # turn the flat values into something more workable
-
-    pixel_length = 4 # rgba
-    image = []
-
-    # while we're at it, let's size up the palette
-
+    # png.Reader returns flat pixel data. Nested is easier to work with
+    len_px  = 4 # rgba
+    image   = []
     palette = []
-
     for line in rgba:
         newline = []
-        for pixel in range(len(line)/pixel_length):
-            i = pixel * pixel_length
-            color = { 'r': line[i  ],
-                      'g': line[i+1],
-                      'b': line[i+2],
-                      'a': line[i+3], }
+        for px in xrange(0, len(line), len_px):
+            color = { 'r': line[px  ],
+                      'g': line[px+1],
+                      'b': line[px+2],
+                      'a': line[px+3], }
             newline += [color]
-            if color not in palette: palette += [color]
-        image.append(newline)
+            if color not in palette:
+                palette += [color]
+        image += [newline]
 
-    # pad out any small palettes
+    assert len(palette) <= 4, 'Palette should be 4 colors, is really %d' % len(palette)
+
+    # Pad out smaller palettes with greyscale colors
     hues = {
         'white': { 'r': 0xff, 'g': 0xff, 'b': 0xff, 'a': 0xff },
         'black': { 'r': 0x00, 'g': 0x00, 'b': 0x00, 'a': 0xff },
         'grey':  { 'r': 0x55, 'g': 0x55, 'b': 0x55, 'a': 0xff },
         'gray':  { 'r': 0xaa, 'g': 0xaa, 'b': 0xaa, 'a': 0xff },
     }
-    while len(palette) < 4:
-        for hue in hues.values():
-            if not any(color is hue for color in palette):
-                palette += [hue]
-                if len(palette) >= 4: break
+    for hue in hues.values():
+        if len(palette) >= 4:
+            break
+        if hue not in palette:
+            palette += [hue]
 
-    assert len(palette) <= 4, 'Palette should be 4 colors, is really ' + str(len(palette))
-
-    # sort by luminance
+    # Sort palettes by luminance
     def luminance(color):
-        # this is actually in reverse, thanks to dmg/cgb palette ordering
         rough = { 'r':  4.7,
                   'g':  1.4,
                   'b': 13.8, }
-        return sum(color[key] * -rough[key] for key in rough.keys())
-    palette = sorted(palette, key=luminance)
+        return sum(color[key] * rough[key] for key in rough.keys())
+    palette.sort(key=luminance)
 
-    # spit out a new .pal file
-    # disable this if it causes problems with paletteless images
-    if palout == None:
-        if os.path.exists(os.path.splitext(fileout)[0]+'.pal'):
-            palout = os.path.splitext(fileout)[0]+'.pal'
-    if palout != None:
+    # Game Boy palette order
+    palette.reverse()
+
+    # Map pixels to quaternary color ids
+    padding = get_image_padding(width, height)
+    width += padding['left'] + padding['right']
+    height += padding['top'] + padding['bottom']
+    pad = [0]
+
+    qmap = []
+    qmap += pad * width * padding['top']
+    for line in image:
+        qmap += pad * padding['left']
+        for color in line:
+            qmap += [palette.index(color)]
+        qmap += pad * padding['right']
+    qmap += pad * width * padding['bottom']
+
+    # Graphics are stored in tiles instead of lines
+    tile_width  = 8
+    tile_height = 8
+    num_columns = width / tile_width
+    num_rows = height / tile_height
+    image = []
+
+    for row in xrange(num_rows):
+        for column in xrange(num_columns):
+
+            # Split it up into strips to convert to planar data
+            for strip in xrange(tile_height):
+                anchor = (
+                    row * num_columns * tile_width * tile_height +
+                    column * tile_width +
+                    strip * width
+                )
+                line = qmap[anchor : anchor + tile_width]
+                bottom, top = 0, 0
+                for bit, quad in enumerate(line):
+                    bottom += (quad & 1) << (7 - bit)
+                    top += (quad /2 & 1) << (7 - bit)
+                image += [bottom, top]
+
+    return image, palette
+
+
+def export_palette(palette, filename):
+    if os.path.exists(filename):
         output = []
         for color in palette:
             word = rgb_to_dmg(color)
             output += [word & 0xff]
             output += [word >> 8]
-        to_file(palout, output)
-
-    # create a new map of quaternary color ids
-    map = []
-    if padding['top']: map += [0] * (width + padding['left'] + padding['right']) * padding['top']
-    for line in image:
-        if padding['left']: map += [0] * padding['left']
-        for color in line:
-            map.append(palette.index(color))
-        if padding['right']: map += [0] * padding['right']
-    if padding['bottom']: map += [0] * (width + padding['left'] + padding['right']) * padding['bottom']
-
-    # split it into strips of 8, and make them planar
-    num_columns = width / 8
-    num_rows = height / 8
-    tile = 8 * 8
-    image = []
-    for row in range(num_rows):
-        for column in range(num_columns):
-            for strip in range(tile / 8):
-                anchor = row*num_columns*tile + column*tile/8 + strip*width
-                line   = map[anchor:anchor+8]
-                bottom = 0
-                top    = 0
-                for bit, quad in enumerate(line):
-                    bottom += (quad & 1) << (7-bit)
-                    top    += ((quad & 2) >> 1) << (7-bit)
-                image.append(bottom)
-                image.append(top)
-
-    to_file(fileout, image)
+        to_file(filename, output)
 
 
 def png_to_lz(filein):
 
     name = os.path.splitext(filein)[0]
 
-    to_2bpp(filein)
+    export_png_to_2bpp(filein)
     image = open(name+'.2bpp', 'rb').read()
     to_file(name+'.lz', Compressed(image).output)
 
@@ -1639,21 +1655,21 @@ if __name__ == "__main__":
             # front.2bpp and tiles.2bpp are combined before compression,
             # so we have to pass in the anim file and pic size
             name = os.path.splitext(argv[4])[0]
-            to_2bpp(name+'.png', name+'.2bpp')
+            export_png_to_2bpp(name+'.png', name+'.2bpp')
             pic  = open(name+'.2bpp', 'rb').read()
             anim = open(argv[3], 'rb').read()
             size = int(sqrt(len(pic)/16)) # assume square pic
             to_file(name+'.lz', Compressed(pic + anim, 'vert', size).output)
         elif argv[2] == '--vert':
             name = os.path.splitext(argv[3])[0]
-            to_2bpp(name+'.png', name+'.2bpp')
+            export_png_to_2bpp(name+'.png', name+'.2bpp')
             pic = open(name+'.2bpp', 'rb').read()
             to_file(name+'.lz', Compressed(pic, 'vert').output)
         else:
             png_to_lz(argv[2])
 
     elif argv[1] == 'png-to-2bpp':
-        to_2bpp(argv[2])
+        export_png_to_2bpp(argv[2])
 
     elif argv[1] == '2bpp-to-lz':
         if argv[2] == '--vert':
