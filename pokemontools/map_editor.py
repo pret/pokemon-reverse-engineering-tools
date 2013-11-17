@@ -6,8 +6,8 @@ from ttk import Frame, Style
 import PIL
 from PIL import Image, ImageTk
 
-import config
-conf = config.Config()
+import configuration
+conf = configuration.Config()
 
 
 #version = 'crystal'
