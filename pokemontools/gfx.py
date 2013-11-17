@@ -10,6 +10,7 @@ config = configuration.Config()
 
 import pokemon_constants
 import trainers
+import romstr
 
 if __name__ != "__main__":
     rom = romstr.RomStr(filename=config.rom_path)
