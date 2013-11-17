@@ -209,7 +209,7 @@ class Channel:
 		for class_ in sound_classes:
 			if class_.id == i:
 				return class_
-		if self.channel in [4. 8]: return Noise
+		if self.channel in [4, 8]: return Noise
 		return Note
 
 
