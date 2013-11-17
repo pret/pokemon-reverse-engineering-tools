@@ -9,6 +9,8 @@ from PIL import Image, ImageTk
 import configuration
 conf = configuration.Config()
 
+from preprocessor import separate_comment
+import gfx
 
 #version = 'crystal'
 version = 'red'
@@ -368,7 +370,6 @@ class Tileset:
     def get_tiles(self):
         filename = self.get_tileset_gfx_filename()
         if not os.path.exists(filename):
-            import gfx
             gfx.to_png(filename.replace('.png','.2bpp'), filename)
         self.img = Image.open(filename)
         self.img.width, self.img.height = self.img.size
@@ -626,7 +627,6 @@ def db_values(line):
     return macro_values(line, macro)
 
 
-from preprocessor import separate_comment
 
 def asm_at_label(asm, label):
     label_def = label + ':'
