@@ -5,12 +5,15 @@ import sys
 import png
 from math import sqrt, floor, ceil
 
-import crystal
+import configuration
+config = configuration.Config()
+
 import pokemon_constants
 import trainers
+import romstr
 
 if __name__ != "__main__":
-    rom = crystal.load_rom()
+    rom = romstr.RomStr(filename=config.rom_path)
 
 def hex_dump(input, debug=True):
     """
