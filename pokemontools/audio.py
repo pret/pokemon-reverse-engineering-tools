@@ -8,14 +8,19 @@ from gbz80disasm import get_global_address, get_local_address
 
 import crystal
 from crystal import music_classes as sound_classes
-from crystal import Command
 
-from crystal import load_rom
+from crystal import (
+    Command,
+    SingleByteParam,
+    MultiByteParam,
+    load_rom,
+)
+
 rom = load_rom()
 rom = bytearray(rom)
 
-import config
-conf = config.Config()
+import configuration
+conf = configuration.Config()
 
 
 def sort_asms(asms):
