@@ -13,6 +13,7 @@ from Tkinter import (
     LEFT,
     Y,
     X,
+    TclError,
 )
 
 import ttk
