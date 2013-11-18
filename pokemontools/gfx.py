@@ -1226,7 +1226,8 @@ def convert_2bpp_to_png(image, width=0, height=0, pal_file=None):
             if w * h == num_pixels:
                 matches += [(w, h)]
         # go for the most square image
-        width, height = sorted(matches, key= lambda (w, h): w + h)[0] # favor height
+        if len(matches):
+            width, height = sorted(matches, key= lambda (w, h): w + h)[0] # favor height
 
     # if it still isn't rectangular then the image isn't made of tiles
     if width * height != num_pixels:
@@ -1408,8 +1409,25 @@ def convert_1bpp_to_2bpp(data):
     """
     Convert 1bpp image data to planar 2bpp (black/white).
     """
-    return type(data)(byte for byte in data for _ in (0, 1))
+    output = []
+    for i in data:
+        output += [i, i]
+    return output
 
+
+def export_1bpp_to_png(filename, fileout=None):
+
+    if fileout == None:
+        fileout = os.path.splitext(filename)[0] + '.png'
+
+    image = open(filename, 'rb').read()
+    image = convert_1bpp_to_2bpp(image)
+
+    width, height, palette, greyscale, bitdepth, px_map = convert_2bpp_to_png(image)
+
+    w = png.Writer(width, height, palette=palette, compression=9, greyscale=greyscale, bitdepth=bitdepth)
+    with open(fileout, 'wb') as f:
+        w.write(f, px_map)
 
 
 def mass_to_png(debug=False):
@@ -1428,6 +1446,9 @@ def mass_to_colored_png(debug=False):
                 if debug: print os.path.splitext(name), os.path.join(root, name)
                 if os.path.splitext(name)[1] == '.2bpp':
                     export_2bpp_to_png(os.path.join(root, name))
+                    os.utime(os.path.join(root, name), None)
+                elif os.path.splitext(name)[1] == '.1bpp':
+                    export_1bpp_to_png(os.path.join(root, name))
                     os.utime(os.path.join(root, name), None)
 
     # only monster and trainer pics for now
