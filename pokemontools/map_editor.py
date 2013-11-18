@@ -1,4 +1,6 @@
 import os
+import sys
+import logging
 
 from Tkinter import (
     Tk,
@@ -23,6 +25,18 @@ config = configuration.Config()
 
 from preprocessor import separate_comment
 import gfx
+
+def setup_logging():
+    """
+    Temporary function that configures logging to go straight to console.
+    """
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    console = logging.StreamHandler(sys.stdout)
+    console.setLevel(logging.DEBUG)
+    console.setFormatter(formatter)
+    root = logging.getLogger()
+    root.addHandler(console)
+    root.setLevel(logging.DEBUG)
 
 def configure_for_pokered(config=config):
     """
@@ -110,6 +124,7 @@ def get_constants(config=config):
 class Application(Frame):
     def __init__(self, master=None, config=config):
         self.config = config
+        self.log = logging.getLogger("{0}.{1}".format(self.__class__.__name__, id(self)))
         self.display_connections = False
         Frame.__init__(self, master)
         self.grid()
@@ -171,11 +186,11 @@ class Application(Frame):
             if self.map.blockdata_filename:
                 with open(self.map.blockdata_filename, 'wb') as save:
                     save.write(self.map.blockdata)
-                print 'blockdata saved as %s' % self.map.blockdata_filename
+                self.log.info('blockdata saved as {}'.format(self.map.blockdata_filename))
             else:
-                print 'dunno how to save this'
+                self.log.info('dunno how to save this')
         else:
-            print 'nothing to save'
+            self.log.info('nothing to save')
 
     def init_map(self):
         if hasattr(self, 'map'):
@@ -287,6 +302,7 @@ class Map:
         self.name = name
 
         self.config = config
+        self.log = logging.getLogger("{0}.{1}".format(self.__class__.__name__, id(self)))
 
         self.blockdata_filename = blockdata_filename
         if not self.blockdata_filename and self.name:
@@ -380,6 +396,7 @@ class Map:
 class Tileset:
     def __init__(self, tileset_id=0, config=config):
         self.config = config
+        self.log = logging.getLogger("{0}.{1}".format(self.__class__.__name__, id(self)))
 
         self.id = tileset_id
 
@@ -403,10 +420,10 @@ class Tileset:
         if self.config.version == 'red':
             tileset_defs = open(os.path.join(self.config.path, 'main.asm'), 'r').read()
             incbin = asm_at_label(tileset_defs, 'Tset%.2X_GFX' % self.id)
-            print incbin
+            self.log.debug(incbin)
             filename = read_header_macros(incbin, ['filename'], ['INCBIN'])[0][0].replace('"','').replace('.2bpp','.png')
             filename = os.path.join(self.config.path, filename)
-            print filename
+            self.log.debug(filename)
 
         if not filename:
             filename = os.path.join(
@@ -702,6 +719,7 @@ def main(config=config):
         pass
 
 if __name__ == "__main__":
+    setup_logging()
     config = configure_for_version("crystal", config)
     get_constants(config=config)
     main(config=config)
