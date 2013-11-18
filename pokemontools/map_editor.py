@@ -87,12 +87,13 @@ def configure_for_version(version, config=config):
     return config
 
 def get_constants(config=config):
+    constants = {}
     lines = open(config.constants_filename, 'r').readlines()
     for line in lines:
         if ' EQU ' in line:
             name, value = [s.strip() for s in line.split(' EQU ')]
-            globals()[name] = eval(value.split(';')[0].replace('$','0x').replace('%','0b'))
-
+            constants[name] = eval(value.split(';')[0].replace('$','0x').replace('%','0b'))
+    config.constants = constants
 
 class Application(Frame):
     def __init__(self, master=None, config=config):
@@ -255,13 +256,13 @@ class Application(Frame):
             if direction in ['north', 'south']:
                 x1 = 0
                 y1 = 0
-                x2 = x1 + eval(self.map.connections[direction]['strip_length'])
+                x2 = x1 + eval(self.map.connections[direction]['strip_length'], self.config.constants)
                 y2 = y1 + 3
             else: # east, west
                 x1 = 0
                 y1 = 0
                 x2 = x1 + 3
-                y2 = y1 + eval(self.map.connections[direction]['strip_length'])
+                y2 = y1 + eval(self.map.connections[direction]['strip_length'], self.config.constants)
 
             self.connections[direction].crop(x1, y1, x2, y2)
             self.connections[direction].init_canvas(self.map_frame)
@@ -297,10 +298,10 @@ class Map:
             self.events = event_header(self.asm, self.name)
             self.scripts = script_header(self.asm, self.name)
 
-            self.tileset_id = eval(self.tileset_id)
+            self.tileset_id = eval(self.tileset_id, self.config.constants)
 
-            self.width = eval(self.width)
-            self.height = eval(self.height)
+            self.width = eval(self.width, self.config.constants)
+            self.height = eval(self.height, self.config.constants)
 
         else:
             self.width = width
