@@ -1,5 +1,8 @@
 -e git://github.com/drj11/pypng.git@master#egg=pypng
 
+# for the map editor
+PIL
+
 # testing
 mock
 
