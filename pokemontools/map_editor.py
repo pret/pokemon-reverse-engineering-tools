@@ -149,10 +149,10 @@ class Application(Frame):
         self.picker_frame = Frame(self)
         self.picker_frame.grid(row=1, column=1)
 
-        self.new = Button(self.button_frame)
-        self.new["text"] = "New"
-        self.new["command"] = self.new_map
-        self.new.grid(row=0, column=0, padx=2)
+        self.button_new = Button(self.button_frame)
+        self.button_new["text"] = "New"
+        self.button_new["command"] = self.new_map
+        self.button_new.grid(row=0, column=0, padx=2)
 
         self.open = Button(self.button_frame)
         self.open["text"] = "Open"
