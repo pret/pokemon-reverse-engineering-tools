@@ -1,6 +1,18 @@
 import os
 
-from Tkinter import *
+from Tkinter import (
+    Tk,
+    Button,
+    Canvas,
+    Scrollbar,
+    VERTICAL,
+    HORIZONTAL,
+    RIGHT,
+    LEFT,
+    Y,
+    X,
+)
+
 import ttk
 from ttk import Frame, Style
 import PIL
