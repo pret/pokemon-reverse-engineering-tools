@@ -7,62 +7,96 @@ import PIL
 from PIL import Image, ImageTk
 
 import configuration
-conf = configuration.Config()
+config = configuration.Config()
 
 from preprocessor import separate_comment
 import gfx
 
-#version = 'crystal'
-version = 'red'
+def configure_for_pokered(config=config):
+    """
+    Sets default configuration values for pokered. These should eventually be
+    moved into the configuration module.
+    """
+    attrs = {
+        "version": "red",
 
-if version == 'crystal':
-    map_dir = os.path.join(conf.path, 'maps/')
-    gfx_dir = os.path.join(conf.path, 'gfx/tilesets/')
-    to_gfx_name = lambda x : '%.2d' % x
-    block_dir = os.path.join(conf.path, 'tilesets/')
-    block_ext = '_metatiles.bin'
+        "map_dir": os.path.join(config.path, 'maps/'),
+        "gfx_dir": os.path.join(config.path, 'gfx/tilesets/'),
+        "to_gfx_name": lambda x : '%.2x' % x,
+        "block_dir": os.path.join(config.path, 'gfx/blocksets/'),
+        "block_ext": '.bst',
 
-    palettes_on = True
-    palmap_dir = os.path.join(conf.path, 'tilesets/')
-    palette_dir = os.path.join(conf.path, 'tilesets/')
+        "palettes_on": False,
 
-    asm_dir = os.path.join(conf.path, 'maps/')
+        "asm_path": os.path.join(config.path, 'main.asm'),
 
-    constants_dir = os.path.join(conf.path, 'constants/')
-    constants_filename = os.path.join(constants_dir, 'map_constants.asm')
+        "constants_filename": os.path.join(config.path, 'constants.asm'),
 
-    header_dir = os.path.join(conf.path, 'maps/')
+        "header_path": os.path.join(config.path, 'main.asm'),
 
-elif version == 'red':
-    map_dir = os.path.join(conf.path, 'maps/')
-    gfx_dir = os.path.join(conf.path, 'gfx/tilesets/')
-    to_gfx_name = lambda x : '%.2x' % x
-    block_dir = os.path.join(conf.path, 'gfx/blocksets/')
-    block_ext = '.bst'
+        "time_of_day": 1,
+    }
+    return attrs
 
-    palettes_on = False
+def configure_for_pokecrystal(config=config):
+    """
+    Sets default configuration values for pokecrystal. These should eventually
+    be moved into the configuration module.
+    """
+    attrs = {
+        "version": "crystal",
 
-    asm_path = os.path.join(conf.path, 'main.asm')
+        "map_dir": os.path.join(config.path, 'maps/'),
+        "gfx_dir": os.path.join(config.path, 'gfx/tilesets/'),
+        "to_gfx_name": lambda x : '%.2d' % x,
+        "block_dir": os.path.join(config.path, 'tilesets/'),
+        "block_ext": '_metatiles.bin',
 
-    constants_filename = os.path.join(conf.path, 'constants.asm')
+        "palettes_on": True,
+        "palmap_dir": os.path.join(config.path, 'tilesets/'),
+        "palette_dir": os.path.join(config.path, 'tilesets/'),
 
-    header_path = os.path.join(conf.path, 'main.asm')
+        "asm_dir": os.path.join(config.path, 'maps/'),
 
-else:
-    raise Exception, 'version must be "crystal" or "red"'
+        "constants_filename": os.path.join(os.path.join(config.path, "constants/"), 'map_constants.asm'),
 
+        "header_dir": os.path.join(config.path, 'maps/'),
 
-def get_constants():
-    lines = open(constants_filename, 'r').readlines()
+        "time_of_day": 1,
+    }
+    return attrs
+
+def configure_for_version(version, config=config):
+    """
+    Overrides default values from the configuration with additional attributes.
+    """
+    if version == "red":
+        attrs = configure_for_pokered(config)
+    elif version == "crystal":
+        attrs = configure_for_pokecrystal(config)
+    else:
+        # TODO: pick a better exception
+        raise Exception(
+            "Can't configure for this version."
+        )
+
+    for (key, value) in attrs.iteritems():
+        setattr(config, key, value)
+
+    # not really needed since it's modifying the same object
+    return config
+
+def get_constants(config=config):
+    lines = open(config.constants_filename, 'r').readlines()
     for line in lines:
         if ' EQU ' in line:
             name, value = [s.strip() for s in line.split(' EQU ')]
             globals()[name] = eval(value.split(';')[0].replace('$','0x').replace('%','0b'))
-get_constants()
 
 
 class Application(Frame):
-    def __init__(self, master=None):
+    def __init__(self, master=None, config=config):
+        self.config = config
         self.display_connections = False
         Frame.__init__(self, master)
         self.grid()
@@ -99,7 +133,7 @@ class Application(Frame):
 
 
     def get_map_list(self):
-        self.available_maps = sorted(m for m in get_available_maps())
+        self.available_maps = sorted(m for m in get_available_maps(config=self.config))
         self.map_list = ttk.Combobox(self.button_frame, height=24, width=24, values=self.available_maps)
         if len(self.available_maps):
             self.map_list.set(self.available_maps[0])
@@ -133,7 +167,7 @@ class Application(Frame):
     def init_map(self):
         if hasattr(self, 'map'):
             self.map.kill_canvas()
-        self.map = Map(self.map_frame, self.map_name)
+        self.map = Map(self.map_frame, self.map_name, config=self.config)
         self.init_map_connections()
 
     def draw_map(self):
@@ -145,7 +179,7 @@ class Application(Frame):
 
     def init_picker(self):
         
-        self.current_tile = Map(self.button_frame, tileset_id=self.map.tileset_id)
+        self.current_tile = Map(self.button_frame, tileset_id=self.map.tileset_id, config=self.config)
         self.current_tile.blockdata = [self.paint_tile]
         self.current_tile.width = 1
         self.current_tile.height = 1
@@ -155,7 +189,7 @@ class Application(Frame):
 
         if hasattr(self, 'picker'):
             self.picker.kill_canvas()
-        self.picker = Map(self, tileset_id=self.map.tileset_id)
+        self.picker = Map(self, tileset_id=self.map.tileset_id, config=self.config)
         self.picker.blockdata = range(len(self.picker.tileset.blocks))
         self.picker.width = 4
         self.picker.height = len(self.picker.blockdata) / self.picker.width
@@ -207,7 +241,7 @@ class Application(Frame):
             self.map.draw_block(block_x, block_y)
 
     def init_map_connections(self):
-        if not display_connections:
+        if not self.display_connections:
             return
         for direction in self.map.connections.keys():
             if direction in self.connections.keys():
@@ -216,7 +250,7 @@ class Application(Frame):
             if self.map.connections[direction] == {}:
                 self.connections[direction] = {}
                 continue
-            self.connections[direction] = Map(self, self.map.connections[direction]['map_name'])
+            self.connections[direction] = Map(self, self.map.connections[direction]['map_name'], config=self.config)
 
             if direction in ['north', 'south']:
                 x1 = 0
@@ -236,26 +270,28 @@ class Application(Frame):
 
 
 class Map:
-    def __init__(self, parent, name=None, width=20, height=20, tileset_id=2, blockdata_filename=None):
+    def __init__(self, parent, name=None, width=20, height=20, tileset_id=2, blockdata_filename=None, config=config):
         self.parent = parent
 
         self.name = name
 
+        self.config = config
+
         self.blockdata_filename = blockdata_filename
         if not self.blockdata_filename and self.name:
-            self.blockdata_filename = os.path.join(map_dir, self.name + '.blk')
+            self.blockdata_filename = os.path.join(self.config.map_dir, self.name + '.blk')
         elif not self.blockdata_filename:
             self.blockdata_filename = ''
 
         asm_filename = ''
         if self.name:
-            if 'asm_dir' in globals().keys():
-                asm_filename = os.path.join(asm_dir, self.name + '.asm')
-            elif 'asm_path' in globals().keys():
-                asm_filename = asm_path
+            if self.config.asm_dir is not None:
+                asm_filename = os.path.join(self.config.asm_dir, self.name + '.asm')
+            elif self.config.asm_path is not None:
+                asm_filename = self.config.asm_path
 
         if os.path.exists(asm_filename):
-            for props in [map_header(self.name), second_map_header(self.name)]:
+            for props in [map_header(self.name, config=self.config), second_map_header(self.name, config=self.config)]:
                 self.__dict__.update(props)
             self.asm = open(asm_filename, 'r').read()
             self.events = event_header(self.asm, self.name)
@@ -276,7 +312,7 @@ class Map:
         else:
             self.blockdata = []
 
-        self.tileset = Tileset(self.tileset_id)
+        self.tileset = Tileset(self.tileset_id, config=self.config)
 
     def init_canvas(self, parent=None):
         if parent == None:
@@ -331,7 +367,9 @@ class Map:
 
 
 class Tileset:
-    def __init__(self, tileset_id=0):
+    def __init__(self, tileset_id=0, config=config):
+        self.config = config
+
         self.id = tileset_id
 
         self.tile_width   = 8
@@ -341,7 +379,7 @@ class Tileset:
 
         self.alpha = 255
 
-        if palettes_on:
+        if self.config.palettes_on:
             self.get_palettes()
             self.get_palette_map()
 
@@ -351,18 +389,18 @@ class Tileset:
     def get_tileset_gfx_filename(self):
         filename = None
 
-        if version == 'red':
-            tileset_defs = open(os.path.join(conf.path, 'main.asm'), 'r').read()
+        if self.config.version == 'red':
+            tileset_defs = open(os.path.join(self.config.path, 'main.asm'), 'r').read()
             incbin = asm_at_label(tileset_defs, 'Tset%.2X_GFX' % self.id)
             print incbin
             filename = read_header_macros(incbin, ['filename'], ['INCBIN'])[0][0].replace('"','').replace('.2bpp','.png')
-            filename = os.path.join(conf.path, filename)
+            filename = os.path.join(self.config.path, filename)
             print filename
 
         if not filename:
             filename = os.path.join(
-                gfx_dir,
-                to_gfx_name(self.id) + '.png'
+                self.config.gfx_dir,
+                self.config.to_gfx_name(self.id) + '.png'
             )
 
         return filename
@@ -401,8 +439,8 @@ class Tileset:
 
     def get_blocks(self):
         filename = os.path.join(
-            block_dir,
-            to_gfx_name(self.id) + block_ext
+            self.config.block_dir,
+            self.config.to_gfx_name(self.id) + self.config.block_ext
         )
         self.blocks = []
         block_length = self.block_width * self.block_height
@@ -413,7 +451,7 @@ class Tileset:
 
     def get_palette_map(self):
         filename = os.path.join(
-            palmap_dir,
+            self.config.palmap_dir,
             str(self.id).zfill(2) + '_palette_map.bin'
         )
         self.palette_map = []
@@ -424,13 +462,12 @@ class Tileset:
 
     def get_palettes(self):
         filename = os.path.join(
-            palette_dir,
-            ['morn', 'day', 'nite'][time_of_day] + '.pal'
+            self.config.palette_dir,
+            ['morn', 'day', 'nite'][self.config.time_of_day] + '.pal'
         )
         self.palettes = get_palettes(filename)
 
 
-time_of_day = 1
 
 
 def get_palettes(filename):
@@ -462,17 +499,17 @@ def get_palettes(filename):
 
 
 
-def get_available_maps():
-    for root, dirs, files in os.walk(map_dir):
+def get_available_maps(config=config):
+    for root, dirs, files in os.walk(config.map_dir):
         for filename in files:
             base_name, ext = os.path.splitext(filename)
             if ext == '.blk':
                 yield base_name
 
 
-def map_header(name):
-    if version == 'crystal':
-        headers = open(os.path.join(header_dir, 'map_headers.asm'), 'r').read()
+def map_header(name, config=config):
+    if config.version == 'crystal':
+        headers = open(os.path.join(config.header_dir, 'map_headers.asm'), 'r').read()
         label = name + '_MapHeader'
         header = asm_at_label(headers, label)
         macros = [ 'db', 'db', 'db', 'dw', 'db', 'db', 'db', 'db' ]
@@ -490,8 +527,8 @@ def map_header(name):
         attrs = dict(zip(attributes, values))
         return attrs
 
-    elif version == 'red':
-        headers = open(header_path, 'r').read()
+    elif config.version == 'red':
+        headers = open(config.header_path, 'r').read()
 
         # there has to be a better way to do this
         lower_label = name + '_h'
@@ -514,7 +551,7 @@ def map_header(name):
         values, l = read_header_macros(header, attributes, macros)
 
         attrs = dict(zip(attributes, values))
-        attrs['connections'], l = connections(attrs['which_connections'], header, l)
+        attrs['connections'], l = connections(attrs['which_connections'], header, l, config=config)
 
         macros = [ 'dw' ]
         attributes = [
@@ -527,9 +564,9 @@ def map_header(name):
 
     return {}
 
-def second_map_header(name):
-    if version == 'crystal':
-        headers = open(os.path.join(header_dir, 'second_map_headers.asm'), 'r').read()
+def second_map_header(name, config=config):
+    if config.version == 'crystal':
+        headers = open(os.path.join(config.header_dir, 'second_map_headers.asm'), 'r').read()
         label = name + '_SecondMapHeader'
         header = asm_at_label(headers, label)
         macros = [ 'db', 'db', 'db', 'db', 'dw', 'db', 'dw', 'dw', 'db' ]
@@ -552,17 +589,17 @@ def second_map_header(name):
 
     return {}
 
-def connections(which_connections, header, l=0):
+def connections(which_connections, header, l=0, config=config):
     directions = { 'north': {}, 'south': {}, 'west': {}, 'east': {} }
 
-    if version == 'crystal':
+    if config.version == 'crystal':
         macros = [ 'db', 'db' ] 
         attributes = [
             'map_group',
             'map_no',
         ]
 
-    elif version == 'red':
+    elif config.version == 'red':
         macros = [ 'db' ]
         attributes = [
             'map_id',
@@ -583,9 +620,9 @@ def connections(which_connections, header, l=0):
             values, l = read_header_macros(header, attributes, macros)
             header = header[l:]
             directions[d] = dict(zip(attributes, values))
-            if version == 'crystal':
+            if config.version == 'crystal':
                 directions[d]['map_name'] = directions[d]['map_group'].replace('GROUP_', '').title().replace('_','')
-            elif version == 'red':
+            elif config.version == 'red':
                 directions[d]['map_name'] = directions[d]['map_id'].title().replace('_','')
     return directions, l
 
@@ -645,13 +682,13 @@ def asm_at_label(asm, label):
         content += [[l, comment]]
     return content
 
-def main():
+def main(config=config):
     """
     Launches the map editor.
     """
     root = Tk()
     root.wm_title("MAP EDITOR")
-    app = Application(master=root)
+    app = Application(master=root, config=config)
 
     try:
         app.mainloop()
@@ -664,4 +701,6 @@ def main():
         pass
 
 if __name__ == "__main__":
-    main()
+    config = configure_for_version("crystal", config)
+    get_constants(config=config)
+    main(config=config)
