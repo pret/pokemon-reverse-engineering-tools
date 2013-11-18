@@ -16,16 +16,23 @@ from Tkinter import (
     TclError,
 )
 
-import ttk
-from ttk import Frame, Style
-import PIL
-from PIL import Image, ImageTk
+from ttk import (
+    Frame,
+    Style,
+    Combobox,
+)
 
+# This is why requirements.txt says to install pillow instead of the original
+# PIL.
+from PIL import (
+    Image,
+    ImageTk,
+)
+
+import gfx
+import preprocessor
 import configuration
 config = configuration.Config()
-
-from preprocessor import separate_comment
-import gfx
 
 def setup_logging():
     """
@@ -163,7 +170,7 @@ class Application(Frame):
 
     def get_map_list(self):
         self.available_maps = sorted(m for m in get_available_maps(config=self.config))
-        self.map_list = ttk.Combobox(self.button_frame, height=24, width=24, values=self.available_maps)
+        self.map_list = Combobox(self.button_frame, height=24, width=24, values=self.available_maps)
         if len(self.available_maps):
             self.map_list.set(self.available_maps[0])
 
@@ -695,7 +702,7 @@ def asm_at_label(asm, label):
     # go until the next label
     content = []
     for line in lines:
-        l, comment = separate_comment(line + '\n')
+        l, comment = preprocessor.separate_comment(line + '\n')
         if ':' in l:
             break
         content += [[l, comment]]
