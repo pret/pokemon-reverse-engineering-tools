@@ -179,7 +179,6 @@ class Application(Frame):
         self.map.canvas.bind('<B1-Motion>', self.paint)
 
     def init_picker(self):
-        
         self.current_tile = Map(self.button_frame, tileset_id=self.map.tileset_id, config=self.config)
         self.current_tile.blockdata = [self.paint_tile]
         self.current_tile.width = 1
@@ -201,7 +200,6 @@ class Application(Frame):
         self.picker_frame.vbar = Scrollbar(self.picker_frame, orient=VERTICAL)
         self.picker_frame.vbar.pack(side=RIGHT, fill=Y)
         self.picker_frame.vbar.config(command=self.picker.canvas.yview)
-
 
         self.picker.canvas.config(scrollregion=(0,0,self.picker.canvas_width, self.picker.canvas_height))
         self.map_frame.update()
@@ -468,9 +466,6 @@ class Tileset:
         )
         self.palettes = get_palettes(filename)
 
-
-
-
 def get_palettes(filename):
     pals = bytearray(open(filename, 'rb').read())
 
@@ -498,15 +493,12 @@ def get_palettes(filename):
             ]]
     return palettes
 
-
-
 def get_available_maps(config=config):
     for root, dirs, files in os.walk(config.map_dir):
         for filename in files:
             base_name, ext = os.path.splitext(filename)
             if ext == '.blk':
                 yield base_name
-
 
 def map_header(name, config=config):
     if config.version == 'crystal':
@@ -641,13 +633,11 @@ def read_header_macros(header, attributes, macros):
             break
     return values, l
 
-
 def event_header(asm, name):
     return {}
 
 def script_header(asm, name):
     return {}
-
 
 def macro_values(line, macro):
     values = line[line.find(macro) + len(macro):].split(',')
@@ -663,8 +653,6 @@ def db_value(line):
 def db_values(line):
     macro = 'db'
     return macro_values(line, macro)
-
-
 
 def asm_at_label(asm, label):
     label_def = label + ':'
