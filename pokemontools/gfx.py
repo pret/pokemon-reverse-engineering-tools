@@ -76,53 +76,44 @@ def to_file(filename, data):
 
 
 
+"""
+A rundown of Pokemon Crystal's compression scheme:
 
-# basic rundown of crystal's compression scheme:
+Control commands occupy bits 5-7.
+Bits 0-4 serve as the first parameter <n> for each command.
+"""
+lz_commands = {
+    'literal':   0, # n values for n bytes
+    'iterate':   1, # one value for n bytes
+    'alternate': 2, # alternate two values for n bytes
+    'blank':     3, # zero for n bytes
+}
 
-# a control command consists of
-# the command (bits 5-7)
-# and the count (bits 0-4)
-# followed by additional params
+"""
+Repeater commands repeat any data that was just decompressed.
+They take an additional signed parameter <s> to mark a relative starting point.
+These wrap around (positive from the start, negative from the current position).
+"""
+lz_commands.update({
+    'repeat':    4, # n bytes starting from s
+    'flip':      5, # n bytes in reverse bit order starting from s
+    'reverse':   6, # n bytes backwards starting from s
+})
 
-lz_lit = 0
-# print literal for [count] bytes
-
-lz_iter = 1
-# print one byte [count] times
-
-lz_alt = 2
-# print alternating bytes (2 params) for [count] bytes
-
-lz_zeros = 3
-# print 00 for [count] bytes
-
-# repeater control commands have a signed parameter used to determine the start point
-# wraparound is simulated
-# positive values are added to the start address of the decompressed data
-# and negative values are subtracted from the current position
-
-lz_repeat = 4
-# print [count] bytes from decompressed data
-
-lz_flip = 5
-# print [count] bytes from decompressed data in bit order 01234567
-
-lz_reverse = 6
-# print [count] bytes from decompressed data backwards
-
-lz_hi = 7
-# -used when the count exceeds 5 bits. uses a 10-bit count instead
-# -bits 2-4 now contain the control code, bits 0-1 are bits 8-9 of the count
-# -the following byte contains bits 0-7 of the count
-
-lz_end = 0xff
-# if 0xff is encountered the decompression ends
-
-# since frontpics have animation tiles lumped onto them,
-# sizes must be grabbed from base stats to know when to stop reading them
-
+"""
+The long command is used when 5 bits aren't enough. Bits 2-4 contain a new control code.
+Bits 0-1 are appended to a new byte as 8-9, allowing a 10-bit parameter.
+"""
+lz_commands.update({
+    'long':      7, # n is now 10 bits for a new control code
+})
 max_length = 1 << 10 # can't go higher than 10 bits
 lowmax = 1 << 5 # standard 5-bit param
+
+"""
+If 0xff is encountered instead of a command, decompression ends.
+"""
+lz_end = 0xff
 
 
 class Compressed:
@@ -239,10 +230,10 @@ class Compressed:
 
     def doLiterals(self):
         if len(self.literals) > lowmax:
-            self.output.append( (lz_hi << 5) | (lz_lit << 2) | ((len(self.literals) - 1) >> 8) )
+            self.output.append( (lz_commands['long'] << 5) | (lz_commands['literal'] << 2) | ((len(self.literals) - 1) >> 8) )
             self.output.append( (len(self.literals) - 1) & 0xff )
         elif len(self.literals) > 0:
-            self.output.append( (lz_lit << 5) | (len(self.literals) - 1) )
+            self.output.append( (lz_commands['literal'] << 5) | (len(self.literals) - 1) )
         for byte in self.literals:
             self.output.append(byte)
         self.literals = []
@@ -257,8 +248,8 @@ class Compressed:
         """
         Works, but doesn't do flipped/reversed streams yet.
 
-        This takes up most of the compress time and only saves a few bytes
-        it might be more feasible to exclude it entirely.
+        This takes up most of the compress time and only saves a few bytes.
+        It might be more effective to exclude it entirely.
         """
 
         self.repeats = []
@@ -363,14 +354,14 @@ class Compressed:
                 # decide which side we're copying from
                 if (self.address - repeat[1]) <= 0x80:
                     self.doLiterals()
-                    self.stream.append( (lz_repeat << 5) | length - 1 )
+                    self.stream.append( (lz_commands['repeat'] << 5) | length - 1 )
 
                     # wrong?
                     self.stream.append( (((self.address - repeat[1])^0xff)+1)&0xff )
 
                 else:
                     self.doLiterals()
-                    self.stream.append( (lz_repeat << 5) | length - 1 )
+                    self.stream.append( (lz_commands['repeat'] << 5) | length - 1 )
 
                     # wrong?
                     self.stream.append(repeat[1]>>8)
@@ -400,10 +391,10 @@ class Compressed:
 
     def doWhitespace(self):
         if (len(self.zeros) + 1) >= lowmax:
-            self.stream.append( (lz_hi << 5) | (lz_zeros << 2) | ((len(self.zeros) - 1) >> 8) )
+            self.stream.append( (lz_commands['long'] << 5) | (lz_commands['blank'] << 2) | ((len(self.zeros) - 1) >> 8) )
             self.stream.append( (len(self.zeros) - 1) & 0xff )
         elif len(self.zeros) > 1:
-            self.stream.append( lz_zeros << 5 | (len(self.zeros) - 1) )
+            self.stream.append( lz_commands['blank'] << 5 | (len(self.zeros) - 1) )
         else:
             raise Exception, "checkWhitespace() should prevent this from happening"
 
@@ -456,12 +447,12 @@ class Compressed:
         num_alts = len(self.iters) + 1
 
         if num_alts > lowmax:
-            self.stream.append( (lz_hi << 5) | (lz_alt << 2) | ((num_alts - 1) >> 8) )
+            self.stream.append( (lz_commands['long'] << 5) | (lz_commands['alternate'] << 2) | ((num_alts - 1) >> 8) )
             self.stream.append( num_alts & 0xff )
             self.stream.append( self.alts[0] )
             self.stream.append( self.alts[1] )
         elif num_alts > 2:
-            self.stream.append( (lz_alt << 5) | (num_alts - 1) )
+            self.stream.append( (lz_commands['alternate'] << 5) | (num_alts - 1) )
             self.stream.append( self.alts[0] )
             self.stream.append( self.alts[1] )
         else:
@@ -498,20 +489,17 @@ class Compressed:
             self.next()
 
         if (len(self.iters) - 1) >= lowmax:
-            self.stream.append( (lz_hi << 5) | (lz_iter << 2) | ((len(self.iters)-1) >> 8) )
+            self.stream.append( (lz_commands['long'] << 5) | (lz_commands['iterate'] << 2) | ((len(self.iters)-1) >> 8) )
             self.stream.append( (len(self.iters) - 1) & 0xff )
             self.stream.append( iter )
         elif len(self.iters) > 3:
             # 3 or fewer isn't worth the trouble and actually longer
             # if part of a larger literal set
-            self.stream.append( (lz_iter << 5) | (len(self.iters) - 1) )
+            self.stream.append( (lz_commands['iterate'] << 5) | (len(self.iters) - 1) )
             self.stream.append( iter )
         else:
             self.address = original_address
             raise Exception, "checkIter() should prevent this from happening"
-
-
-
 
 
 class Decompressed:
@@ -579,7 +567,7 @@ class Decompressed:
 
             self.cmd = (self.byte & 0b11100000) >> 5
 
-            if self.cmd == lz_hi: # 10-bit param
+            if self.cmd == lz_commands['long']: # 10-bit param
                 self.cmd = (self.byte & 0b00011100) >> 2
                 self.length = (self.byte & 0b00000011) << 8
                 self.next()
@@ -588,13 +576,13 @@ class Decompressed:
                 self.length = (self.byte & 0b00011111) + 1
 
             # literals
-            if self.cmd == lz_lit:
+            if self.cmd == lz_commands['literal']:
                 self.doLiteral()
-            elif self.cmd == lz_iter:
+            elif self.cmd == lz_commands['iterate']:
                 self.doIter()
-            elif self.cmd == lz_alt:
+            elif self.cmd == lz_commands['alternate']:
                 self.doAlt()
-            elif self.cmd == lz_zeros:
+            elif self.cmd == lz_commands['blank']:
                 self.doZeros()
 
             else: # repeaters
@@ -607,11 +595,11 @@ class Decompressed:
                     self.next()
                     self.displacement += self.byte
 
-                if self.cmd == lz_flip:
+                if self.cmd == lz_commands['flip']:
                     self.doFlip()
-                elif self.cmd == lz_reverse:
+                elif self.cmd == lz_commands['reverse']:
                     self.doReverse()
-                else: # lz_repeat
+                else: # lz_commands['repeat']
                     self.doRepeat()
 
             self.address += 1
