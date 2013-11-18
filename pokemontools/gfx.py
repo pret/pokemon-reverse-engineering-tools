@@ -13,7 +13,7 @@ import trainers
 import romstr
 
 if __name__ != "__main__":
-    rom = romstr.RomStr(filename=config.rom_path)
+    rom = romstr.RomStr.load(filename=config.rom_path)
 
 def hex_dump(input, debug=True):
     """
