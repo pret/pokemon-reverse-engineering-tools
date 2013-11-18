@@ -683,14 +683,6 @@ def macro_values(line, macro):
         values = values[1:]
     return values
 
-def db_value(line):
-    macro = 'db'
-    return macro_values(line, macro)
-
-def db_values(line):
-    macro = 'db'
-    return macro_values(line, macro)
-
 def asm_at_label(asm, label):
     label_def = label + ':'
     lines = asm.split('\n')
