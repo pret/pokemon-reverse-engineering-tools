@@ -1418,6 +1418,19 @@ def export_1bpp_to_png(filename, fileout=None):
         w.write(f, px_map)
 
 
+def export_png_to_1bpp(filename, fileout=None):
+    image = png_to_1bpp(filename)
+
+    if fileout == None:
+        fileout = os.path.splitext(filename)[0] + '.1bpp'
+
+    to_file(fileout, image)
+
+def png_to_1bpp(filename):
+    image, palette = png_to_2bpp(filename)
+    return convert_2bpp_to_1bpp(image)
+
+
 def mass_to_png(debug=False):
     # greyscale
     for root, dirs, files in os.walk('./gfx/'):
@@ -1608,6 +1621,9 @@ if __name__ == "__main__":
 
     elif argv[1] == 'png-to-2bpp':
         export_png_to_2bpp(argv[2])
+
+    elif argv[1] == 'png-to-1bpp':
+        export_png_to_1bpp(argv[2])
 
     elif argv[1] == '2bpp-to-lz':
         if argv[2] == '--vert':
