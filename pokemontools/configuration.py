@@ -4,7 +4,10 @@ Configuration
 
 import os
 
-import exceptions
+class ConfigException(Exception):
+    """
+    Configuration error. Maybe a missing config variable.
+    """
 
 class Config(object):
     """
@@ -23,7 +26,7 @@ class Config(object):
             if key not in self.__dict__:
                 self._config[key] = value
             else:
-                raise exceptions.ConfigException(
+                raise ConfigException(
                     "Can't store \"{0}\" in configuration because the key conflicts with an existing property."
                     .format(key)
                 )
@@ -49,6 +52,6 @@ class Config(object):
         elif key in self._config:
             return self._config[key]
         else:
-            raise exceptions.ConfigException(
+            raise ConfigException(
                 "no config found for \"{0}\"".format(key)
             )
