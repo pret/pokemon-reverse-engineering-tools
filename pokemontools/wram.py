@@ -5,6 +5,10 @@ RGBDS BSS section and constant parsing.
 
 import os
 
+# TODO: parse these constants from constants.asm
+NUM_OBJECTS = 0x10
+OBJECT_LENGTH = 0x10
+
 def make_wram_labels(wram_sections):
     wram_labels = {}
     for section in wram_sections:
@@ -108,6 +112,8 @@ class WRAMProcessor(object):
         self.setup_hram_constants()
         self.setup_gbhw_constants()
 
+        self.reformat_wram_labels()
+
     def read_wram_sections(self):
         """
         Opens the wram file and calls read_bss_sections.
@@ -162,3 +168,14 @@ class WRAMProcessor(object):
         """
         self.gbhw_constants = self.read_gbhw_constants()
         return self.gbhw_constants
+
+    def reformat_wram_labels(self):
+        """
+        Flips the wram_labels dictionary the other way around to access
+        addresses by label.
+        """
+        self.wram = {}
+
+        for (address, labels) in self.wram_labels.iteritems():
+            for label in labels:
+                self.wram[label] = address

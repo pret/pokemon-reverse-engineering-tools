@@ -2,7 +2,7 @@
 Some old methods rescued from crystal.py
 """
 
-import pointers
+import pokemontools.pointers as pointers
 
 map_header_byte_size = 9
 
