@@ -1598,8 +1598,7 @@ if __name__ == "__main__":
             name = os.path.splitext(argv[3])[0]
             lz = open(name+'.lz', 'rb').read()
             to_file(name+'.2bpp', Decompressed(lz, 'vert').output)
-            pic = open(name+'.2bpp', 'rb').read()
-            to_file(name+'.png', export_2bpp_to_png(pic))
+            export_2bpp_to_png(name+'.2bpp')
         else:
             export_lz_to_png(argv[2])
 
