@@ -1211,7 +1211,7 @@ def convert_2bpp_to_png(image, width=0, height=0, pal_file=None):
         matches = []
         for w in range(8, num_pixels / 2 + 1, 8):
             h = num_pixels / w
-            if w * h == num_pixels:
+            if w * h == num_pixels and h % 8 == 0:
                 matches += [(w, h)]
         # go for the most square image
         if len(matches):
