@@ -128,6 +128,7 @@ def get_constants(config=config):
             name, value = [s.strip() for s in line.split(' EQU ')]
             constants[name] = eval(value.split(';')[0].replace('$','0x').replace('%','0b'))
     config.constants = constants
+    return constants
 
 class Application(Frame):
     def __init__(self, master=None, config=config):
