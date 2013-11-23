@@ -51,11 +51,15 @@ def load_png(filepath):
     """
     return Image.open(filepath)
 
+all_blocks = {}
 def read_blocks(tileset_id, config=config):
     """
     Makes a list of blocks, such that each block is a list of tiles by id, for
     the given tileset.
     """
+    if tileset_id in all_blocks.keys():
+        return all_blocks[tileset_id]
+
     blocks = []
 
     block_width = 4
@@ -71,6 +75,8 @@ def read_blocks(tileset_id, config=config):
         block_num = blockbyte * block_length
         block = blocksetdata[block_num : block_num + block_length]
         blocks += [block]
+
+    all_blocks[tileset_id] = blocks
 
     return blocks
 
@@ -91,10 +97,15 @@ def colorize_tile(tile, palette):
 
     return tile
 
+pre_cropped = {}
 def read_tiles(tileset_id, palette_map, palettes, config=config):
     """
     Opens the tileset png file and reads bytes for each tile in the tileset.
     """
+
+    if tileset_id not in pre_cropped.keys():
+        pre_cropped[tileset_id] = {}
+
     tile_width = 8
     tile_height = 8
 
@@ -110,7 +121,11 @@ def read_tiles(tileset_id, palette_map, palettes, config=config):
 
     for y in xrange(0, image.height, tile_height):
         for x in xrange(0, image.width, tile_width):
-            tile = image.crop((x, y, x + tile_width, y + tile_height))
+            if (x, y) in pre_cropped[tileset_id].keys():
+                tile = pre_cropped[tileset_id][(x, y)]
+            else:
+                tile = image.crop((x, y, x + tile_width, y + tile_height))
+                pre_cropped[tileset_id][(x, y)] = tile
 
             # palette maps are padded to make vram mapping easier
             pal = palette_map[cur_tile + 0x20 if cur_tile > 0x60 else cur_tile] & 0x7
@@ -122,10 +137,14 @@ def read_tiles(tileset_id, palette_map, palettes, config=config):
 
     return tiles
 
+all_palette_maps = {}
 def read_palette_map(tileset_id, config=config):
     """
     Loads a palette map.
     """
+    if tileset_id in all_palette_maps.keys():
+        return all_palette_maps[tileset_id]
+
     filename = "{id}{ext}".format(id=str(tileset_id).zfill(2), ext="_palette_map.bin")
     filepath = os.path.join(config.palmap_dir, filename)
 
@@ -136,6 +155,8 @@ def read_palette_map(tileset_id, config=config):
     for i in xrange(len(palmap)):
         palette_map += [palmap[i] & 0xf]
         palette_map += [(palmap[i] >> 4) & 0xf]
+
+    all_palette_maps[tileset_id] = palette_map
 
     return palette_map
 
@@ -174,7 +195,7 @@ def read_palettes(time_of_day=1, config=config):
 
     return palettes
 
-def draw_map(map_group_id, map_id, config=config):
+def draw_map(map_group_id, map_id, palettes, config=config):
     """
     Makes a picture of a map.
     """
@@ -191,7 +212,6 @@ def draw_map(map_group_id, map_id, config=config):
     blockdata = read_map_blockdata(map_header)
 
     palette_map = read_palette_map(tileset_id, config=config)
-    palettes = read_palettes(config=config)
 
     tileset_blocks = read_blocks(tileset_id, config=config)
     tileset_images = read_tiles(tileset_id, palette_map, palettes, config=config)
@@ -229,8 +249,10 @@ def save_map(map_group_id, map_id, savedir, config=config):
     filename = "{name}.{ext}".format(name=map_name, ext="png")
     filepath = os.path.join(savedir, filename)
 
+    palettes = read_palettes(config=config)
+
     print "Drawing {}".format(map_name)
-    map_image = draw_map(map_group_id, map_id, config)
+    map_image = draw_map(map_group_id, map_id, palettes, config)
     map_image.save(filepath)
 
     return map_image
