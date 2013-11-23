@@ -7004,5 +7004,7 @@ def parse_rom(rom=None):
     # improve duplicate trainer names
     make_trainer_group_name_trainer_ids(trainer_group_table)
 
+    return map_names
+
 if __name__ == "crystal":
     pass
