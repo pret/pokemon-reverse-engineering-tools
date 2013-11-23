@@ -6968,6 +6968,7 @@ def main(rom=None):
     # figure out the map offsets
     map_group_offsets = load_map_group_offsets(map_group_pointer_table=map_group_pointer_table, map_group_count=map_group_count, rom=rom)
 
+    # populate the map_names structure with the offsets
     add_map_offsets_into_map_names(map_group_offsets, map_names=map_names)
 
     # parse map header bytes for each map
