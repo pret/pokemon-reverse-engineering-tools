@@ -6044,7 +6044,7 @@ def find_incbin_to_replace_for(address, debug=False, rom_file=None):
         incbin = processed_incbins[incbin_key]
         start = incbin["start"]
         end = incbin["end"]
-        nf debug:
+        if debug:
             argstuff = {
                 "start": start,
                 "end": end,
