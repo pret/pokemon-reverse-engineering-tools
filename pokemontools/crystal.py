@@ -6976,6 +6976,8 @@ def add_map_offsets_into_map_names(map_group_offsets, map_names=None):
     # add the offsets into our map structure, why not (johto maps only)
     return [map_names[map_group_id+1].update({"offset": offset}) for map_group_id, offset in enumerate(map_group_offsets)]
 
+rom_parsed = False
+
 def parse_rom(rom=None):
     if not rom:
         # read the rom and figure out the offsets for maps
@@ -7004,7 +7006,18 @@ def parse_rom(rom=None):
     # improve duplicate trainer names
     make_trainer_group_name_trainer_ids(trainer_group_table)
 
+    rom_parsed = True
+
     return map_names
+
+def cachably_parse_rom(rom=None):
+    """
+    Calls parse_rom if it hasn't been called and completed yet.
+    """
+    if not rom_parsed:
+        return parse_rom(rom=rom)
+    else:
+        return map_names
 
 if __name__ == "crystal":
     pass
