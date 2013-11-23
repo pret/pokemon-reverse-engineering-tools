@@ -7006,6 +7006,7 @@ def parse_rom(rom=None):
     # improve duplicate trainer names
     make_trainer_group_name_trainer_ids(trainer_group_table)
 
+    global rom_parsed
     rom_parsed = True
 
     return map_names
@@ -7014,6 +7015,7 @@ def cachably_parse_rom(rom=None):
     """
     Calls parse_rom if it hasn't been called and completed yet.
     """
+    global rom_parsed
     if not rom_parsed:
         return parse_rom(rom=rom)
     else:
