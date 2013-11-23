@@ -6044,7 +6044,7 @@ def find_incbin_to_replace_for(address, debug=False, rom_file=None):
         incbin = processed_incbins[incbin_key]
         start = incbin["start"]
         end = incbin["end"]
-        if debug:
+        nf debug:
             argstuff = {
                 "start": start,
                 "end": end,
@@ -6953,6 +6953,13 @@ Command.trainer_group_maximums = trainer_group_maximums
 SingleByteParam.map_internal_ids = map_internal_ids
 MultiByteParam.map_internal_ids = map_internal_ids
 
+def add_map_offsets_into_map_names(map_group_offsets, map_names=None):
+    """
+    Add the offsets for each map into the map_names variable.
+    """
+    # add the offsets into our map structure, why not (johto maps only)
+    return [map_names[map_group_id+1].update({"offset": offset}) for map_group_id, offset in enumerate(map_group_offsets)]
+
 def main(rom=None):
     if not rom:
         # read the rom and figure out the offsets for maps
@@ -6961,8 +6968,7 @@ def main(rom=None):
     # figure out the map offsets
     map_group_offsets = load_map_group_offsets(map_group_pointer_table=map_group_pointer_table, map_group_count=map_group_count, rom=rom)
 
-    # add the offsets into our map structure, why not (johto maps only)
-    [map_names[map_group_id+1].update({"offset": offset}) for map_group_id, offset in enumerate(map_group_offsets)]
+    add_map_offsets_into_map_names(map_group_offsets, map_names=map_names)
 
     # parse map header bytes for each map
     parse_all_map_headers(map_names, all_map_headers=all_map_headers)
