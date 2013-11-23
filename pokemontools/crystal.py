@@ -6596,7 +6596,7 @@ def list_texts_in_bank(bank):
     Narrows down the list of objects that you will be inserting into Asm.
     """
     if len(all_texts) == 0:
-        raise Exception("all_texts is blank.. main() will populate it")
+        raise Exception("all_texts is blank.. parse_rom() will populate it")
 
     assert bank != None, "list_texts_in_banks must be given a particular bank"
 
@@ -6614,7 +6614,7 @@ def list_movements_in_bank(bank, all_movements):
     Narrows down the list of objects to speed up Asm insertion.
     """
     if len(all_movements) == 0:
-        raise Exception("all_movements is blank.. main() will populate it")
+        raise Exception("all_movements is blank.. parse_rom() will populate it")
 
     assert bank != None, "list_movements_in_bank must be given a particular bank"
     assert 0 <= bank < 0x80, "bank doesn't exist in the ROM (out of bounds)"
@@ -6633,7 +6633,7 @@ def dump_asm_for_texts_in_bank(bank, start=50, end=100, rom=None):
     # load and parse the ROM if necessary
     if rom == None or len(rom) <= 4:
         rom = load_rom()
-        main()
+        parse_rom()
 
     # get all texts
     # first 100 look okay?
@@ -6653,7 +6653,7 @@ def dump_asm_for_texts_in_bank(bank, start=50, end=100, rom=None):
 def dump_asm_for_movements_in_bank(bank, start=0, end=100, all_movements=None):
     if rom == None or len(rom) <= 4:
         rom = load_rom()
-        main()
+        parse_rom()
 
     movements = list_movements_in_bank(bank, all_movements)[start:end]
 
@@ -6669,7 +6669,7 @@ def dump_things_in_bank(bank, start=50, end=100):
     # load and parse the ROM if necessary
     if rom == None or len(rom) <= 4:
         rom = load_rom()
-        main()
+        parse_rom()
 
     things = list_things_in_bank(bank)[start:end]
 
@@ -6960,7 +6960,7 @@ def add_map_offsets_into_map_names(map_group_offsets, map_names=None):
     # add the offsets into our map structure, why not (johto maps only)
     return [map_names[map_group_id+1].update({"offset": offset}) for map_group_id, offset in enumerate(map_group_offsets)]
 
-def main(rom=None):
+def parse_rom(rom=None):
     if not rom:
         # read the rom and figure out the offsets for maps
         rom = direct_load_rom()
