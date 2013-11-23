@@ -2933,7 +2933,7 @@ class Script:
         if start_address in stop_points and force == False:
             if debug:
                 logging.debug(
-                    "script parsing is stopping at stop_point={address} at map_group={map_group} map_id={map_id}"
+                    "script parsing is stopping at stop_point={stop_point} at map_group={map_group} map_id={map_id}"
                     .format(
                         stop_point=hex(start_address),
                         map_group=str(map_group),
