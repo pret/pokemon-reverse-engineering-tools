@@ -243,4 +243,5 @@ def save_maps(savedir, config=config):
 
     for map_group_id in crystal.map_names.keys():
         for map_id in crystal.map_names[map_group_id].keys():
-            image = save_map(map_group_id, map_id, savedir, config)
+            if isinstance(map_id, int):
+                image = save_map(map_group_id, map_id, savedir, config)
