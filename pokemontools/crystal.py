@@ -70,6 +70,11 @@ OldTextScript = old_text_script
 import configuration
 conf = configuration.Config()
 
+data_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), "data/pokecrystal/")
+conf.wram = os.path.join(data_path, "wram.asm")
+conf.gbhw = os.path.join(data_path, "gbhw.asm")
+conf.hram = os.path.join(data_path, "hram.asm")
+
 from map_names import map_names
 
 # ---- script_parse_table explanation ----
@@ -6709,6 +6714,14 @@ def write_all_labels(all_labels, filename="labels.json"):
     fh.close()
     return True
 
+def setup_wram_labels(config=conf):
+    """
+    Get all wram labels and store it on the module.
+    """
+    wramproc = wram.WRAMProcessor(config=config)
+    wramproc.initialize()
+    wram.wram_labels = wramproc.wram_labels
+
 def get_ram_label(address):
     """
     returns a label assigned to a particular ram address
@@ -6967,6 +6980,9 @@ def parse_rom(rom=None):
     if not rom:
         # read the rom and figure out the offsets for maps
         rom = direct_load_rom()
+
+    # make wram.wram_labels available
+    setup_wram_labels()
 
     # figure out the map offsets
     map_group_offsets = load_map_group_offsets(map_group_pointer_table=map_group_pointer_table, map_group_count=map_group_count, rom=rom)
