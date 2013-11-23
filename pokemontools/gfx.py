@@ -13,116 +13,62 @@ import trainers
 import romstr
 
 if __name__ != "__main__":
-    rom = romstr.RomStr(filename=config.rom_path)
+    rom = romstr.RomStr.load(filename=config.rom_path)
 
-def hex_dump(input, debug=True):
+
+def split(list_, interval):
     """
-    Display hex dump in rows of 16 bytes.
+    Split a list by length.
     """
+    for i in xrange(0, len(list_), interval):
+        j = min(i + interval, len(list_))
+        yield list_[i:j]
 
-    dump = ''
-    output = ''
-    stream = ''
-    address = 0x00
-    margin = 2 + len(hex(len(input))[2:])
 
-    # dump
-    for byte in input:
-        cool = hex(byte)[2:].zfill(2)
-        dump += cool + ' '
-        if debug: stream += cool
-
-    # convenient for testing quick edits in bgb
-    if debug: output += stream + '\n'
-
-    # get dump info
-    bytes_per_line = 16
-    chars_per_byte = 3 # '__ '
-    chars_per_line = bytes_per_line * chars_per_byte
-    num_lines = int(ceil(float(len(dump)) / float(chars_per_line)))
-
-    # top
-    # margin
-    for char in range(margin):
-        output += ' '
-
-    for byte in range(bytes_per_line):
-        output += hex(byte)[2:].zfill(2) + ' '
-    output = output[:-1] # last space
-
-    # print hex
-    for line in range(num_lines):
-        # address
-        output += '\n' + hex(address)[2:].zfill(margin - 2) + ': '
-        # contents
-        start = line * chars_per_line
-        end = chars_per_line + start - 1 # ignore last space
-        output += dump[start:end]
-        address += 0x10
-
-    return output
+def hex_dump(data, length=0x10):
+    """
+    just use hexdump -C
+    """
+    margin = len('%x' % len(data))
+    output = []
+    address = 0
+    for line in split(data, length):
+        output += [
+            hex(address)[2:].zfill(margin) +
+            ' | ' +
+            ' '.join('%.2x' % byte for byte in line)
+        ]
+        address += length
+    return '\n'.join(output)
 
 
 def get_tiles(image):
     """
     Split a 2bpp image into 8x8 tiles.
     """
-    tiles = []
-    tile = []
-    bytes_per_tile = 16
-
-    cur_byte = 0
-    for byte in image:
-        # build tile
-        tile.append(byte)
-        cur_byte += 1
-        # done building?
-        if cur_byte >= bytes_per_tile:
-            # push completed tile
-            tiles.append(tile)
-            tile = []
-            cur_byte = 0
-    return tiles
-
+    return list(split(image, 0x10))
 
 def connect(tiles):
     """
     Combine 8x8 tiles into a 2bpp image.
     """
-    out = []
-    for tile in tiles:
-        for byte in tile:
-            out.append(byte)
-    return out
+    return [byte for tile in tiles for byte in tile]
 
-
-def transpose(tiles):
+def transpose(tiles, width=None):
     """
-    Transpose a tile arrangement along line y=x.
+    Transpose a tile arrangement along line y=-x.
+
+      00 01 02 03 04 05     00 06 0c 12 18 1e
+      06 07 08 09 0a 0b     01 07 0d 13 19 1f
+      0c 0d 0e 0f 10 11 <-> 02 08 0e 14 1a 20
+      12 13 14 15 16 17     03 09 0f 15 1b 21
+      18 19 1a 1b 1c 1d     04 0a 10 16 1c 22
+      1e 1f 20 21 22 23     05 0b 11 17 1d 23
     """
-
-    #     horizontal    <->     vertical
-    # 00 01 02 03 04 05     00 06 0c 12 18 1e
-    # 06 07 08 09 0a 0b     01 07 0d 13 19 1f
-    # 0c 0d 0e 0f 10 11 <-> 02 08 0e 14 1a 20
-    # 12 13 14 15 16 17 <-> 03 09 0f 15 1b 21
-    # 18 19 1a 1b 1c 1d     04 0a 10 16 1c 22
-    # 1e 1f 20 21 22 23     05 0b 11 17 1d 23
-    # etc
-
-    flipped = []
-    t = 0 # which tile we're on
-    w = int(sqrt(len(tiles))) # assume square image
-    for tile in tiles:
-        flipped.append(tiles[t])
-        t += w
-        # end of row?
-        if t >= w*w:
-            # wrap around
-            t -= w*w
-            # next row
-            t += 1
-    return flipped
+    if width == None:
+        width = int(sqrt(len(tiles))) # assume square image
+    tiles = sorted(enumerate(tiles), key= lambda (i, tile): i % width)
+    return [tile for i, tile in tiles]
 
 
 def to_file(filename, data):
@@ -133,53 +79,44 @@ def to_file(filename, data):
 
 
 
+"""
+A rundown of Pokemon Crystal's compression scheme:
 
-# basic rundown of crystal's compression scheme:
+Control commands occupy bits 5-7.
+Bits 0-4 serve as the first parameter <n> for each command.
+"""
+lz_commands = {
+    'literal':   0, # n values for n bytes
+    'iterate':   1, # one value for n bytes
+    'alternate': 2, # alternate two values for n bytes
+    'blank':     3, # zero for n bytes
+}
 
-# a control command consists of
-# the command (bits 5-7)
-# and the count (bits 0-4)
-# followed by additional params
+"""
+Repeater commands repeat any data that was just decompressed.
+They take an additional signed parameter <s> to mark a relative starting point.
+These wrap around (positive from the start, negative from the current position).
+"""
+lz_commands.update({
+    'repeat':    4, # n bytes starting from s
+    'flip':      5, # n bytes in reverse bit order starting from s
+    'reverse':   6, # n bytes backwards starting from s
+})
 
-lz_lit = 0
-# print literal for [count] bytes
-
-lz_iter = 1
-# print one byte [count] times
-
-lz_alt = 2
-# print alternating bytes (2 params) for [count] bytes
-
-lz_zeros = 3
-# print 00 for [count] bytes
-
-# repeater control commands have a signed parameter used to determine the start point
-# wraparound is simulated
-# positive values are added to the start address of the decompressed data
-# and negative values are subtracted from the current position
-
-lz_repeat = 4
-# print [count] bytes from decompressed data
-
-lz_flip = 5
-# print [count] bytes from decompressed data in bit order 01234567
-
-lz_reverse = 6
-# print [count] bytes from decompressed data backwards
-
-lz_hi = 7
-# -used when the count exceeds 5 bits. uses a 10-bit count instead
-# -bits 2-4 now contain the control code, bits 0-1 are bits 8-9 of the count
-# -the following byte contains bits 0-7 of the count
-
-lz_end = 0xff
-# if 0xff is encountered the decompression ends
-
-# since frontpics have animation tiles lumped onto them,
-# sizes must be grabbed from base stats to know when to stop reading them
-
+"""
+The long command is used when 5 bits aren't enough. Bits 2-4 contain a new control code.
+Bits 0-1 are appended to a new byte as 8-9, allowing a 10-bit parameter.
+"""
+lz_commands.update({
+    'long':      7, # n is now 10 bits for a new control code
+})
 max_length = 1 << 10 # can't go higher than 10 bits
 lowmax = 1 << 5 # standard 5-bit param
+
+"""
+If 0xff is encountered instead of a command, decompression ends.
+"""
+lz_end = 0xff
 
 
 class Compressed:
@@ -296,10 +233,10 @@ class Compressed:
 
     def doLiterals(self):
         if len(self.literals) > lowmax:
-            self.output.append( (lz_hi << 5) | (lz_lit << 2) | ((len(self.literals) - 1) >> 8) )
+            self.output.append( (lz_commands['long'] << 5) | (lz_commands['literal'] << 2) | ((len(self.literals) - 1) >> 8) )
             self.output.append( (len(self.literals) - 1) & 0xff )
         elif len(self.literals) > 0:
-            self.output.append( (lz_lit << 5) | (len(self.literals) - 1) )
+            self.output.append( (lz_commands['literal'] << 5) | (len(self.literals) - 1) )
         for byte in self.literals:
             self.output.append(byte)
         self.literals = []
@@ -314,8 +251,8 @@ class Compressed:
         """
         Works, but doesn't do flipped/reversed streams yet.
 
-        This takes up most of the compress time and only saves a few bytes
-        it might be more feasible to exclude it entirely.
+        This takes up most of the compress time and only saves a few bytes.
+        It might be more effective to exclude it entirely.
         """
 
         self.repeats = []
@@ -420,14 +357,14 @@ class Compressed:
                 # decide which side we're copying from
                 if (self.address - repeat[1]) <= 0x80:
                     self.doLiterals()
-                    self.stream.append( (lz_repeat << 5) | length - 1 )
+                    self.stream.append( (lz_commands['repeat'] << 5) | length - 1 )
 
                     # wrong?
                     self.stream.append( (((self.address - repeat[1])^0xff)+1)&0xff )
 
                 else:
                     self.doLiterals()
-                    self.stream.append( (lz_repeat << 5) | length - 1 )
+                    self.stream.append( (lz_commands['repeat'] << 5) | length - 1 )
 
                     # wrong?
                     self.stream.append(repeat[1]>>8)
@@ -457,10 +394,10 @@ class Compressed:
 
     def doWhitespace(self):
         if (len(self.zeros) + 1) >= lowmax:
-            self.stream.append( (lz_hi << 5) | (lz_zeros << 2) | ((len(self.zeros) - 1) >> 8) )
+            self.stream.append( (lz_commands['long'] << 5) | (lz_commands['blank'] << 2) | ((len(self.zeros) - 1) >> 8) )
             self.stream.append( (len(self.zeros) - 1) & 0xff )
         elif len(self.zeros) > 1:
-            self.stream.append( lz_zeros << 5 | (len(self.zeros) - 1) )
+            self.stream.append( lz_commands['blank'] << 5 | (len(self.zeros) - 1) )
         else:
             raise Exception, "checkWhitespace() should prevent this from happening"
 
@@ -513,12 +450,12 @@ class Compressed:
         num_alts = len(self.iters) + 1
 
         if num_alts > lowmax:
-            self.stream.append( (lz_hi << 5) | (lz_alt << 2) | ((num_alts - 1) >> 8) )
+            self.stream.append( (lz_commands['long'] << 5) | (lz_commands['alternate'] << 2) | ((num_alts - 1) >> 8) )
             self.stream.append( num_alts & 0xff )
             self.stream.append( self.alts[0] )
             self.stream.append( self.alts[1] )
         elif num_alts > 2:
-            self.stream.append( (lz_alt << 5) | (num_alts - 1) )
+            self.stream.append( (lz_commands['alternate'] << 5) | (num_alts - 1) )
             self.stream.append( self.alts[0] )
             self.stream.append( self.alts[1] )
         else:
@@ -555,20 +492,17 @@ class Compressed:
             self.next()
 
         if (len(self.iters) - 1) >= lowmax:
-            self.stream.append( (lz_hi << 5) | (lz_iter << 2) | ((len(self.iters)-1) >> 8) )
+            self.stream.append( (lz_commands['long'] << 5) | (lz_commands['iterate'] << 2) | ((len(self.iters)-1) >> 8) )
             self.stream.append( (len(self.iters) - 1) & 0xff )
             self.stream.append( iter )
         elif len(self.iters) > 3:
             # 3 or fewer isn't worth the trouble and actually longer
             # if part of a larger literal set
-            self.stream.append( (lz_iter << 5) | (len(self.iters) - 1) )
+            self.stream.append( (lz_commands['iterate'] << 5) | (len(self.iters) - 1) )
             self.stream.append( iter )
         else:
             self.address = original_address
             raise Exception, "checkIter() should prevent this from happening"
-
-
-
 
 
 class Decompressed:
@@ -636,7 +570,7 @@ class Decompressed:
 
             self.cmd = (self.byte & 0b11100000) >> 5
 
-            if self.cmd == lz_hi: # 10-bit param
+            if self.cmd == lz_commands['long']: # 10-bit param
                 self.cmd = (self.byte & 0b00011100) >> 2
                 self.length = (self.byte & 0b00000011) << 8
                 self.next()
@@ -645,13 +579,13 @@ class Decompressed:
                 self.length = (self.byte & 0b00011111) + 1
 
             # literals
-            if self.cmd == lz_lit:
+            if self.cmd == lz_commands['literal']:
                 self.doLiteral()
-            elif self.cmd == lz_iter:
+            elif self.cmd == lz_commands['iterate']:
                 self.doIter()
-            elif self.cmd == lz_alt:
+            elif self.cmd == lz_commands['alternate']:
                 self.doAlt()
-            elif self.cmd == lz_zeros:
+            elif self.cmd == lz_commands['blank']:
                 self.doZeros()
 
             else: # repeaters
@@ -664,11 +598,11 @@ class Decompressed:
                     self.next()
                     self.displacement += self.byte
 
-                if self.cmd == lz_flip:
+                if self.cmd == lz_commands['flip']:
                     self.doFlip()
-                elif self.cmd == lz_reverse:
+                elif self.cmd == lz_commands['reverse']:
                     self.doReverse()
-                else: # lz_repeat
+                else: # lz_commands['repeat']
                     self.doRepeat()
 
             self.address += 1
@@ -1174,13 +1108,16 @@ def flatten(planar):
     Flatten planar 2bpp image data into a quaternary pixel map.
     """
     strips = []
-    for pair in range(len(planar)/2):
-        bottom = ord(planar[(pair*2)  ])
-        top    = ord(planar[(pair*2)+1])
-        strip  = []
-        for i in range(7,-1,-1):
-            color = ((bottom >> i) & 1) + (((top >> i-1) if i > 0 else (top << 1-i)) & 2)
-            strip.append(color)
+    for bottom, top in split(planar, 2):
+        bottom = ord(bottom)
+        top = ord(top)
+        strip = []
+        for i in xrange(7,-1,-1):
+            color = (
+                (bottom >> i & 1) +
+                (top *2 >> i & 2)
+            )
+            strip += [color]
         strips += strip
     return strips
 
@@ -1189,47 +1126,52 @@ def to_lines(image, width):
     """
     Convert a tiled quaternary pixel map to lines of quaternary pixels.
     """
-
-    tile = 8 * 8
-
-    # so we know how many strips of 8px we're putting into a line
-    num_columns = width / 8
-    # number of lines
+    tile_width = 8
+    tile_height = 8
+    num_columns = width / tile_width
     height = len(image) / width
 
     lines = []
-    for cur_line in range(height):
-        tile_row = int(cur_line / 8)
+    for cur_line in xrange(height):
+        tile_row = cur_line / tile_height
         line = []
-        for column in range(num_columns):
-            anchor = num_columns*tile_row*tile + column*tile + (cur_line%8)*8
-            line += image[anchor:anchor+8]
-        lines.append(line)
+        for column in xrange(num_columns):
+            anchor = (
+                num_columns * tile_row * tile_width * tile_height +
+                column * tile_width * tile_height +
+                cur_line % tile_height * tile_width
+            )
+            line += image[anchor : anchor + tile_width]
+        lines += [line]
     return lines
 
+
 def dmg2rgb(word):
-    red = word & 0b11111
-    word >>= 5
-    green = word & 0b11111
-    word >>= 5
-    blue = word & 0b11111
+    def shift(value):
+        while True:
+            yield value & (2**5 - 1)
+            value >>= 5
+    word = shift(word)
+    # distribution is less even w/ << 3
+    red, green, blue = [int(color * 8.25) for color in [word.next() for _ in xrange(3)]]
     alpha = 255
-    return ((red<<3)+0b100, (green<<3)+0b100, (blue<<3)+0b100, alpha)
+    return (red, green, blue, alpha)
+
 
 def rgb_to_dmg(color):
     word =  (color['r'] / 8)
-    word += (color['g'] / 8) <<  5
+    word += (color['g'] / 8) << 5
     word += (color['b'] / 8) << 10
     return word
 
 
 def png_pal(filename):
-    palette = []
     with open(filename, 'rb') as pal_data:
         words = pal_data.read()
-        dmg_pals = []
-        for word in range(len(words)/2):
-            dmg_pals.append(ord(words[word*2]) + ord(words[word*2+1])*0x100)
+    dmg_pals = []
+    for word in range(len(words)/2):
+        dmg_pals.append(ord(words[word*2]) + ord(words[word*2+1])*0x100)
+    palette = []
     white = (255,255,255,255)
     black = (000,000,000,255)
     for word in dmg_pals: palette += [dmg2rgb(word)]
@@ -1238,223 +1180,258 @@ def png_pal(filename):
     return palette
 
 
-def to_png(filein, fileout=None, pal_file=None, height=None, width=None):
-    """
-    Take a planar 2bpp graphics file and converts it to png.
-    """
-
-    if fileout == None: fileout = '.'.join(filein.split('.')[:-1]) + '.png'
-
+def export_2bpp_to_png(filein, fileout=None, pal_file=None, height=0, width=0):
+    if fileout == None:
+        fileout = os.path.splitext(filein)[0] + '.png'
     image = open(filein, 'rb').read()
-
-    num_pixels = len(image) * 4
-
-    if num_pixels == 0: return 'empty image!'
-
-
-    # unless the pic is square, at least one dimension should be given
-
-    if width == None and height == None:
-        width  = int(sqrt(num_pixels))
-        height = width
-
-    elif height == None:
-        height = num_pixels / width
-
-    elif width  == None:
-        width  = num_pixels / height
-
-
-    # but try to see if it can be made rectangular
-
-    if width * height != num_pixels:
-
-        # look for possible combos of width/height that would form a rectangle
-        matches = []
-
-        # this is pretty inefficient, and there is probably a simpler way
-        for width in range(8,256+1,8): # we only want dimensions that fit in tiles
-            height = num_pixels / width
-            if height % 8 == 0:
-                matches.append((width, height))
-
-        # go for the most square image
-        width, height = sorted(matches, key=lambda (x,y): x+y)[0] # favors height
-
-
-    # if it can't, the only option is a width of 1 tile
-
-    if width * height != num_pixels:
-        width = 8
-        height = num_pixels / width
-
-
-    # if this still isn't rectangular, then the image isn't made of tiles
-
-    # for now we'll just spit out a warning
-    if width * height != num_pixels:
-        print 'Warning! ' + fileout + ' is ' + width + 'x' + height + '(' + width*height + ' pixels),\n' +\
-               'but ' + filein + ' is ' + num_pixels + ' pixels!'
-
-
-    # map it out
-
-    lines = to_lines(flatten(image), width)
 
     if pal_file == None:
         if os.path.exists(os.path.splitext(fileout)[0]+'.pal'):
             pal_file = os.path.splitext(fileout)[0]+'.pal'
 
+    width, height, palette, greyscale, bitdepth, px_map = convert_2bpp_to_png(image, width=width, height=height, pal_file=pal_file)
+
+    w = png.Writer(width, height, palette=palette, compression=9, greyscale=greyscale, bitdepth=bitdepth)
+    with open(fileout, 'wb') as f:
+        w.write(f, px_map)
+
+
+def convert_2bpp_to_png(image, width=0, height=0, pal_file=None):
+    """
+    Convert a planar 2bpp graphic to png.
+    """
+    num_pixels = len(image) * 4
+    assert num_pixels > 0, 'empty image!'
+
+    # at least one dimension should be given
+    if height == 0 and width != 0:
+        height = num_pixels / width
+    elif width == 0 and height != 0:
+        width = num_pixels / height
+
+    if width * height != num_pixels:
+        # look for possible combos of width/height that would form a rectangle
+        matches = []
+        for w in range(8, num_pixels / 2 + 1, 8):
+            h = num_pixels / w
+            if w * h == num_pixels and h % 8 == 0:
+                matches += [(w, h)]
+        # go for the most square image
+        if len(matches):
+            width, height = sorted(matches, key= lambda (w, h): w + h)[0] # favor height
+
+    # if it still isn't rectangular then the image isn't made of tiles
+    if width * height != num_pixels:
+        raise Exception, 'Image can\'t be divided into tiles (%d px)!' % (num_pixels)
+
+    # convert tiles to lines
+    lines = to_lines(flatten(image), width)
+
     if pal_file == None:
         palette   = None
         greyscale = True
         bitdepth  = 2
-        inverse   = { 0:3, 1:2, 2:1, 3:0 }
-        map       = [[inverse[pixel] for pixel in line] for line in lines]
+        px_map    = [[3 - pixel for pixel in line] for line in lines]
 
     else: # gbc color
         palette   = png_pal(pal_file)
         greyscale = False
         bitdepth  = 8
-        map       = [[pixel for pixel in line] for line in lines]
+        px_map    = [[pixel for pixel in line] for line in lines]
+
+    return width, height, palette, greyscale, bitdepth, px_map
 
 
-    w = png.Writer(width, height, palette=palette, compression = 9, greyscale = greyscale, bitdepth = bitdepth)
-    with open(fileout, 'wb') as file:
-        w.write(file, map)
+def export_png_to_2bpp(filein, fileout=None, palout=None):
+    image, palette = png_to_2bpp(filein)
+
+    if fileout == None:
+        fileout = os.path.splitext(filein)[0] + '.2bpp'
+    to_file(fileout, image)
+
+    if palout == None:
+        palout = os.path.splitext(fileout)[0] + '.pal'
+    export_palette(palette, palout)
 
 
+def get_image_padding(width, height, wstep=8, hstep=8):
+
+    padding = {
+        'left':   0,
+        'right':  0,
+        'top':    0,
+        'bottom': 0,
+    }
+
+    if width % wstep:
+       pad = float(width % wstep) / 2
+       padding['left']   = int(ceil(pad))
+       padding['right']  = int(floor(pad))
+
+    if height % hstep:
+       pad = float(height % hstep) / 2
+       padding['top']    = int(ceil(pad))
+       padding['bottom'] = int(floor(pad))
+
+    return padding
 
 
-def to_2bpp(filein, fileout=None, palout=None):
+def png_to_2bpp(filein):
     """
-    Take a png and converts it to planar 2bpp.
+    Convert a png image to planar 2bpp.
     """
 
-    if fileout == None: fileout = '.'.join(filein.split('.')[:-1]) + '.2bpp'
+    with open(filein, 'rb') as data:
+        width, height, rgba, info = png.Reader(data).asRGBA8()
+        rgba = list(rgba)
+        greyscale = info['greyscale']
 
-    with open(filein, 'rb') as file:
-
-        r = png.Reader(file)
-        info  = r.asRGBA8()
-
-        width     = info[0]
-        height    = info[1]
-
-        rgba      = list(info[2])
-        greyscale = info[3]['greyscale']
-
-
-    padding = { 'left':   0,
-                'right':  0,
-                'top':    0,
-                'bottom': 0, }
-    #if width  % 8 != 0:
-    #   padding['left']   =    int(ceil((width / 8 + 8 - width) / 2))
-    #   padding['right']  =   int(floor((width / 8 + 8 - width) / 2))
-    #if height % 8 != 0:
-    #   padding['top']    =  int(ceil((height / 8 + 8 - height) / 2))
-    #   padding['bottom'] = int(floor((height / 8 + 8 - height) / 2))
-
-
-    # turn the flat values into something more workable
-
-    pixel_length = 4 # rgba
-    image = []
-
-    # while we're at it, let's size up the palette
-
+    # png.Reader returns flat pixel data. Nested is easier to work with
+    len_px  = 4 # rgba
+    image   = []
     palette = []
-
     for line in rgba:
         newline = []
-        for pixel in range(len(line)/pixel_length):
-            i = pixel * pixel_length
-            color = { 'r': line[i  ],
-                      'g': line[i+1],
-                      'b': line[i+2],
-                      'a': line[i+3], }
+        for px in xrange(0, len(line), len_px):
+            color = { 'r': line[px  ],
+                      'g': line[px+1],
+                      'b': line[px+2],
+                      'a': line[px+3], }
             newline += [color]
-            if color not in palette: palette += [color]
-        image.append(newline)
+            if color not in palette:
+                palette += [color]
+        image += [newline]
 
-    # pad out any small palettes
+    assert len(palette) <= 4, 'Palette should be 4 colors, is really %d' % len(palette)
+
+    # Pad out smaller palettes with greyscale colors
     hues = {
         'white': { 'r': 0xff, 'g': 0xff, 'b': 0xff, 'a': 0xff },
         'black': { 'r': 0x00, 'g': 0x00, 'b': 0x00, 'a': 0xff },
         'grey':  { 'r': 0x55, 'g': 0x55, 'b': 0x55, 'a': 0xff },
         'gray':  { 'r': 0xaa, 'g': 0xaa, 'b': 0xaa, 'a': 0xff },
     }
-    while len(palette) < 4:
-        for hue in hues.values():
-            if not any(color is hue for color in palette):
-                palette += [hue]
-                if len(palette) >= 4: break
+    for hue in hues.values():
+        if len(palette) >= 4:
+            break
+        if hue not in palette:
+            palette += [hue]
 
-    assert len(palette) <= 4, 'Palette should be 4 colors, is really ' + str(len(palette))
-
-    # sort by luminance
+    # Sort palettes by luminance
     def luminance(color):
-        # this is actually in reverse, thanks to dmg/cgb palette ordering
         rough = { 'r':  4.7,
                   'g':  1.4,
                   'b': 13.8, }
-        return sum(color[key] * -rough[key] for key in rough.keys())
-    palette = sorted(palette, key=luminance)
+        return sum(color[key] * rough[key] for key in rough.keys())
+    palette.sort(key=luminance)
 
-    # spit out a new .pal file
-    # disable this if it causes problems with paletteless images
-    if palout == None:
-        if os.path.exists(os.path.splitext(fileout)[0]+'.pal'):
-            palout = os.path.splitext(fileout)[0]+'.pal'
-    if palout != None:
+    # Game Boy palette order
+    palette.reverse()
+
+    # Map pixels to quaternary color ids
+    padding = get_image_padding(width, height)
+    width += padding['left'] + padding['right']
+    height += padding['top'] + padding['bottom']
+    pad = [0]
+
+    qmap = []
+    qmap += pad * width * padding['top']
+    for line in image:
+        qmap += pad * padding['left']
+        for color in line:
+            qmap += [palette.index(color)]
+        qmap += pad * padding['right']
+    qmap += pad * width * padding['bottom']
+
+    # Graphics are stored in tiles instead of lines
+    tile_width  = 8
+    tile_height = 8
+    num_columns = width / tile_width
+    num_rows = height / tile_height
+    image = []
+
+    for row in xrange(num_rows):
+        for column in xrange(num_columns):
+
+            # Split it up into strips to convert to planar data
+            for strip in xrange(tile_height):
+                anchor = (
+                    row * num_columns * tile_width * tile_height +
+                    column * tile_width +
+                    strip * width
+                )
+                line = qmap[anchor : anchor + tile_width]
+                bottom, top = 0, 0
+                for bit, quad in enumerate(line):
+                    bottom += (quad & 1) << (7 - bit)
+                    top += (quad /2 & 1) << (7 - bit)
+                image += [bottom, top]
+
+    return image, palette
+
+
+def export_palette(palette, filename):
+    if os.path.exists(filename):
         output = []
         for color in palette:
             word = rgb_to_dmg(color)
             output += [word & 0xff]
             output += [word >> 8]
-        to_file(palout, output)
-
-    # create a new map of quaternary color ids
-    map = []
-    if padding['top']: map += [0] * (width + padding['left'] + padding['right']) * padding['top']
-    for line in image:
-        if padding['left']: map += [0] * padding['left']
-        for color in line:
-            map.append(palette.index(color))
-        if padding['right']: map += [0] * padding['right']
-    if padding['bottom']: map += [0] * (width + padding['left'] + padding['right']) * padding['bottom']
-
-    # split it into strips of 8, and make them planar
-    num_columns = width / 8
-    num_rows = height / 8
-    tile = 8 * 8
-    image = []
-    for row in range(num_rows):
-        for column in range(num_columns):
-            for strip in range(tile / 8):
-                anchor = row*num_columns*tile + column*tile/8 + strip*width
-                line   = map[anchor:anchor+8]
-                bottom = 0
-                top    = 0
-                for bit, quad in enumerate(line):
-                    bottom += (quad & 1) << (7-bit)
-                    top    += ((quad & 2) >> 1) << (7-bit)
-                image.append(bottom)
-                image.append(top)
-
-    to_file(fileout, image)
+        to_file(filename, output)
 
 
 def png_to_lz(filein):
 
     name = os.path.splitext(filein)[0]
 
-    to_2bpp(filein)
+    export_png_to_2bpp(filein)
     image = open(name+'.2bpp', 'rb').read()
     to_file(name+'.lz', Compressed(image).output)
 
 
+
+def convert_2bpp_to_1bpp(data):
+    """
+    Convert planar 2bpp image data to 1bpp. Assume images are two colors.
+    """
+    return data[::2]
+
+def convert_1bpp_to_2bpp(data):
+    """
+    Convert 1bpp image data to planar 2bpp (black/white).
+    """
+    output = []
+    for i in data:
+        output += [i, i]
+    return output
+
+
+def export_1bpp_to_png(filename, fileout=None):
+
+    if fileout == None:
+        fileout = os.path.splitext(filename)[0] + '.png'
+
+    image = open(filename, 'rb').read()
+    image = convert_1bpp_to_2bpp(image)
+
+    width, height, palette, greyscale, bitdepth, px_map = convert_2bpp_to_png(image)
+
+    w = png.Writer(width, height, palette=palette, compression=9, greyscale=greyscale, bitdepth=bitdepth)
+    with open(fileout, 'wb') as f:
+        w.write(f, px_map)
+
+
+def export_png_to_1bpp(filename, fileout=None):
+    image = png_to_1bpp(filename)
+
+    if fileout == None:
+        fileout = os.path.splitext(filename)[0] + '.1bpp'
+
+    to_file(fileout, image)
+
+def png_to_1bpp(filename):
+    image, palette = png_to_2bpp(filename)
+    return convert_2bpp_to_1bpp(image)
 
 
 def mass_to_png(debug=False):
@@ -1463,7 +1440,7 @@ def mass_to_png(debug=False):
         for name in files:
             if debug: print os.path.splitext(name), os.path.join(root, name)
             if os.path.splitext(name)[1] == '.2bpp':
-                to_png(os.path.join(root, name))
+                export_2bpp_to_png(os.path.join(root, name))
 
 def mass_to_colored_png(debug=False):
     # greyscale, unless a palette is detected
@@ -1472,7 +1449,10 @@ def mass_to_colored_png(debug=False):
             for name in files:
                 if debug: print os.path.splitext(name), os.path.join(root, name)
                 if os.path.splitext(name)[1] == '.2bpp':
-                    to_png(os.path.join(root, name))
+                    export_2bpp_to_png(os.path.join(root, name))
+                    os.utime(os.path.join(root, name), None)
+                elif os.path.splitext(name)[1] == '.1bpp':
+                    export_1bpp_to_png(os.path.join(root, name))
                     os.utime(os.path.join(root, name), None)
 
     # only monster and trainer pics for now
@@ -1481,16 +1461,16 @@ def mass_to_colored_png(debug=False):
             if debug: print os.path.splitext(name), os.path.join(root, name)
             if os.path.splitext(name)[1] == '.2bpp':
                 if 'normal.pal' in files:
-                    to_png(os.path.join(root, name), None, os.path.join(root, 'normal.pal'))
+                    export_2bpp_to_png(os.path.join(root, name), None, os.path.join(root, 'normal.pal'))
                 else:
-                    to_png(os.path.join(root, name))
+                    export_2bpp_to_png(os.path.join(root, name))
                 os.utime(os.path.join(root, name), None)
 
     for root, dirs, files in os.walk('./gfx/trainers/'):
         for name in files:
             if debug: print os.path.splitext(name), os.path.join(root, name)
             if os.path.splitext(name)[1] == '.2bpp':
-                to_png(os.path.join(root, name))
+                export_2bpp_to_png(os.path.join(root, name))
                 os.utime(os.path.join(root, name), None)
 
 
@@ -1530,7 +1510,7 @@ def append_terminator_to_lzs(directory):
                     new.write(data)
                     new.close()
 
-def lz_to_png_by_file(filename):
+def export_lz_to_png(filename):
     """
     Convert a lz file to png. Dump a 2bpp file too.
     """
@@ -1539,7 +1519,7 @@ def lz_to_png_by_file(filename):
     bpp = Decompressed(lz_data).output
     bpp_filename = filename.replace(".lz", ".2bpp")
     to_file(bpp_filename, bpp)
-    to_png(bpp_filename)
+    export_2bpp_to_png(bpp_filename)
 
 def dump_tileset_pngs():
     """
@@ -1549,7 +1529,7 @@ def dump_tileset_pngs():
     """
     for tileset_id in range(37):
         tileset_filename = "./gfx/tilesets/" + str(tileset_id).zfill(2) + ".lz"
-        lz_to_png_by_file(tileset_filename)
+        export_lz_to_png(tileset_filename)
 
 def decompress_frontpic(lz_file):
     """
@@ -1618,10 +1598,9 @@ if __name__ == "__main__":
             name = os.path.splitext(argv[3])[0]
             lz = open(name+'.lz', 'rb').read()
             to_file(name+'.2bpp', Decompressed(lz, 'vert').output)
-            pic = open(name+'.2bpp', 'rb').read()
-            to_file(name+'.png', to_png(pic))
+            export_2bpp_to_png(name+'.2bpp')
         else:
-            lz_to_png_by_file(argv[2])
+            export_lz_to_png(argv[2])
 
     elif argv[1] == 'png-to-lz':
         # python gfx.py png-to-lz [--front anim(2bpp) | --vert] [png]
@@ -1629,21 +1608,24 @@ if __name__ == "__main__":
             # front.2bpp and tiles.2bpp are combined before compression,
             # so we have to pass in the anim file and pic size
             name = os.path.splitext(argv[4])[0]
-            to_2bpp(name+'.png', name+'.2bpp')
+            export_png_to_2bpp(name+'.png', name+'.2bpp')
             pic  = open(name+'.2bpp', 'rb').read()
             anim = open(argv[3], 'rb').read()
             size = int(sqrt(len(pic)/16)) # assume square pic
             to_file(name+'.lz', Compressed(pic + anim, 'vert', size).output)
         elif argv[2] == '--vert':
             name = os.path.splitext(argv[3])[0]
-            to_2bpp(name+'.png', name+'.2bpp')
+            export_png_to_2bpp(name+'.png', name+'.2bpp')
             pic = open(name+'.2bpp', 'rb').read()
             to_file(name+'.lz', Compressed(pic, 'vert').output)
         else:
             png_to_lz(argv[2])
 
     elif argv[1] == 'png-to-2bpp':
-        to_2bpp(argv[2])
+        export_png_to_2bpp(argv[2])
+
+    elif argv[1] == 'png-to-1bpp':
+        export_png_to_1bpp(argv[2])
 
     elif argv[1] == '2bpp-to-lz':
         if argv[2] == '--vert':
@@ -1656,4 +1638,4 @@ if __name__ == "__main__":
             compress_file(filein, fileout)
 
     elif argv[1] == '2bpp-to-png':
-        to_png(argv[2])
+        export_2bpp_to_png(argv[2])
