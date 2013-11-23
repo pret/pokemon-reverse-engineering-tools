@@ -778,7 +778,7 @@ HexByte=DollarSignByte
 
 class ItemLabelByte(DollarSignByte):
     def to_asm(self):
-        label = item_constants.item_constants.find_item_label_by_id(self.byte)
+        label = item_constants.find_item_label_by_id(self.byte)
         if label:
             return label
         elif not label:
