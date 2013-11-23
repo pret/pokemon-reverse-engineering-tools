@@ -174,7 +174,7 @@ def how_many_until(byte, starting, rom):
 def load_map_group_offsets(map_group_pointer_table, map_group_count, rom=None):
     """reads the map group table for the list of pointers"""
     map_group_offsets = [] # otherwise this method can only be used once
-    data = rom.interval(map_group_pointer_table, map_group_count*2, strings=False, rom=rom)
+    data = rom.interval(map_group_pointer_table, map_group_count*2, strings=False)
     data = helpers.grouper(data)
     for pointer_parts in data:
         pointer = pointer_parts[0] + (pointer_parts[1] << 8)
@@ -249,7 +249,10 @@ class TextScript:
     see: http://hax.iimarck.us/files/scriptingcodes_eng.htm#InText
     """
     base_label = "UnknownText_"
-    def __init__(self, address, map_group=None, map_id=None, debug=False, label=None, force=False, show=None):
+    def __init__(self, address, map_group=None, map_id=None, debug=False, label=None, force=False, show=None, script_parse_table=None, text_command_classes=None):
+        self.text_command_classes = text_command_classes
+        self.script_parse_table = script_parse_table
+
         self.address = address
         # $91, $84, $82, $54, $8c
         # 0x19768c is a a weird problem?
@@ -425,7 +428,7 @@ def parse_text_engine_script_at(address, map_group=None, map_id=None, debug=True
     """
     if is_script_already_parsed_at(address) and not force:
         return script_parse_table[address]
-    return TextScript(address, map_group=map_group, map_id=map_id, debug=debug, show=show, force=force)
+    return TextScript(address, map_group=map_group, map_id=map_id, debug=debug, show=show, force=force, script_parse_table=script_parse_table, text_command_classes=text_command_classes)
 
 def find_text_addresses():
     """returns a list of text pointers
@@ -560,7 +563,7 @@ def parse_text_at3(address, map_group=None, map_id=None, debug=False):
     if deh:
         return deh
     else:
-        text = TextScript(address, map_group=map_group, map_id=map_id, debug=debug)
+        text = TextScript(address, map_group=map_group, map_id=map_id, debug=debug, script_parse_table=script_parse_table, text_command_classes=text_command_classes)
         if text.is_valid():
             return text
         else:
