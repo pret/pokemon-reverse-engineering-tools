@@ -16,6 +16,10 @@ tile_height = 8
 block_width = 4
 block_height = 4
 
+WALKING_SPRITE = 1
+STANDING_SPRITE = 2
+STILL_SPRITE = 3
+
 # use the same configuration
 gfx.config = crystal.conf
 config = gfx.config
@@ -28,6 +32,7 @@ def add_pokecrystal_paths_to_configuration(config=config):
     config.block_dir = os.path.join(os.path.abspath("."), "tilesets/")
     config.palmap_dir = config.block_dir
     config.palette_dir = config.block_dir
+    config.sprites_dir = os.path.join(os.path.abspath("."), "gfx/overworld/")
 
 add_pokecrystal_paths_to_configuration(config=config)
 
@@ -195,7 +200,110 @@ def read_palettes(time_of_day=1, config=config):
 
     return palettes
 
-def draw_map(map_group_id, map_id, palettes, config=config):
+def load_sprite_image(image_id, config=config):
+    """
+    Make standard file path.
+    """
+    overworld_path = os.path.join("./gfx", "overworld")
+    filepath = os.path.join(overworld_path, "{image_id}.png")
+    filepath = filepath.format(image_id=str(image_id).zfill(3))
+    sprite_image = Image.open(filepath)
+
+    #pal = bytearray(open(os.path.join(config.block_dir, "day.pal"), "rb").read())
+    #sprite_image = colorize_tile(sprite_image, pal)
+
+    return sprite_image
+
+sprites = {}
+def load_all_sprite_images(config=config):
+    """
+    Loads all images for each sprite in each direction.
+    """
+    crystal.direct_load_rom()
+
+    sprite_headers_address = 0x14736
+    sprite_header_size = 6
+    sprite_count = 102
+    frame_size = 0x40
+
+    current_address = sprite_headers_address
+
+    current_image_id = 0
+
+    for sprite_id in xrange(sprite_count):
+        rom_bytes = crystal.rom[current_address : current_address + sprite_header_size]
+        header = [ord(x) for x in rom_bytes]
+
+        sprite_size = header[2]
+        sprite_type = header[4]
+        sprite_palette = header[5]
+        image_count = sprite_size / frame_size
+
+        sprite = {
+            "size": sprite_size,
+            "image_count": image_count,
+            "type": sprite_type,
+            "palette": sprite_palette,
+            "images": {},
+        }
+
+        # store the actual metadata
+        sprites[sprite_id] = sprite
+
+        if sprite_type == WALKING_SPRITE:
+            # down, up, left, move down, move up, move left
+            sprite["images"]["down"] = load_sprite_image(current_image_id, config=config)
+            sprite["images"]["up"] = load_sprite_image(current_image_id + 1, config=config)
+            sprite["images"]["left"] = load_sprite_image(current_image_id + 2, config=config)
+
+            current_image_id += image_count * 2
+        elif sprite_type == STANDING_SPRITE:
+            # down, up, left
+            sprite["images"]["down"] = load_sprite_image(current_image_id, config=config)
+            sprite["images"]["up"] = load_sprite_image(current_image_id + 1, config=config)
+            sprite["images"]["left"] = load_sprite_image(current_image_id + 2, config=config)
+
+            current_image_id += image_count * 1
+        elif sprite_type == STILL_SPRITE:
+            # just one image
+            sprite["images"]["still"] = load_sprite_image(current_image_id, config=config)
+
+            current_image_id += image_count * 1
+
+        current_address += sprite_header_size
+
+    return sprites
+
+def draw_map_sprites(map_header, map_image, config=config):
+    """
+    Show NPCs and items on the map.
+    """
+
+    events = map_header.second_map_header.event_header.people_events
+
+    for event in events:
+        sprite_image_id = event.params[0].byte
+        y = (event.params[1].byte - 4) * 4
+        x = (event.params[2].byte - 4) * 4
+        facing = event.params[3].byte
+        movement = event.params[4].byte
+        sight_range = event.params[8].byte
+        some_pointer = event.params[9]
+        bit_table_bit_number = event.params[10]
+
+        if sprite_image_id not in sprites.keys():
+            print "sprite_image_id {} is not in sprites".format(sprite_image_id)
+            continue
+
+        sprite = sprites[sprite_image_id]
+
+        # TODO: pick the correct direction based on "facing"
+        sprite_image = sprite["images"].values()[0]
+
+        # TODO: figure out how to calculate the correct position
+        map_image.paste(sprite_image, (x * 4, y * 4))
+
+def draw_map(map_group_id, map_id, palettes, show_sprites=True, config=config):
     """
     Makes a picture of a map.
     """
@@ -218,6 +326,7 @@ def draw_map(map_group_id, map_id, palettes, config=config):
 
     map_image = Image.new("RGB", (width * tile_width * block_width, height * tile_height * block_height))
 
+    # draw each block on the map
     for block_num in xrange(len(blockdata)):
         block_x = block_num % width
         block_y = block_num / width
@@ -236,9 +345,12 @@ def draw_map(map_group_id, map_id, palettes, config=config):
 
             map_image.paste(tile_image, (tile_x, tile_y))
 
+    # draw each sprite on the map
+    draw_map_sprites(map_header, map_image, config=config)
+
     return map_image
 
-def save_map(map_group_id, map_id, savedir, config=config):
+def save_map(map_group_id, map_id, savedir, show_sprites=True, config=config):
     """
     Makes a map and saves it to a file in savedir.
     """
@@ -252,12 +364,12 @@ def save_map(map_group_id, map_id, savedir, config=config):
     palettes = read_palettes(config=config)
 
     print "Drawing {}".format(map_name)
-    map_image = draw_map(map_group_id, map_id, palettes, config)
+    map_image = draw_map(map_group_id, map_id, palettes, show_sprites=show_sprites, config=config)
     map_image.save(filepath)
 
     return map_image
 
-def save_maps(savedir, config=config):
+def save_maps(savedir, show_sprites=True, config=config):
     """
     Draw as many maps as possible.
     """
@@ -266,4 +378,4 @@ def save_maps(savedir, config=config):
     for map_group_id in crystal.map_names.keys():
         for map_id in crystal.map_names[map_group_id].keys():
             if isinstance(map_id, int):
-                image = save_map(map_group_id, map_id, savedir, config)
+                image = save_map(map_group_id, map_id, savedir, show_sprites=show_sprites, config=config)
