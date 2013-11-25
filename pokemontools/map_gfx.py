@@ -3,9 +3,12 @@ Map-related graphic functions.
 """
 
 import os
+import png
+from io import BytesIO
 
 from PIL import (
     Image,
+    ImageDraw,
 )
 
 import crystal
@@ -200,17 +203,22 @@ def read_palettes(time_of_day=1, config=config):
 
     return palettes
 
-def load_sprite_image(image_id, config=config):
+def load_sprite_image(address, config=config):
     """
     Make standard file path.
     """
-    overworld_path = os.path.join("./gfx", "overworld")
-    filepath = os.path.join(overworld_path, "{image_id}.png")
-    filepath = filepath.format(image_id=str(image_id).zfill(3))
-    sprite_image = Image.open(filepath)
+    pal_file = os.path.join(config.block_dir, "day.pal")
 
-    #pal = bytearray(open(os.path.join(config.block_dir, "day.pal"), "rb").read())
-    #sprite_image = colorize_tile(sprite_image, pal)
+    length = 0x40
+
+    image = crystal.rom[address:address + length]
+    width, height, palette, greyscale, bitdepth, px_map = gfx.convert_2bpp_to_png(image, width=16, height=16, pal_file=pal_file)
+    w = png.Writer(16, 16, palette=palette, compression=9, greyscale=greyscale, bitdepth=bitdepth)
+    some_buffer = BytesIO()
+    w.write(some_buffer, px_map)
+    some_buffer.seek(0)
+
+    sprite_image = Image.open(some_buffer)
 
     return sprite_image
 
@@ -230,9 +238,16 @@ def load_all_sprite_images(config=config):
 
     current_image_id = 0
 
-    for sprite_id in xrange(sprite_count):
+    for sprite_id in xrange(1, sprite_count):
         rom_bytes = crystal.rom[current_address : current_address + sprite_header_size]
         header = [ord(x) for x in rom_bytes]
+
+        bank = header[3]
+
+        lo = header[0]
+        hi = header[1]
+        sprite_address = (hi * 0x100) + lo - 0x4000
+        sprite_address += 0x4000 * bank
 
         sprite_size = header[2]
         sprite_type = header[4]
@@ -247,28 +262,24 @@ def load_all_sprite_images(config=config):
             "images": {},
         }
 
-        # store the actual metadata
-        sprites[sprite_id] = sprite
-
-        if sprite_type == WALKING_SPRITE:
+        if sprite_type in [WALKING_SPRITE, STANDING_SPRITE]:
             # down, up, left, move down, move up, move left
-            sprite["images"]["down"] = load_sprite_image(current_image_id, config=config)
-            sprite["images"]["up"] = load_sprite_image(current_image_id + 1, config=config)
-            sprite["images"]["left"] = load_sprite_image(current_image_id + 2, config=config)
+            sprite["images"]["down"] = load_sprite_image(sprite_address, config=config)
+            sprite["images"]["up"] = load_sprite_image(sprite_address + 0x40, config=config)
+            sprite["images"]["left"] = load_sprite_image(sprite_address + (0x40 * 2), config=config)
 
-            current_image_id += image_count * 2
-        elif sprite_type == STANDING_SPRITE:
-            # down, up, left
-            sprite["images"]["down"] = load_sprite_image(current_image_id, config=config)
-            sprite["images"]["up"] = load_sprite_image(current_image_id + 1, config=config)
-            sprite["images"]["left"] = load_sprite_image(current_image_id + 2, config=config)
-
-            current_image_id += image_count * 1
+            if sprite_type == WALKING_SPRITE:
+                current_image_id += image_count * 2
+            elif sprite_type == STANDING_SPRITE:
+                current_image_id += image_count * 1
         elif sprite_type == STILL_SPRITE:
             # just one image
-            sprite["images"]["still"] = load_sprite_image(current_image_id, config=config)
+            sprite["images"]["still"] = load_sprite_image(sprite_address, config=config)
 
             current_image_id += image_count * 1
+
+        # store the actual metadata
+        sprites[sprite_id] = sprite
 
         current_address += sprite_header_size
 
@@ -291,17 +302,25 @@ def draw_map_sprites(map_header, map_image, config=config):
         some_pointer = event.params[9]
         bit_table_bit_number = event.params[10]
 
-        if sprite_image_id not in sprites.keys():
+        other_args = {}
+
+        if sprite_image_id not in sprites.keys() or sprite_image_id > 0x66:
             print "sprite_image_id {} is not in sprites".format(sprite_image_id)
-            continue
 
-        sprite = sprites[sprite_image_id]
+            sprite_image = Image.new("RGBA", (16, 16))
 
-        # TODO: pick the correct direction based on "facing"
-        sprite_image = sprite["images"].values()[0]
+            draw = ImageDraw.Draw(sprite_image, "RGBA")
+            draw.rectangle([(0, 0), (16, 16)], fill=(0, 0, 0, 127))
+
+            other_args["mask"] = sprite_image
+        else:
+            sprite = sprites[sprite_image_id]
+
+            # TODO: pick the correct direction based on "facing"
+            sprite_image = sprite["images"].values()[0]
 
         # TODO: figure out how to calculate the correct position
-        map_image.paste(sprite_image, (x * 4, y * 4))
+        map_image.paste(sprite_image, (x * 4, y * 4), **other_args)
 
 def draw_map(map_group_id, map_id, palettes, show_sprites=True, config=config):
     """
