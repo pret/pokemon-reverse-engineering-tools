@@ -9,7 +9,13 @@ path finding implementation
 import pokemontools.configuration
 config = pokemontools.configuration.Config()
 
+import pokemontools.crystal
 import pokemontools.map_gfx
+
+from PIL import (
+    Image,
+    ImageDraw,
+)
 
 PENALTIES = {
     # The minimum cost for a step must be greater than zero or else the path
@@ -541,7 +547,7 @@ class Map(object):
     map.
     """
 
-    def __init__(self, cry, height, width, map_group_id, map_id, config=config):
+    def __init__(self, cry, parsed_map, height, width, map_group_id, map_id, config=config):
         """
         :param cry: pokemon crystal emulation interface
         :type cry: crystal
@@ -552,11 +558,11 @@ class Map(object):
         self.threat_zones = set()
         self.obstacles = set()
 
-        self.height = height
-        self.width = width
-
+        self.parsed_map = parsed_map
         self.map_group_id = map_group_id
         self.map_id = map_id
+        self.height = height
+        self.width = width
 
     def travel_to(self, destination_location):
         """
@@ -591,8 +597,17 @@ class Map(object):
         palettes = pokemontools.map_gfx.read_palettes(self.config)
         map_image = pokemontools.map_gfx.draw_map(self.map_group_id, self.map_id, palettes, show_sprites=True, config=self.config)
 
-        # TODO: draw the given path on the map_image image object
-        raise NotImplementedError
+        for coordinates in path:
+            y = coordinates[0]
+            x = coordinates[1]
+
+            some_image = Image.new("RGBA", (32, 32))
+            draw = ImageDraw.Draw(some_image, "RGBA")
+            draw.rectangle([(0, 0), (32, 32)], fill=(0, 0, 0, 127))
+
+            target = [(x * 4, y * 4), ((x + 32) * 4, (y + 32) * 4)]
+
+            map_image.paste(some_image, target, mask=some_image)
 
         return map_image
 
@@ -611,19 +626,39 @@ class PathPlanner(object):
         Runs the path planner and returns a list of positions making up the
         path.
         """
-        raise NotImplementedError
+        return [(0, 0), (1, 0), (1, 1), (1, 2), (1, 3)]
 
-def broken_main():
+def plan_and_draw_path_on(map_group_id=1, map_id=1, initial_location=(0, 0), final_location=(2, 2), config=config):
     """
     An attempt at an entry point. This hasn't been sufficiently considered yet.
     """
-    current_map = Map.from_wram(cry)
+    initial_location = (0, 0)
+    final_location = (2, 2)
+    map_group_id = 1
+    map_id = 1
 
-    # make a graph based on the map
+    pokemontools.crystal.cachably_parse_rom()
+    pokemontools.map_gfx.add_pokecrystal_paths_to_configuration(config)
+
+    # get the map based on data from the rom
+    parsed_map = pokemontools.crystal.map_names[map_group_id][map_id]["header_new"]
+
+    # convert this map into a different structure
+    current_map = Map(cry=None, parsed_map=parsed_map, height=parsed_map.height.byte, width=parsed_map.width.byte, map_group_id=map_group_id, map_id=map_id, config=config)
+
+    # make a graph based on the map data
     nodes = create_graph(current_map)
 
-    planner = PathPlanner(current_map, (0, 0), (5, 5))
+    # make an instance of the planner implementation
+    planner = PathPlanner(current_map, initial_location, final_location)
+
+    # Make that planner do its planning based on the current configuration. The
+    # planner should be callable in the future and still have
+    # previously-calculated state, like cached pre-computed routes or
+    # something.
     path = planner.plan()
 
+    # show the path on the map
     drawn = current_map.draw_path(path)
+
     return drawn
