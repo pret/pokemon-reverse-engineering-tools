@@ -6,6 +6,11 @@ path finding implementation
    (note that they can be members of multiple zones simultaneously).
 """
 
+import pokemontools.configuration
+config = pokemontools.configuration.Config()
+
+import pokemontools.map_gfx
+
 PENALTIES = {
     # The minimum cost for a step must be greater than zero or else the path
     # finding implementation might take the player through elaborate routes
@@ -536,11 +541,12 @@ class Map(object):
     map.
     """
 
-    def __init__(self, cry, height, width):
+    def __init__(self, cry, height, width, map_group_id, map_id, config=config):
         """
         :param cry: pokemon crystal emulation interface
         :type cry: crystal
         """
+        self.config = config
         self.cry = cry
 
         self.threat_zones = set()
@@ -548,6 +554,9 @@ class Map(object):
 
         self.height = height
         self.width = width
+
+        self.map_group_id = map_group_id
+        self.map_id = map_id
 
     def travel_to(self, destination_location):
         """
@@ -574,6 +583,36 @@ class Map(object):
         """
         raise NotImplementedError
 
+    def draw_path(self, path):
+        """
+        Draws a path on an image of the current map. The path must be an
+        iterable of nodes to visit in (y, x) format.
+        """
+        palettes = pokemontools.map_gfx.read_palettes(self.config)
+        map_image = pokemontools.map_gfx.draw_map(self.map_group_id, self.map_id, palettes, show_sprites=True, config=self.config)
+
+        # TODO: draw the given path on the map_image image object
+        raise NotImplementedError
+
+        return map_image
+
+class PathPlanner(object):
+    """
+    Generic path finding implementation.
+    """
+
+    def __init__(self, some_map, initial_location, target_location):
+        self.some_map = some_map
+        self.initial_location = initial_location
+        self.target_location = target_location
+
+    def plan(self):
+        """
+        Runs the path planner and returns a list of positions making up the
+        path.
+        """
+        raise NotImplementedError
+
 def broken_main():
     """
     An attempt at an entry point. This hasn't been sufficiently considered yet.
@@ -583,6 +622,8 @@ def broken_main():
     # make a graph based on the map
     nodes = create_graph(current_map)
 
-    current_map.travel_to(destination_location)
+    planner = PathPlanner(current_map, (0, 0), (5, 5))
+    path = planner.plan()
 
-    return current_map
+    drawn = current_map.draw_path(path)
+    return drawn
