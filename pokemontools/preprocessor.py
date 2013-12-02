@@ -598,24 +598,18 @@ class Preprocessor(object):
         if do_macro_sanity_check:
             self.check_macro_sanity(params, macro, original_line)
 
-
         output = ""
-
-        index = 0
-        while index < len(params):
+        for index in xrange(len(params)):
             param_type  = macro.param_types[index]
             description = param_type["name"].strip()
             param_klass = param_type["class"]
-            byte_type   = param_klass.byte_type # db or dw
+            byte_type   = param_klass.byte_type
             param       = params[index].strip()
 
             if "from_asm" in dir(param_klass):
-                output += ("\t" + byte_type + " " + param_klass.from_asm(param) + " ; " +  description +  "\n")
+                param = param_klass.from_asm(param)
 
-            else:
-                output += ("\t" + byte_type + " " + param + " ; " + description + "\n")
-
-            index += 1
+            output += ("\t" + byte_type + " " + param + " ; " + description + "\n")
 
         sys.stdout.write(output)
 
