@@ -604,64 +604,24 @@ class Preprocessor(object):
         if do_macro_sanity_check:
             self.check_macro_sanity(params, macro, original_line)
 
-        # used for storetext
-        correction = 0
 
         output = ""
 
         index = 0
         while index < len(params):
-            param_type  = macro.param_types[index - correction]
+            param_type  = macro.param_types[index]
             description = param_type["name"].strip()
             param_klass = param_type["class"]
             byte_type   = param_klass.byte_type # db or dw
-            size        = param_klass.size
             param       = params[index].strip()
 
-            # param_klass.to_asm() won't work here because it doesn't
-            # include db/dw.
-
-            # some parameters are really multiple types of bytes
-            if (byte_type == "dw" and size != 2) or \
-               (byte_type == "db" and size != 1):
-
-                output += ("; " + description + "\n")
-
-                if   size == 3 and is_based_on(param_klass, "PointerLabelBeforeBank"):
-                    # write the bank first
-                    output += ("db " + param + "\n")
-                    # write the pointer second
-                    output += ("dw " + params[index+1].strip() + "\n")
-                    index += 2
-                    correction += 1
-                elif size == 3 and is_based_on(param_klass, "PointerLabelAfterBank"):
-                    # write the pointer first
-                    output += ("dw " + param + "\n")
-                    # write the bank second
-                    output += ("db " + params[index+1].strip() + "\n")
-                    index += 2
-                    correction += 1
-                elif size == 3 and "from_asm" in dir(param_klass):
-                    output += ("\t" + byte_type + " " + param_klass.from_asm(param) + "\n")
-                    index += 1
-                else:
-                    raise exceptions.MacroException(
-                        "dunno what to do with this macro param ({klass}) in line: {line}"
-                        .format(
-                            klass=param_klass,
-                            line=original_line,
-                        )
-                    )
-
-            elif "from_asm" in dir(param_klass):
+            if "from_asm" in dir(param_klass):
                 output += ("\t" + byte_type + " " + param_klass.from_asm(param) + " ; " +  description +  "\n")
-                index += 1
 
-            # or just print out the byte
             else:
                 output += ("\t" + byte_type + " " + param + " ; " + description + "\n")
 
-                index += 1
+            index += 1
 
         sys.stdout.write(output)
 
