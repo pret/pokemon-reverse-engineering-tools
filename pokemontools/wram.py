@@ -9,6 +9,11 @@ import os
 NUM_OBJECTS = 0x10
 OBJECT_LENGTH = 0x10
 
+
+def rgbasm_to_py(text):
+    return text.replace('$', '0x').replace('%', '0b')
+
+
 def make_wram_labels(wram_sections):
     wram_labels = {}
     for section in wram_sections:
@@ -30,7 +35,7 @@ def read_bss_sections(bss):
         if 'SECTION' in line:
             if section: sections.append(section) # last section
 
-            address = eval(line[line.find('[')+1:line.find(']')].replace('$','0x'))
+            address = eval(rgbasm_to_py(line[line.find('[')+1:line.find(']')]))
             section = {
                 'name': line.split('"')[1],
                 #'type': line.split(',')[1].split('[')[0].strip(),
@@ -49,7 +54,7 @@ def read_bss_sections(bss):
                 }]
 
         elif line[:3] == 'ds ':
-            length = eval(line[3:line.find(';')].replace('$','0x'))
+            length = eval(rgbasm_to_py(line[3:line.find(';')]))
             address += length
             # adjacent labels use the same space
             for label in section['labels'][::-1]:
@@ -61,14 +66,14 @@ def read_bss_sections(bss):
         elif 'EQU' in line:
             # some space is defined using constants
             name, value = line.split('EQU')
-            name, value = name.strip(), value.strip().replace('$','0x').replace('%','0b')
+            name, value = name.strip(), rgbasm_to_py(value)
             globals()[name] = eval(value)
 
     sections.append(section)
     return sections
 
 def constants_to_dict(constants):
-    return dict((eval(constant[constant.find('EQU')+3:constant.find(';')].replace('$','0x')), constant[:constant.find('EQU')].strip()) for constant in constants)
+    return dict((eval(rgbasm_to_py(constant[constant.find('EQU')+3:constant.find(';')])), constant[:constant.find('EQU')].strip()) for constant in constants)
 
 def scrape_constants(text):
     if type(text) is not list:
