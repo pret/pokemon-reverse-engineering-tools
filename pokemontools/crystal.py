@@ -945,12 +945,19 @@ class PointerLabelParam(MultiByteParam):
 
 class PointerLabelBeforeBank(PointerLabelParam):
     bank = True # bank appears first, see calculate_pointer_from_bytes_at
-    size = 3
-    byte_type = "dw"
+    byte_type = 'db'
+
+    @staticmethod
+    def from_asm(value):
+        return 'BANK({0})\n\tdw {0}'.format(value)
 
 class PointerLabelAfterBank(PointerLabelParam):
     bank = "reverse" # bank appears last, see calculate_pointer_from_bytes_at
-    size = 3
+    byte_type = 'dw'
+
+    @staticmethod
+    def from_asm(value):
+        return '{0}\n\tdb BANK({0})'.format(value)
 
 
 class ScriptPointerLabelParam(PointerLabelParam): pass
@@ -2358,7 +2365,7 @@ pksv_crystal_more = {
     0xA1: ["halloffame"],
     0xA2: ["credits"],
     0xA3: ["warpfacing", ["facing", SingleByteParam], ["map_group", MapGroupParam], ["map_id", MapIdParam], ["x", SingleByteParam], ["y", SingleByteParam]],
-    0xA4: ["storetext", ["pointer", PointerLabelBeforeBank], ["memory", SingleByteParam]],
+    0xA4: ["storetext", ["memory", SingleByteParam]],
     0xA5: ["displaylocation", ["id", SingleByteParam], ["memory", SingleByteParam]],
     0xA6: ["trainerclassname", ["id", SingleByteParam]],
     0xA7: ["name", ["type", SingleByteParam], ["id", SingleByteParam]],
