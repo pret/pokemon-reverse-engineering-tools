@@ -581,12 +581,6 @@ class Preprocessor(object):
         if show_original_lines:
             sys.stdout.write("; original_line: " + original_line)
 
-        # rgbasm can handle "db" so no preprocessing is required, plus this wont be
-        # reached because of earlier checks in macro_test.
-        if macro.macro_name in ["db", "dw"]:
-            sys.stdout.write(original_line)
-            return
-
 	# rgbasm can handle other macros too
         if "is_rgbasm_macro" in dir(macro):
             if macro.is_rgbasm_macro:
