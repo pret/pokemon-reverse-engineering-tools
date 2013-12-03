@@ -553,29 +553,17 @@ class Preprocessor(object):
 
         original_line = line
 
-        # remove trailing newline
-        if line[-1] == "\n":
-            line = line[:-1]
+        has_tab = line[0] == "\t"
 
-        # remove first tab
-        has_tab = False
-        if line[0] == "\t":
-            has_tab = True
-            line = line[1:]
-
-        # remove duplicate whitespace (also trailing)
+        # remove whitespace
         line = " ".join(line.split())
-
-        params = []
 
         # check if the line has params
         if " " in line:
             # split the line into separate parameters
             params = line.replace(token, "").split(",")
-
-            # check if there are no params (redundant)
-            if len(params) == 1 and params[0] == "":
-                raise exceptions.MacroException("macro has no params?")
+        else:
+            params = []
 
         # write out a comment showing the original line
         if show_original_lines:
