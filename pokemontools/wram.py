@@ -20,11 +20,19 @@ def bracket_value(string, i=0):
 def read_bss_sections(bss):
     sections = []
     section = {
+        'name': None,
+        'type': None,
+        'bank': None,
+        'start': None,
+        'labels': [],
     }
     address = None
     if type(bss) is not list: bss = bss.split('\n')
     for line in bss:
-        line = line.lstrip()
+
+        comment_index = line.find(';')
+        line, comment = line[:comment_index].lstrip(), line[comment_index:]
+
         if 'SECTION' == line[:7]:
             if section: # previous
                 sections += [section]
@@ -71,7 +79,7 @@ def read_bss_sections(bss):
                 }]
 
         elif line[:3] == 'ds ':
-            length = eval(line[3:line.find(';')].replace('$','0x'))
+            length = eval(line[3:].replace('$','0x'))
             address += length
             # adjacent labels use the same space
             for label in section['labels'][::-1]:
