@@ -483,22 +483,18 @@ class Preprocessor(object):
         for l in lines:
             self.read_line(l)
 
-        self.update_globals()
-
     def update_globals(self):
         """
         Add any labels not already in globals.asm.
         """
-        # TODO: pokered needs to be fixed
-        try:
-            globes = open(os.path.join(self.config.path, 'globals.asm'), 'r+')
+        path = os.path.join(self.config.path, 'globals.asm')
+        if os.path.exists(path):
+            globes = open(path, 'r+')
             lines = globes.readlines()
             for globe in self.globes:
                 line = 'GLOBAL ' + globe + '\n'
                 if line not in lines:
                     globes.write(line)
-        except Exception as exception:
-            pass # don't care if it's not there...
 
     def read_line(self, l):
         """
