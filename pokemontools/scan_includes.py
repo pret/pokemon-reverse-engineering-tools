@@ -22,13 +22,15 @@ def recursive_scan(filename, includes = []):
 						include = line.split('"')[1]
 						if include not in includes:
 							includes += [include]
-							includes = recursive_scan(include, includes)
+							includes = recursive_scan(os.path.join(conf.path, include), includes)
 						break
 	return includes
 
 if __name__ == '__main__':
 	filenames = sys.argv[1:]
+	dependencies = []
 	for filename in filenames:
-		dependencies = recursive_scan(os.path.join(conf.path, filename))
-		sys.stdout.write(' '.join(dependencies))
+		dependencies += recursive_scan(os.path.join(conf.path, filename))
+	dependencies = list(set(dependencies))
+	sys.stdout.write(' '.join(dependencies))
 
