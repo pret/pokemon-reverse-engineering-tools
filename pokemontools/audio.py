@@ -26,7 +26,7 @@ conf = configuration.Config()
 def sort_asms(asms):
 	"""sort and remove duplicates from a list of tuples
 	format (address, asm, last_address)"""
-	return sorted(set(asms), key=lambda (x,y,z):(x,z,not y.startswith(';'), ':' not in y))
+	return sorted(set(asms), key=lambda (x,y,z):(x,z,not y.startswith(';'), ':' not in y, y))
 
 class NybbleParam:
 	size = 0.5
