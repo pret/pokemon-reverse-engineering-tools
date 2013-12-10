@@ -18,22 +18,56 @@ def make_wram_labels(wram_sections):
             wram_labels[label['address']] += [label['label']]
     return wram_labels
 
+def bracket_value(string, i=0):
+    return string.split('[')[1 + i*2].split(']')[0]
+
 def read_bss_sections(bss):
     sections = []
     section = {
-        "labels": [],
+        'name': None,
+        'type': None,
+        'bank': None,
+        'start': None,
+        'labels': [],
     }
     address = None
     if type(bss) is not list: bss = bss.split('\n')
     for line in bss:
-        line = line.lstrip()
-        if 'SECTION' in line:
-            if section: sections.append(section) # last section
 
-            address = eval(line[line.find('[')+1:line.find(']')].replace('$','0x'))
+        comment_index = line.find(';')
+        line, comment = line[:comment_index].lstrip(), line[comment_index:]
+
+        if 'SECTION' == line[:7]:
+            if section: # previous
+                sections += [section]
+
+            section_def = line.split(',')
+            name  = section_def[0].split('"')[1]
+            type_ = section_def[1].strip()
+            if len(section_def) > 2:
+                bank = bracket_value(section_def[2])
+            else:
+                bank = None
+
+            if '[' in type_:
+                address = int(bracket_value(type_).replace('$','0x'), 16)
+            else:
+                if address == None or bank != section['bank']:
+                    for type__, addr in [
+                        ('VRAM',  0x8000),
+                        ('SRAM',  0xa000),
+                        ('WRAM0', 0xc000),
+                        ('WRAMX', 0xd000),
+                        ('HRAM',  0xff80),
+                    ]:
+                        if type__ == type_ and section['type'] == type__:
+                            address = addr
+                # else: keep going from this address
+
             section = {
-                'name': line.split('"')[1],
-                #'type': line.split(',')[1].split('[')[0].strip(),
+                'name': name,
+                'type': type_,
+                'bank': bank,
                 'start': address,
                 'labels': [],
             }
@@ -49,7 +83,7 @@ def read_bss_sections(bss):
                 }]
 
         elif line[:3] == 'ds ':
-            length = eval(line[3:line.find(';')].replace('$','0x'))
+            length = eval(line[3:].replace('$','0x'))
             address += length
             # adjacent labels use the same space
             for label in section['labels'][::-1]:

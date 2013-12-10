@@ -4,7 +4,7 @@ import os
 import sys
 import json
 
-def make_sym_from_json(filename = '../pokecrystal.sym', j = 'labels.json'):
+def make_sym_from_json(filename = 'pokecrystal.sym', j = 'labels.json'):
     output = ''
     labels = json.load(open(j))
     for label in labels:
@@ -12,13 +12,13 @@ def make_sym_from_json(filename = '../pokecrystal.sym', j = 'labels.json'):
     with open(filename, 'w') as sym:
         sym.write(output)
 
-def make_json_from_mapfile(filename='labels.json', mapfile='../pokecrystal.map'):
+def make_json_from_mapfile(filename='labels.json', mapfile='pokecrystal.map'):
     output = []
     labels = filter_wram_addresses(read_mapfile(mapfile))
     with open(filename, 'w') as out:
         out.write(json.dumps(labels))
 
-def read_mapfile(filename='../pokecrystal.map'):
+def read_mapfile(filename='pokecrystal.map'):
     """
     Scrape label addresses from an rgbds mapfile.
     """
@@ -29,9 +29,15 @@ def read_mapfile(filename='../pokecrystal.map'):
         lines = mapfile.readlines()
 
     for line in lines:
-        # bank #
-        if 'Bank #' in line:
-            cur_bank = int(line.lstrip('Bank #').strip(';\n').strip(' (HOME)'))
+        if line[0].strip(): # section type def
+            section_type = line.split(' ')[0]
+            if section_type == 'Bank': # ROM
+                cur_bank = int(line.split(' ')[1].split(':')[0][1:])
+            elif section_type in ['WRAM0', 'HRAM']:
+                cur_bank = 0
+            elif section_type in ['WRAM, VRAM']:
+                cur_bank = int(line.split(' ')[2].split(':')[0][1:])
+                cur_bank = int(line.split(' ')[2].split(':')[0][1:])
 
         # label definition
         elif '=' in line:
@@ -39,21 +45,10 @@ def read_mapfile(filename='../pokecrystal.map'):
             address = int(address.lstrip().replace('$', '0x'), 16)
             label = label.strip()
 
-            # rgbds doesn't support ram banks yet
             bank = cur_bank
             offset = address
-
-            ranges = [
-                0x8000 <= address < 0xa000,
-                0xa000 <= address < 0xc000,
-                0xc000 <= address < 0xd000,
-                0xd000 <= address < 0xe000,
-            ]
-
-            if any(ranges):
-                bank = 0
-            else:
-                offset += (bank * 0x4000 - 0x4000) if bank > 0 else 0
+            if address < 0x8000 and bank: # ROM
+                offset += (bank - 1) * 0x4000
 
             labels += [{
                 'label': label,
