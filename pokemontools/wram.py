@@ -48,16 +48,16 @@ def read_bss_sections(bss):
             if '[' in type_:
                 address = int(bracket_value(type_).replace('$','0x'), 16)
             else:
-                if address == None or bank != section['bank']:
-                    for type__, addr in [
-                        ('VRAM',  0x8000),
-                        ('SRAM',  0xa000),
-                        ('WRAM0', 0xc000),
-                        ('WRAMX', 0xd000),
-                        ('HRAM',  0xff80),
-                    ]:
-                        if type__ == type_ and section['type'] == type__:
-                            address = addr
+                types = {
+                    'VRAM':  0x8000,
+                    'SRAM':  0xa000,
+                    'WRAM0': 0xc000,
+                    'WRAMX': 0xd000,
+                    'HRAM':  0xff80,
+                }
+                if address == None or bank != section['bank'] or section['type'] != type_:
+                    if type_ in types.keys():
+                        address = types[type_]
                 # else: keep going from this address
 
             section = {
