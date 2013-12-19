@@ -133,9 +133,21 @@ class WRAMProcessor(object):
         self.config = config
 
         self.paths = {}
-        self.paths["wram"] = os.path.join(self.config.path, "wram.asm")
-        self.paths["hram"] = os.path.join(self.config.path, "hram.asm")
-        self.paths["gbhw"] = os.path.join(self.config.path, "gbhw.asm")
+
+        if hasattr(self.config, "wram"):
+            self.paths["wram"] = self.config.wram
+        else:
+            self.paths["wram"] = os.path.join(self.config.path, "wram.asm")
+
+        if hasattr(self.config, "hram"):
+            self.paths["hram"] = self.config.hram
+        else:
+            self.paths["hram"] = os.path.join(self.config.path, "hram.asm")
+
+        if hasattr(self.config, "gbhw"):
+            self.paths["gbhw"] = self.config.gbhw
+        else:
+            self.paths["gbhw"] = os.path.join(self.config.path, "gbhw.asm")
 
     def initialize(self):
         """

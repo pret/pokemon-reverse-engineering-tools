@@ -70,6 +70,11 @@ OldTextScript = old_text_script
 import configuration
 conf = configuration.Config()
 
+data_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), "data/pokecrystal/")
+conf.wram = os.path.join(data_path, "wram.asm")
+conf.gbhw = os.path.join(data_path, "gbhw.asm")
+conf.hram = os.path.join(data_path, "hram.asm")
+
 from map_names import map_names
 
 # ---- script_parse_table explanation ----
@@ -174,7 +179,7 @@ def how_many_until(byte, starting, rom):
 def load_map_group_offsets(map_group_pointer_table, map_group_count, rom=None):
     """reads the map group table for the list of pointers"""
     map_group_offsets = [] # otherwise this method can only be used once
-    data = rom.interval(map_group_pointer_table, map_group_count*2, strings=False, rom=rom)
+    data = rom.interval(map_group_pointer_table, map_group_count*2, strings=False)
     data = helpers.grouper(data)
     for pointer_parts in data:
         pointer = pointer_parts[0] + (pointer_parts[1] << 8)
@@ -249,7 +254,10 @@ class TextScript:
     see: http://hax.iimarck.us/files/scriptingcodes_eng.htm#InText
     """
     base_label = "UnknownText_"
-    def __init__(self, address, map_group=None, map_id=None, debug=False, label=None, force=False, show=None):
+    def __init__(self, address, map_group=None, map_id=None, debug=False, label=None, force=False, show=None, script_parse_table=None, text_command_classes=None):
+        self.text_command_classes = text_command_classes
+        self.script_parse_table = script_parse_table
+
         self.address = address
         # $91, $84, $82, $54, $8c
         # 0x19768c is a a weird problem?
@@ -425,7 +433,7 @@ def parse_text_engine_script_at(address, map_group=None, map_id=None, debug=True
     """
     if is_script_already_parsed_at(address) and not force:
         return script_parse_table[address]
-    return TextScript(address, map_group=map_group, map_id=map_id, debug=debug, show=show, force=force)
+    return TextScript(address, map_group=map_group, map_id=map_id, debug=debug, show=show, force=force, script_parse_table=script_parse_table, text_command_classes=text_command_classes)
 
 def find_text_addresses():
     """returns a list of text pointers
@@ -560,7 +568,7 @@ def parse_text_at3(address, map_group=None, map_id=None, debug=False):
     if deh:
         return deh
     else:
-        text = TextScript(address, map_group=map_group, map_id=map_id, debug=debug)
+        text = TextScript(address, map_group=map_group, map_id=map_id, debug=debug, script_parse_table=script_parse_table, text_command_classes=text_command_classes)
         if text.is_valid():
             return text
         else:
@@ -775,7 +783,7 @@ HexByte=DollarSignByte
 
 class ItemLabelByte(DollarSignByte):
     def to_asm(self):
-        label = item_constants.item_constants.find_item_label_by_id(self.byte)
+        label = item_constants.find_item_label_by_id(self.byte)
         if label:
             return label
         elif not label:
@@ -2925,7 +2933,7 @@ class Script:
         if start_address in stop_points and force == False:
             if debug:
                 logging.debug(
-                    "script parsing is stopping at stop_point={address} at map_group={map_group} map_id={map_id}"
+                    "script parsing is stopping at stop_point={stop_point} at map_group={map_group} map_id={map_id}"
                     .format(
                         stop_point=hex(start_address),
                         map_group=str(map_group),
@@ -6596,7 +6604,7 @@ def list_texts_in_bank(bank):
     Narrows down the list of objects that you will be inserting into Asm.
     """
     if len(all_texts) == 0:
-        raise Exception("all_texts is blank.. main() will populate it")
+        raise Exception("all_texts is blank.. parse_rom() will populate it")
 
     assert bank != None, "list_texts_in_banks must be given a particular bank"
 
@@ -6614,7 +6622,7 @@ def list_movements_in_bank(bank, all_movements):
     Narrows down the list of objects to speed up Asm insertion.
     """
     if len(all_movements) == 0:
-        raise Exception("all_movements is blank.. main() will populate it")
+        raise Exception("all_movements is blank.. parse_rom() will populate it")
 
     assert bank != None, "list_movements_in_bank must be given a particular bank"
     assert 0 <= bank < 0x80, "bank doesn't exist in the ROM (out of bounds)"
@@ -6633,7 +6641,7 @@ def dump_asm_for_texts_in_bank(bank, start=50, end=100, rom=None):
     # load and parse the ROM if necessary
     if rom == None or len(rom) <= 4:
         rom = load_rom()
-        main()
+        parse_rom()
 
     # get all texts
     # first 100 look okay?
@@ -6653,7 +6661,7 @@ def dump_asm_for_texts_in_bank(bank, start=50, end=100, rom=None):
 def dump_asm_for_movements_in_bank(bank, start=0, end=100, all_movements=None):
     if rom == None or len(rom) <= 4:
         rom = load_rom()
-        main()
+        parse_rom()
 
     movements = list_movements_in_bank(bank, all_movements)[start:end]
 
@@ -6669,7 +6677,7 @@ def dump_things_in_bank(bank, start=50, end=100):
     # load and parse the ROM if necessary
     if rom == None or len(rom) <= 4:
         rom = load_rom()
-        main()
+        parse_rom()
 
     things = list_things_in_bank(bank)[start:end]
 
@@ -6705,6 +6713,14 @@ def write_all_labels(all_labels, filename="labels.json"):
     fh.write(json.dumps(all_labels))
     fh.close()
     return True
+
+def setup_wram_labels(config=conf):
+    """
+    Get all wram labels and store it on the module.
+    """
+    wramproc = wram.WRAMProcessor(config=config)
+    wramproc.initialize()
+    wram.wram_labels = wramproc.wram_labels
 
 def get_ram_label(address):
     """
@@ -6953,16 +6969,28 @@ Command.trainer_group_maximums = trainer_group_maximums
 SingleByteParam.map_internal_ids = map_internal_ids
 MultiByteParam.map_internal_ids = map_internal_ids
 
-def main(rom=None):
+def add_map_offsets_into_map_names(map_group_offsets, map_names=None):
+    """
+    Add the offsets for each map into the map_names variable.
+    """
+    # add the offsets into our map structure, why not (johto maps only)
+    return [map_names[map_group_id+1].update({"offset": offset}) for map_group_id, offset in enumerate(map_group_offsets)]
+
+rom_parsed = False
+
+def parse_rom(rom=None):
     if not rom:
         # read the rom and figure out the offsets for maps
         rom = direct_load_rom()
 
+    # make wram.wram_labels available
+    setup_wram_labels()
+
     # figure out the map offsets
     map_group_offsets = load_map_group_offsets(map_group_pointer_table=map_group_pointer_table, map_group_count=map_group_count, rom=rom)
 
-    # add the offsets into our map structure, why not (johto maps only)
-    [map_names[map_group_id+1].update({"offset": offset}) for map_group_id, offset in enumerate(map_group_offsets)]
+    # populate the map_names structure with the offsets
+    add_map_offsets_into_map_names(map_group_offsets, map_names=map_names)
 
     # parse map header bytes for each map
     parse_all_map_headers(map_names, all_map_headers=all_map_headers)
@@ -6977,6 +7005,21 @@ def main(rom=None):
 
     # improve duplicate trainer names
     make_trainer_group_name_trainer_ids(trainer_group_table)
+
+    global rom_parsed
+    rom_parsed = True
+
+    return map_names
+
+def cachably_parse_rom(rom=None):
+    """
+    Calls parse_rom if it hasn't been called and completed yet.
+    """
+    global rom_parsed
+    if not rom_parsed:
+        return parse_rom(rom=rom)
+    else:
+        return map_names
 
 if __name__ == "crystal":
     pass
