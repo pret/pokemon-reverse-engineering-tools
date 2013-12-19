@@ -8,33 +8,39 @@ import json
 import logging
 
 import pointers
+import sym
 
 class Labels(object):
     """
     Store all labels.
     """
-    filename = "labels.json"
 
-    def __init__(self, config):
+    def __init__(self, config, filename="pokecrystal.map"):
         """
         Setup the instance.
         """
         self.config = config
-        self.path = os.path.join(self.config.path, Labels.filename)
+        self.filename = filename
+        self.path = os.path.join(self.config.path, self.filename)
 
     def initialize(self):
         """
         Handle anything requiring file-loading and such.
         """
+        # Look for a mapfile if it's not given
         if not os.path.exists(self.path):
-            logging.info(
-                "Running crystal.scan_for_predefined_labels to create \"{0}\". Trying.."
-                .format(Labels.filename)
-            )
-            import crystal
-            crystal.scan_for_predefined_labels()
+            self.filename = find_mapfile_in_dir(self.config.path)
+            if self.filename == None:
+                raise Exception, "Couldn't find any mapfiles. Run rgblink -m to create a mapfile."
+            self.path = os.path.join(self.config.path, self.filename)
 
-        self.labels = json.read(open(self.path, "r").read())
+        self.labels = sym.read_mapfile(self.path)
+
+def find_mapfile_in_dir(path):
+    for filename in os.listdir(path):
+        if os.path.splitext(filename)[1] == '.map':
+            return filename
+    return None
 
 def remove_quoted_text(line):
     """get rid of content inside quotes
