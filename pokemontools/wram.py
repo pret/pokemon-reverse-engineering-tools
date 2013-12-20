@@ -23,6 +23,9 @@ def make_wram_labels(wram_sections):
             wram_labels[label['address']] += [label['label']]
     return wram_labels
 
+def bracket_value(string, i=0):
+    return string.split('[')[1 + i*2].split(']')[0]
+
 def read_bss_sections(bss):
     sections = []
     section = {
@@ -35,10 +38,40 @@ def read_bss_sections(bss):
         if 'SECTION' in line:
             if section: sections.append(section) # last section
 
-            address = eval(rgbasm_to_py(line[line.find('[')+1:line.find(']')]))
+        comment_index = line.find(';')
+        line, comment = line[:comment_index].lstrip(), line[comment_index:]
+
+        if 'SECTION' == line[:7]:
+            if section: # previous
+                sections += [section]
+
+            section_def = line.split(',')
+            name  = section_def[0].split('"')[1]
+            type_ = section_def[1].strip()
+            if len(section_def) > 2:
+                bank = bracket_value(section_def[2])
+            else:
+                bank = None
+
+            if '[' in type_:
+                address = int(rgbasm_to_py(bracket_value(type_)), 16)
+            else:
+                types = {
+                    'VRAM':  0x8000,
+                    'SRAM':  0xa000,
+                    'WRAM0': 0xc000,
+                    'WRAMX': 0xd000,
+                    'HRAM':  0xff80,
+                }
+                if address == None or bank != section['bank'] or section['type'] != type_:
+                    if type_ in types.keys():
+                        address = types[type_]
+                # else: keep going from this address
+
             section = {
-                'name': line.split('"')[1],
-                #'type': line.split(',')[1].split('[')[0].strip(),
+                'name': name,
+                'type': type_,
+                'bank': bank,
                 'start': address,
                 'labels': [],
             }
@@ -54,7 +87,7 @@ def read_bss_sections(bss):
                 }]
 
         elif line[:3] == 'ds ':
-            length = eval(rgbasm_to_py(line[3:line.find(';')]))
+            length = eval(rgbasm_to_py(line[3:]))
             address += length
             # adjacent labels use the same space
             for label in section['labels'][::-1]:
@@ -66,7 +99,7 @@ def read_bss_sections(bss):
         elif 'EQU' in line:
             # some space is defined using constants
             name, value = line.split('EQU')
-            name, value = name.strip(), rgbasm_to_py(value)
+            name, value = name.strip(), value.strip().replace('$','0x').replace('%','0b')
             globals()[name] = eval(value)
 
     sections.append(section)

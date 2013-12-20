@@ -128,6 +128,7 @@ def get_constants(config=config):
             name, value = [s.strip() for s in line.split(' EQU ')]
             constants[name] = eval(value.split(';')[0].replace('$','0x').replace('%','0b'))
     config.constants = constants
+    return constants
 
 class Application(Frame):
     def __init__(self, master=None, config=config):
@@ -149,10 +150,10 @@ class Application(Frame):
         self.picker_frame = Frame(self)
         self.picker_frame.grid(row=1, column=1)
 
-        self.new = Button(self.button_frame)
-        self.new["text"] = "New"
-        self.new["command"] = self.new_map
-        self.new.grid(row=0, column=0, padx=2)
+        self.button_new = Button(self.button_frame)
+        self.button_new["text"] = "New"
+        self.button_new["command"] = self.new_map
+        self.button_new.grid(row=0, column=0, padx=2)
 
         self.open = Button(self.button_frame)
         self.open["text"] = "Open"
@@ -682,14 +683,6 @@ def macro_values(line, macro):
     if values[0] == 'w': # dbw
         values = values[1:]
     return values
-
-def db_value(line):
-    macro = 'db'
-    return macro_values(line, macro)
-
-def db_values(line):
-    macro = 'db'
-    return macro_values(line, macro)
 
 def asm_at_label(asm, label):
     label_def = label + ':'
