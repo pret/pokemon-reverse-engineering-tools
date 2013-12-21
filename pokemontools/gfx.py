@@ -1679,6 +1679,9 @@ if __name__ == "__main__":
     elif argv[1] == 'png-to-1bpp':
         export_png_to_1bpp(argv[2])
 
+    elif argv[1] == '1bpp-to-png':
+        export_1bpp_to_png(argv[2])
+
     elif argv[1] == '2bpp-to-lz':
         if argv[2] == '--vert':
             filein = argv[3]
