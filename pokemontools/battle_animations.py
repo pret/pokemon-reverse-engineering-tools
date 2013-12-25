@@ -137,7 +137,7 @@ def create_battle_animation_classes():
 battle_animation_classes = create_battle_animation_classes()
 
 
-class Wait(Command):
+class BattleAnimWait(Command):
 	macro_name = 'anim_wait'
 	size = 1
 	end = macro_name in battle_animation_enders
@@ -228,7 +228,7 @@ class BattleAnim:
 
 	def get_command_class(self, cmd):
 		if cmd < 0xd0:
-			return Wait
+			return BattleAnimWait
 		for class_ in battle_animation_classes:
 			if class_.id == cmd:
 				return class_
