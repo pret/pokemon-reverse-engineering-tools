@@ -148,6 +148,17 @@ class BattleAnimWait(Command):
 
 
 class BattleAnim:
+	"""
+	A list of battle animation commands read from a given address.
+
+	Results in a list of commands (self.output) and a list of labels (self.labels).
+	Format is (address, asm, last_address). Includes any subroutines and their output.
+
+	To convert to text, use self.to_asm().
+
+	For combining multiple BattleAnims, take self.output + self.labels from each
+	and sort with sort_asms.
+	"""
 
 	def __init__(self, address, base_label=None, label=None, used_labels=[], macros=[]):
 		self.start_address = address
@@ -227,11 +238,10 @@ class BattleAnim:
 		self.labels = list(set(self.labels))
 
 	def to_asm(self):
-		output = sorted(self.output + self.labels, key = lambda (x, y, z): (x, z))
+		output = sort_asms(self.output + self.labels)
 		text = ''
 		for (address, asm, last_address) in output:
 			text += asm + '\n'
-		#text += '; %x\n' % last_address
 		return text
 
 	def get_command_class(self, cmd):
