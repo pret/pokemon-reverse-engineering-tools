@@ -149,7 +149,7 @@ class BattleAnimWait(Command):
 
 class BattleAnim:
 
-	def __init__(self, address, base_label=None, label=None, used_labels=[]):
+	def __init__(self, address, base_label=None, label=None, used_labels=[], macros=[]):
 		self.start_address = address
 		self.address = address
 
@@ -172,6 +172,8 @@ class BattleAnim:
 		)
 		self.labels += [self.label_asm]
 		self.used_labels += [self.label_asm]
+
+		self.macros = macros
 
 		self.parse()
 
@@ -211,7 +213,13 @@ class BattleAnim:
 		for address, asm, last_address in self.labels:
 			if not (self.start_address <= address < self.address) and (address, asm, last_address) not in self.used_labels:
 				self.used_labels += [(address, asm, last_address)]
-				sub = BattleAnim(address=address, base_label=self.base_label, label=asm.split(':')[0], used_labels=self.used_labels)
+				sub = BattleAnim(
+					address=address,
+					base_label=self.base_label,
+					label=asm.split(':')[0],
+					used_labels=self.used_labels,
+					macros=self.macros
+				)
 				self.output += sub.output
 				self.labels += sub.labels
 
@@ -229,7 +237,7 @@ class BattleAnim:
 	def get_command_class(self, cmd):
 		if cmd < 0xd0:
 			return BattleAnimWait
-		for class_ in battle_animation_classes:
+		for class_ in self.macros:
 			if class_.id == cmd:
 				return class_
 		return None
@@ -242,7 +250,7 @@ def battle_anim_label(i):
 		base_label = 'BattleAnim_%d' % i
 	return base_label
 
-def dump_battle_anims(table_address=0xc906f, num_anims=278):
+def dump_battle_anims(table_address=0xc906f, num_anims=278, macros=battle_animation_classes):
 	"""
 	Dump each battle animation from a pointer table.
 	"""
@@ -265,13 +273,21 @@ def dump_battle_anims(table_address=0xc906f, num_anims=278):
 		asms += [(pointer_address, '\tdw %s' % base_label, address)]
 
 		# anim script
-		anim = BattleAnim(address=anim_address, base_label=base_label)
+		anim = BattleAnim(
+			address=anim_address,
+			base_label=base_label,
+			macros=macros
+		)
 		asms += anim.output + anim.labels
 
 	asms += [(address, '; %x\n' % address, address)]
 
 	# jp sonicboom
-	anim = BattleAnim(address=0xc9c00, base_label='BattleAnim_Sonicboom_JP')
+	anim = BattleAnim(
+		address=0xc9c00,
+		base_label='BattleAnim_Sonicboom_JP',
+		macros=macros
+	)
 	asms += anim.output + anim.labels
 
 	asms = sort_asms(asms)
