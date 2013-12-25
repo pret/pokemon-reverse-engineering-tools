@@ -254,6 +254,9 @@ class BattleAnim:
 
 
 def battle_anim_label(i):
+	"""
+	Return a label matching the name of a battle animation by id.
+	"""
 	if i in anims.keys():
 		base_label = 'BattleAnim_%s' % anims[i].title().replace('_','')
 	else:
