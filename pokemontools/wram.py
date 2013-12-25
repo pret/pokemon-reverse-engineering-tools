@@ -117,10 +117,10 @@ def read_constants(filepath):
     """
     Load lines from a file and call scrape_constants.
     """
-    lines = None
-
-    with open(filepath, "r") as file_handler:
-        lines = file_handler.readlines()
+    lines = []
+    if os.path.exists(filepath):
+        with open(filepath, "r") as file_handler:
+            lines = file_handler.readlines()
 
     constants = scrape_constants(lines)
     return constants
