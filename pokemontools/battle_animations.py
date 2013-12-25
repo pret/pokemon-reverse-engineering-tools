@@ -277,18 +277,19 @@ def dump_battle_anims(table_address=0xc906f, num_anims=278):
 	asms = sort_asms(asms)
 	return asms
 
-def print_asm_list(asms):
-	# incbin any unknown areas
-	# not really needed since there are no gaps
+def asm_list_to_text(asms):
+	output = ''
 	last = asms[0][0]
 	for addr, asm, last_addr in asms:
 		if addr > last:
-			print '\nINCBIN "baserom.gbc", $%x, $%x - $%x\n\n' % (last, addr, last)
+			# incbin any unknown areas
+			output += '\nINCBIN "baserom.gbc", $%x, $%x - $%x\n\n\n' % (last, addr, last)
 		if addr >= last:
-			print asm
+			output += asm + '\n'
 		last = last_addr
+	return output
 
 if __name__ == '__main__':
 	asms = dump_battle_anims()
-	print_asm_list(asms)
+	print asm_list_to_text(asms)
 
