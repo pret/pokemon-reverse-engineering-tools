@@ -23,23 +23,37 @@ import configuration
 conf = configuration.Config()
 
 
+def is_label(asm):
+	return ':' in asm
+
+def is_comment(asm):
+	return asm.startswith(';')
+
+def asm_sort(asm_def):
+	"""
+	Sort key for asm lists.
+
+	Usage:
+		list.sort(key=asm_sort)
+		sorted(list, key=asm_sort)
+	"""
+	address, asm, last_address = asm_def
+	return (
+		address,
+		last_address,
+		not is_comment(asm),
+		not is_label(asm),
+		asm
+	)
+
 def sort_asms(asms):
-	"""Sort and remove duplicates from a list of tuples.
-	Format (address, asm, last_address)"""
-	def is_comment(asm):
-		return asm.startswith(';')
-	def is_label(asm):
-		return ':' in asm
-	def sort_method(asm_list):
-		address, asm, last_address = asm_list
-		return (
-			address,
-			last_address,
-			not is_comment(asm),
-			not is_label(asm),
-			asm
-		)
-	return sorted(set(asms), key=sort_method)
+	"""
+	Sort and remove duplicates from an asm list.
+
+	Format: [(address, asm, last_address), ...]
+	"""
+	return sorted(set(asms), key=asm_sort)
+
 
 class NybbleParam:
 	size = 0.5
@@ -212,10 +226,10 @@ class Channel:
 		output = sort_asms(self.output + self.labels)
 		text = ''
 		for i, (address, asm, last_address) in enumerate(output):
-			if ':' in asm:
+			if is_label(asm):
 				# dont print labels for empty chunks
 				for (address_, asm_, last_address_) in output[i:]:
-					if ':' not in asm_:
+					if not is_label(asm_):
 						text += '\n' + asm + '\n'
 						break
 			else:
