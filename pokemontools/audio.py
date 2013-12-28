@@ -70,15 +70,18 @@ class NybbleParam:
 	def parse(self):
 		self.nybble = (rom[self.address] >> {'lo': 0, 'hi': 4}[self.which]) & 0xf
 
-class HiNybbleParam(NybbleParam):
-	which = 'hi'
 	def to_asm(self):
 		return '%d' % self.nybble
 
+	@staticmethod
+	def from_asm(value):
+		return value
+
+class HiNybbleParam(NybbleParam):
+	which = 'hi'
+
 class LoNybbleParam(NybbleParam):
 	which = 'lo'
-	def to_asm(self):
-		return '%d' % self.nybble
 
 class PitchParam(HiNybbleParam):
 	def to_asm(self):
@@ -93,10 +96,9 @@ class PitchParam(HiNybbleParam):
 				pitch += '_'
 		return pitch
 
-
 class Note(Command):
 	macro_name = "note"
-	size = 1
+	size = 0
 	end = False
 	param_types = {
 		0: {"name": "pitch", "class": PitchParam},
@@ -110,6 +112,7 @@ class Note(Command):
 		self.params = []
 		byte = rom[self.address]
 		current_address = self.address
+		size = 0
 		for (key, param_type) in self.param_types.items():
 			name = param_type["name"]
 			class_ = param_type["class"]
@@ -119,12 +122,20 @@ class Note(Command):
 			self.params += [obj]
 
 			current_address += obj.size
+			size += obj.size
+
+			# can't fit bytes into nybbles
+			if obj.size > 0.5:
+				if current_address % 1:
+					current_address = int(ceil(current_address))
+				if size % 1:
+					size = int(ceil(size))
 
 		self.params = dict(enumerate(self.params))
 
-		# obj sizes were 0.5, but were working with ints
+		# obj sizes were 0.5, but we're working with ints
 		current_address = int(ceil(current_address))
-		self.size = int(ceil(self.size))
+		self.size += int(ceil(size))
 
 		self.last_address = current_address
 		return True
@@ -132,7 +143,6 @@ class Note(Command):
 
 class Noise(Note):
 	macro_name = "noise"
-	size = 0
 	end = False
 	param_types = {
 		0: {"name": "duration", "class": LoNybbleParam},
@@ -241,7 +251,7 @@ class Channel:
 		for class_ in sound_classes:
 			if class_.id == i:
 				return class_
-		if self.channel in [4, 8]: return Noise
+		if self.channel == 8: return Noise
 		return Note
 
 
@@ -347,7 +357,6 @@ def dump_sounds(origin, names, base_label='Sound_'):
 		sound_at = read_bank_address_pointer(origin + i * 3)
 		sound = Sound(sound_at, base_label + name)
 		output = sound.to_asm(labels) + '\n'
-
 		# incbin trailing commands that didnt get picked up
 		index = addresses.index((sound.start_address, sound.last_address))
 		if index + 1 < len(addresses):
@@ -413,5 +422,4 @@ def generate_crystal_cry_pointers():
 
 if __name__ == '__main__':
 	dump_crystal_music()
-	dump_crystal_sfx()
 
