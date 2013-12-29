@@ -5,14 +5,13 @@ import os
 from math import ceil
 
 from gbz80disasm import get_global_address, get_local_address
-
-import crystal
+from labels import line_has_label
 from crystal import music_classes as sound_classes
-
 from crystal import (
     Command,
     SingleByteParam,
     MultiByteParam,
+    PointerLabelParam,
     load_rom,
 )
 
@@ -22,9 +21,6 @@ rom = bytearray(rom)
 import configuration
 conf = configuration.Config()
 
-
-def is_label(asm):
-	return ':' in asm
 
 def is_comment(asm):
 	return asm.startswith(';')
@@ -42,7 +38,7 @@ def asm_sort(asm_def):
 		address,
 		last_address,
 		not is_comment(asm),
-		not is_label(asm),
+		not line_has_label(asm),
 		asm
 	)
 
@@ -202,7 +198,7 @@ class Channel:
 
 			# label any jumps or calls
 			for key, param in class_.param_types.items():
-				if param['class'] == crystal.PointerLabelParam:
+				if param['class'] == PointerLabelParam:
 					label_address = class_.params[key].parsed_address
 					label = '%s_branch_%x' % (
 						self.base_label,
@@ -246,10 +242,10 @@ class Channel:
 		output = sort_asms(self.output + self.labels)
 		text = ''
 		for i, (address, asm, last_address) in enumerate(output):
-			if is_label(asm):
+			if line_has_label(asm):
 				# dont print labels for empty chunks
 				for (address_, asm_, last_address_) in output[i:]:
-					if not is_label(asm_):
+					if not line_has_label(asm_):
 						text += '\n' + asm + '\n'
 						break
 			else:
