@@ -1566,10 +1566,15 @@ def export_lz_to_png(filename):
     """
     assert filename[-3:] == ".lz"
     lz_data = open(filename, "rb").read()
+
     bpp = Decompressed(lz_data).output
     bpp_filename = filename.replace(".lz", ".2bpp")
     to_file(bpp_filename, bpp)
+
     export_2bpp_to_png(bpp_filename)
+
+    # touch the lz file so it doesn't get remade
+    os.utime(filename, None)
 
 def dump_tileset_pngs():
     """
