@@ -96,13 +96,23 @@ class PitchParam(HiNybbleParam):
 				pitch += '_'
 		return pitch
 
+class NoteDurationParam(LoNybbleParam):
+	def to_asm(self):
+		self.nybble += 1
+		return LoNybbleParam.to_asm(self)
+
+	@staticmethod
+	def from_asm(value):
+		value = str(int(value) - 1)
+		return LoNybbleParam.from_asm(value)
+
 class Note(Command):
 	macro_name = "note"
 	size = 0
 	end = False
 	param_types = {
 		0: {"name": "pitch", "class": PitchParam},
-		1: {"name": "duration", "class": LoNybbleParam},
+		1: {"name": "duration", "class": NoteDurationParam},
 	}
 	allowed_lengths = [2]
 	override_byte_check = True
