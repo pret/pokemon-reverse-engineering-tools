@@ -15,6 +15,7 @@ from Tkinter import (
     X,
     TclError,
 )
+import tkFileDialog
 
 from ttk import (
     Frame,
@@ -178,7 +179,8 @@ class Application(Frame):
     def new_map(self):
         self.map_name = None
         self.init_map()
-        self.map.blockdata = [self.paint_tile] * 20 * 20
+        self.map.blockdata_filename = os.path.join(self.config.map_dir, 'newmap.blk')
+        self.map.blockdata = bytearray([self.paint_tile] * 20 * 20)
         self.map.width = 20
         self.map.height = 20
         self.draw_map()
@@ -193,7 +195,8 @@ class Application(Frame):
     def save_map(self):
         if hasattr(self, 'map'):
             if self.map.blockdata_filename:
-                with open(self.map.blockdata_filename, 'wb') as save:
+                filename = tkFileDialog.asksaveasfilename(initialfile=self.map.blockdata_filename)
+                with open(filename, 'wb') as save:
                     save.write(self.map.blockdata)
                 self.log.info('blockdata saved as {}'.format(self.map.blockdata_filename))
             else:
