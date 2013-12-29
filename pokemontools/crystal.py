@@ -853,8 +853,6 @@ class PointerLabelParam(MultiByteParam):
         # bank can be overriden
         if "bank" in kwargs.keys():
             if kwargs["bank"] != False and kwargs["bank"] != None and kwargs["bank"] in [True, "reverse"]:
-                # not +=1 because child classes set size=3 already
-                self.size = self.default_size + 1
                 self.given_bank = kwargs["bank"]
             #if kwargs["bank"] not in [None, False, True, "reverse"]:
             #    raise Exception("bank cannot be: " + str(kwargs["bank"]))
@@ -927,8 +925,11 @@ class PointerLabelParam(MultiByteParam):
                         bank_part = "$%.2x" % (pointers.calculate_bank(caddress))
                 else:
                     bank_part = "BANK("+label+")"
+            # for labels, expand bank_part at build time
+            if bank in ["reverse", True] and label:
+                return pointer_part
             # return the asm based on the order the bytes were specified to be in
-            if bank == "reverse": # pointer, bank
+            elif bank == "reverse": # pointer, bank
                 return pointer_part+", "+bank_part
             elif bank == True: # bank, pointer
                 return bank_part+", "+pointer_part
@@ -944,13 +945,22 @@ class PointerLabelParam(MultiByteParam):
         raise Exception("this should never happen")
 
 class PointerLabelBeforeBank(PointerLabelParam):
-    bank = True # bank appears first, see calculate_pointer_from_bytes_at
     size = 3
-    byte_type = "dw"
+    bank = True # bank appears first, see calculate_pointer_from_bytes_at
+    byte_type = 'db'
+
+    @staticmethod
+    def from_asm(value):
+        return 'BANK({0})\n\tdw {0}'.format(value)
 
 class PointerLabelAfterBank(PointerLabelParam):
-    bank = "reverse" # bank appears last, see calculate_pointer_from_bytes_at
     size = 3
+    bank = "reverse" # bank appears last, see calculate_pointer_from_bytes_at
+    byte_type = 'dw'
+
+    @staticmethod
+    def from_asm(value):
+        return '{0}\n\tdb BANK({0})'.format(value)
 
 
 class ScriptPointerLabelParam(PointerLabelParam): pass
@@ -2358,7 +2368,7 @@ pksv_crystal_more = {
     0xA1: ["halloffame"],
     0xA2: ["credits"],
     0xA3: ["warpfacing", ["facing", SingleByteParam], ["map_group", MapGroupParam], ["map_id", MapIdParam], ["x", SingleByteParam], ["y", SingleByteParam]],
-    0xA4: ["storetext", ["pointer", PointerLabelBeforeBank], ["memory", SingleByteParam]],
+    0xA4: ["storetext", ["memory", SingleByteParam]],
     0xA5: ["displaylocation", ["id", SingleByteParam], ["memory", SingleByteParam]],
     0xA6: ["trainerclassname", ["id", SingleByteParam]],
     0xA7: ["name", ["type", SingleByteParam], ["id", SingleByteParam]],

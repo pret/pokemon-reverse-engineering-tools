@@ -549,39 +549,21 @@ class Preprocessor(object):
 
         original_line = line
 
-        # remove trailing newline
-        if line[-1] == "\n":
-            line = line[:-1]
+        has_tab = line[0] == "\t"
 
-        # remove first tab
-        has_tab = False
-        if line[0] == "\t":
-            has_tab = True
-            line = line[1:]
-
-        # remove duplicate whitespace (also trailing)
+        # remove whitespace
         line = " ".join(line.split())
-
-        params = []
 
         # check if the line has params
         if " " in line:
             # split the line into separate parameters
             params = line.replace(token, "").split(",")
-
-            # check if there are no params (redundant)
-            if len(params) == 1 and params[0] == "":
-                raise exceptions.MacroException("macro has no params?")
+        else:
+            params = []
 
         # write out a comment showing the original line
         if show_original_lines:
             sys.stdout.write("; original_line: " + original_line)
-
-        # rgbasm can handle "db" so no preprocessing is required, plus this wont be
-        # reached because of earlier checks in macro_test.
-        if macro.macro_name in ["db", "dw"]:
-            sys.stdout.write(original_line)
-            return
 
 	# rgbasm can handle other macros too
         if "is_rgbasm_macro" in dir(macro):
@@ -600,64 +582,18 @@ class Preprocessor(object):
         if do_macro_sanity_check:
             self.check_macro_sanity(params, macro, original_line)
 
-        # used for storetext
-        correction = 0
-
         output = ""
-
-        index = 0
-        while index < len(params):
-            param_type  = macro.param_types[index - correction]
+        for index in xrange(len(params)):
+            param_type  = macro.param_types[index]
             description = param_type["name"].strip()
             param_klass = param_type["class"]
-            byte_type   = param_klass.byte_type # db or dw
-            size        = param_klass.size
+            byte_type   = param_klass.byte_type
             param       = params[index].strip()
 
-            # param_klass.to_asm() won't work here because it doesn't
-            # include db/dw.
+            if "from_asm" in dir(param_klass):
+                param = param_klass.from_asm(param)
 
-            # some parameters are really multiple types of bytes
-            if (byte_type == "dw" and size != 2) or \
-               (byte_type == "db" and size != 1):
-
-                output += ("; " + description + "\n")
-
-                if   size == 3 and is_based_on(param_klass, "PointerLabelBeforeBank"):
-                    # write the bank first
-                    output += ("db " + param + "\n")
-                    # write the pointer second
-                    output += ("dw " + params[index+1].strip() + "\n")
-                    index += 2
-                    correction += 1
-                elif size == 3 and is_based_on(param_klass, "PointerLabelAfterBank"):
-                    # write the pointer first
-                    output += ("dw " + param + "\n")
-                    # write the bank second
-                    output += ("db " + params[index+1].strip() + "\n")
-                    index += 2
-                    correction += 1
-                elif size == 3 and "from_asm" in dir(param_klass):
-                    output += ("\t" + byte_type + " " + param_klass.from_asm(param) + "\n")
-                    index += 1
-                else:
-                    raise exceptions.MacroException(
-                        "dunno what to do with this macro param ({klass}) in line: {line}"
-                        .format(
-                            klass=param_klass,
-                            line=original_line,
-                        )
-                    )
-
-            elif "from_asm" in dir(param_klass):
-                output += ("\t" + byte_type + " " + param_klass.from_asm(param) + " ; " +  description +  "\n")
-                index += 1
-
-            # or just print out the byte
-            else:
-                output += ("\t" + byte_type + " " + param + " ; " + description + "\n")
-
-                index += 1
+            output += ("\t" + byte_type + " " + param + " ; " + description + "\n")
 
         sys.stdout.write(output)
 

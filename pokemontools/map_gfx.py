@@ -178,29 +178,9 @@ def read_palettes(time_of_day=1, config=config):
     filename = "{}.pal".format(actual_time_of_day)
     filepath = os.path.join(config.palette_dir, filename)
 
-    num_colors = 4
-    color_length = 2
-    palette_length = num_colors * color_length
-
-    pals = bytearray(open(filepath, "rb").read())
-    num_pals = len(pals) / palette_length
-
-    for pal in xrange(num_pals):
-        palettes += [[]]
-
-        for color in xrange(num_colors):
-            i = pal * palette_length
-            i += color * color_length
-            word = pals[i] + pals[i+1] * 0x100
-
-            palettes[pal] += [[
-                c & 0x1f for c in [
-                    word >> 0,
-                    word >> 5,
-                    word >> 10,
-                ]
-            ]]
-
+    lines = open(filepath, "r").readlines()
+    colors = gfx.read_rgb_macros(lines)
+    palettes = [colors[i:i+4] for i in xrange(0, len(colors), 4)]
     return palettes
 
 def load_sprite_image(address, config=config):

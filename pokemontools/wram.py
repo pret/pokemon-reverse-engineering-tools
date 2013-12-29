@@ -9,6 +9,11 @@ import os
 NUM_OBJECTS = 0x10
 OBJECT_LENGTH = 0x10
 
+
+def rgbasm_to_py(text):
+    return text.replace('$', '0x').replace('%', '0b')
+
+
 def make_wram_labels(wram_sections):
     wram_labels = {}
     for section in wram_sections:
@@ -24,15 +29,14 @@ def bracket_value(string, i=0):
 def read_bss_sections(bss):
     sections = []
     section = {
-        'name': None,
-        'type': None,
-        'bank': None,
-        'start': None,
-        'labels': [],
+        "labels": [],
     }
     address = None
     if type(bss) is not list: bss = bss.split('\n')
     for line in bss:
+        line = line.lstrip()
+        if 'SECTION' in line:
+            if section: sections.append(section) # last section
 
         comment_index = line.find(';')
         line, comment = line[:comment_index].lstrip(), line[comment_index:]
@@ -50,7 +54,7 @@ def read_bss_sections(bss):
                 bank = None
 
             if '[' in type_:
-                address = int(bracket_value(type_).replace('$','0x'), 16)
+                address = int(rgbasm_to_py(bracket_value(type_)), 16)
             else:
                 types = {
                     'VRAM':  0x8000,
@@ -83,7 +87,7 @@ def read_bss_sections(bss):
                 }]
 
         elif line[:3] == 'ds ':
-            length = eval(line[3:].replace('$','0x'))
+            length = eval(rgbasm_to_py(line[3:]))
             address += length
             # adjacent labels use the same space
             for label in section['labels'][::-1]:
@@ -102,7 +106,7 @@ def read_bss_sections(bss):
     return sections
 
 def constants_to_dict(constants):
-    return dict((eval(constant[constant.find('EQU')+3:constant.find(';')].replace('$','0x')), constant[:constant.find('EQU')].strip()) for constant in constants)
+    return dict((eval(rgbasm_to_py(constant[constant.find('EQU')+3:constant.find(';')])), constant[:constant.find('EQU')].strip()) for constant in constants)
 
 def scrape_constants(text):
     if type(text) is not list:
@@ -113,10 +117,10 @@ def read_constants(filepath):
     """
     Load lines from a file and call scrape_constants.
     """
-    lines = None
-
-    with open(filepath, "r") as file_handler:
-        lines = file_handler.readlines()
+    lines = []
+    if os.path.exists(filepath):
+        with open(filepath, "r") as file_handler:
+            lines = file_handler.readlines()
 
     constants = scrape_constants(lines)
     return constants
