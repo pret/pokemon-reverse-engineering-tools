@@ -523,7 +523,7 @@ class Preprocessor(object):
             sys.stdout.write(asm)
 
         # convert text to bytes when a quote appears (not in a comment)
-        elif "\"" in asm:
+        elif "\"" in asm and "EQUS" not in asm:
             sys.stdout.write(quote_translator(asm))
 
         # check against other preprocessor features
