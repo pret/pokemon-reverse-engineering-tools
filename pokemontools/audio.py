@@ -155,8 +155,8 @@ class Note(Command):
 		return True
 
 
-class Noise(Note):
-	macro_name = "noise"
+class SoundCommand(Note):
+	macro_name = "sound"
 	end = False
 	param_types = {
 		0: {"name": "duration", "class": SingleByteParam},
@@ -167,6 +167,13 @@ class Noise(Note):
 	override_byte_check = True
 	is_rgbasm_macro = False
 
+class Noise(SoundCommand):
+	macro_name = "noise"
+	param_types = {
+		0: {"name": "duration", "class": SingleByteParam},
+		1: {"name": "intensity", "class": SingleByteParam},
+		2: {"name": "frequency", "class": SingleByteParam},
+	}
 
 
 class Channel:
@@ -272,7 +279,10 @@ class Channel:
 		for class_ in sound_classes:
 			if class_.id == i:
 				return class_
-		if self.sfx: return Noise
+		if self.sfx:
+			if self.channel in [4, 8]:
+				return Noise
+			return SoundCommand
 		return Note
 
 
