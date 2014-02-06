@@ -2447,7 +2447,7 @@ music_commands = {
     0xDC: ["intensity", ["intensity", SingleByteParam]],
     0xDD: ["soundinput", ["input", SingleByteParam]],
     0xDE: ["unknownmusic0xde", ["unknown", SingleByteParam]],
-    0xDF: ["unknownmusic0xdf"],
+    0xDF: ["togglesfx"],
     0xE0: ["unknownmusic0xe0", ["unknown", SingleByteParam], ["unknown", SingleByteParam]],
     0xE1: ["vibrato", ["delay", SingleByteParam], ["extent", SingleByteParam]],
     0xE2: ["unknownmusic0xe2", ["unknown", SingleByteParam]],
