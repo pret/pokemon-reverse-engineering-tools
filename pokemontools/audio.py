@@ -460,7 +460,12 @@ def dump_crystal_sfx():
 	sfx_pointers_address = 0xe927c
 
 	sfx = dump_sound_clump(sfx_pointers_address, sfx_names, 'Sfx_', sfx=True)
+
+	unknown_sfx = Sound(0xf0d5f, 'UnknownSfx_', sfx=True)
+	sfx += unknown_sfx.asms + unknown_sfx.labels
+
 	sfx = sort_asms(sfx)
+	sfx = insert_asm_incbins(sfx)
 
 	# Split up sfx and crystal sfx.
 	crystal_sfx = None
