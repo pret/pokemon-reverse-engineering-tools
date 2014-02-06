@@ -203,14 +203,28 @@ class Noise(SoundCommand):
 class Channel:
 	"""A sound channel data parser."""
 
-	def __init__(self, address, channel=1, base_label='Sound', sfx=False):
+	def __init__(self, address, channel=1, base_label=None, sfx=False, label=None, used_labels=[]):
 		self.start_address = address
 		self.address = address
 		self.channel = channel
+
 		self.base_label = base_label
+		if self.base_label == None:
+			self.base_label = 'Sound_' + hex(self.start_address)
+
+		self.label = label
+		if self.label == None:
+			self.label = self.base_label
+
 		self.sfx = sfx
-		self.output = []
+
+		self.used_labels = used_labels
 		self.labels = []
+		used_label = generate_label_asm(self.label, self.start_address)
+		self.labels += [used_label]
+		self.used_labels += [used_label]
+
+		self.output = []
 		self.parse()
 
 	def parse(self):
@@ -262,22 +276,35 @@ class Channel:
 				if class_.params[0].byte == 0:
 					done = True
 
-			# keep going past enders if theres more to parse
-			if any(self.address <= address for address, asm, last_address in self.output + self.labels):
-				if done:
-					self.output += [(self.address, '; %x' % self.address, self.address)]
-				done = False
-
 			# dumb safety checks
 			if (
 				self.address >= len(rom) or
 				self.address / 0x4000 != self.start_address / 0x4000
 			) and not done:
 				done = True
-				raise Exception, 'reached the end of the bank without finishing!'
+				raise Exception, self.label + ': reached the end of the bank without finishing!'
 
-			if done:
-				self.output += [(self.address, '; %x\n' % self.address, self.address)]
+		self.output += [(self.address, '; %x\n' % self.address, self.address)]
+
+		# parse any other branches too
+		self.labels = list(set(self.labels))
+		for address, asm, last_address in self.labels:
+			if (
+				address >= self.address
+				and (address, asm, last_address) not in self.used_labels
+			):
+
+				self.used_labels += [(address, asm, last_address)]
+				sub = Channel(
+					address=address,
+					channel=self.channel,
+					base_label=self.base_label,
+					label=asm.split(':')[0],
+					used_labels=self.used_labels,
+					sfx=self.sfx,
+				)
+				self.output += sub.output
+				self.labels += sub.labels
 
 	def to_asm(self):
 		output = sort_asms(self.output + self.labels)
@@ -333,13 +360,9 @@ class Sound:
 			address = rom[self.address] + rom[self.address + 1] * 0x100
 			address = self.bank * 0x4000 + address % 0x4000
 			self.address += 2
-			channel = Channel(address, current_channel, self.base_label, self.sfx)
+			channel = Channel(address, current_channel, self.base_label, self.sfx, label='%s_Ch%d' % (self.base_label, current_channel))
 			self.channels += [(current_channel, channel)]
-
 			self.labels += channel.labels
-
-			label = '%s_Ch%d' % (self.base_label, current_channel)
-			self.labels += [generate_label_asm(label, channel.start_address)]
 
 		asms = []
 
