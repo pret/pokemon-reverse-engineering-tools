@@ -512,7 +512,10 @@ def dump_crystal_sfx():
 
 def generate_crystal_sfx_pointers():
 	from sfx_names import sfx_names
-	return '\n'.join('\tdbw BANK({0}), {0}'.format('Sfx_' + label) for label in sfx_names)
+	lines = ['\tdbw BANK({0}), {0}'.format('Sfx_' + label) for label in sfx_names]
+	first_crystal_sfx = 190
+	lines = lines[:first_crystal_sfx] + ['\n; Crystal adds the following SFX:\n'] + lines[first_crystal_sfx:]
+	return '\n'.join(lines)
 
 def dump_crystal_cries():
 	from cry_names import cry_names
