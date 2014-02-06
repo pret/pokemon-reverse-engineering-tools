@@ -78,6 +78,9 @@ def generate_incbin_asm(start_address, end_address):
 	)
 	return incbin
 
+def generate_label_asm(label, address):
+	label_text = '%s: ; %x' % (label, address)
+	return (address, label_text, address)
 
 
 class NybbleParam:
@@ -442,12 +445,12 @@ def dump_sound_clump(origin, names, base_label='Sound_', sfx=False):
 		sound = Sound(sound_at, base_label + name, sfx)
 		output += sound.asms + sound.labels
 	output = sort_asms(output)
-	output = insert_asm_incbins(output)
 	return output
 
 
 def export_sound_clump(origin, names, path, base_label='Sound_', sfx=False):
 	output = dump_sound_clump(origin, names, base_label, sfx)
+	output = insert_asm_incbins(output)
 	with open(path, 'w') as out:
 		out.write('\n'.join(asm for address, asm, last_address in output))
 
@@ -476,7 +479,24 @@ def generate_crystal_sfx_pointers():
 
 def dump_crystal_cries():
 	from cry_names import cry_names
-	export_sound_clump(0xe91b0, cry_names, os.path.join(conf.path, 'audio', 'cries.asm'), 'Cry_', sfx=True)
+
+	path = os.path.join(conf.path, 'audio', 'cries.asm')
+
+	cries = dump_sound_clump(0xe91b0, cry_names, 'Cry_', sfx=True)
+
+	# Unreferenced cry channel data.
+	cry_2e_ch8      = Channel(0xf3134, channel=8, sfx=True).output + [generate_label_asm('Cry_2E_Ch8',      0xf3134)]
+	unknown_cry_ch5 = Channel(0xf35d3, channel=5, sfx=True).output + [generate_label_asm('Unknown_Cry_Ch5', 0xf35d3)]
+	unknown_cry_ch6 = Channel(0xf35ee, channel=6, sfx=True).output + [generate_label_asm('Unknown_Cry_Ch6', 0xf35ee)]
+	unknown_cry_ch8 = Channel(0xf3609, channel=8, sfx=True).output + [generate_label_asm('Unknown_Cry_Ch8', 0xf3609)]
+
+	cries += cry_2e_ch8 + unknown_cry_ch5 + unknown_cry_ch6 + unknown_cry_ch8
+	cries = sort_asms(cries)
+	cries = insert_asm_incbins(cries)
+
+	with open(path, 'w') as out:
+		out.write('\n'.join(asm for address, asm, last_address in cries))
+
 
 def generate_crystal_cry_pointers():
 	from cry_names import cry_names
