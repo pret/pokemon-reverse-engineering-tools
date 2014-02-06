@@ -484,7 +484,7 @@ def dump_crystal_sfx():
 
 	sfx = dump_sound_clump(sfx_pointers_address, sfx_names, 'Sfx_', sfx=True)
 
-	unknown_sfx = Sound(0xf0d5f, 'UnknownSfx_', sfx=True)
+	unknown_sfx = Sound(0xf0d5f, 'UnknownSfx', sfx=True)
 	sfx += unknown_sfx.asms + unknown_sfx.labels
 
 	sfx = sort_asms(sfx)
