@@ -48,7 +48,15 @@ def sort_asms(asms):
 
 	Format: [(address, asm, last_address), ...]
 	"""
-	return sorted(set(asms), key=asm_sort)
+	asms = sorted(set(asms), key=asm_sort)
+	trimmed = []
+	address, last_address = None, None
+	for asm in asms:
+		if asm == (address, asm[1], last_address) and last_address - address:
+			continue
+		trimmed += [asm]
+		address, last_address = asm[0], asm[2]
+	return trimmed
 
 
 class NybbleParam:
@@ -151,11 +159,11 @@ class Noise(Note):
 	macro_name = "noise"
 	end = False
 	param_types = {
-		0: {"name": "duration", "class": LoNybbleParam},
+		0: {"name": "duration", "class": SingleByteParam},
 		1: {"name": "intensity", "class": SingleByteParam},
 		2: {"name": "frequency", "class": MultiByteParam},
 	}
-	allowed_lengths = [2,3]
+	allowed_lengths = [3]
 	override_byte_check = True
 	is_rgbasm_macro = False
 
@@ -164,11 +172,12 @@ class Noise(Note):
 class Channel:
 	"""A sound channel data parser."""
 
-	def __init__(self, address, channel=1, base_label='Sound'):
+	def __init__(self, address, channel=1, base_label='Sound', sfx=False):
 		self.start_address = address
 		self.address = address
 		self.channel = channel
 		self.base_label = base_label
+		self.sfx = sfx
 		self.output = []
 		self.labels = []
 		self.parse()
@@ -194,6 +203,9 @@ class Channel:
 					del class_.params[class_.size - 1]
 				noise = not noise
 
+			elif class_.macro_name == 'togglesfx':
+				self.sfx = not self.sfx
+
 			asm = class_.to_asm()
 
 			# label any jumps or calls
@@ -206,7 +218,7 @@ class Channel:
 					)
 					label_output = (
 						label_address,
-						'\n%s: ; %x' % (label, label_address),
+						'%s: ; %x' % (label, label_address),
 						label_address
 					)
 					self.labels += [label_output]
@@ -238,6 +250,9 @@ class Channel:
 				done = True
 				raise Exception, 'reached the end of the bank without finishing!'
 
+			if done:
+				self.output += [(self.address, '; %x\n' % self.address, self.address)]
+
 	def to_asm(self):
 		output = sort_asms(self.output + self.labels)
 		text = ''
@@ -257,17 +272,18 @@ class Channel:
 		for class_ in sound_classes:
 			if class_.id == i:
 				return class_
-		if self.channel == 8: return Noise
+		if self.sfx: return Noise
 		return Note
 
 
 class Sound:
 	"""Interprets a sound data header."""
 
-	def __init__(self, address, name=''):
+	def __init__(self, address, name='', sfx=False):
 		self.start_address = address
 		self.bank = address / 0x4000
 		self.address = address
+		self.sfx = sfx
 
 		self.name = name
 		self.base_label = 'Sound_%x' % self.start_address
@@ -288,12 +304,12 @@ class Sound:
 			address = rom[self.address] + rom[self.address + 1] * 0x100
 			address = self.bank * 0x4000 + address % 0x4000
 			self.address += 2
-			channel = Channel(address, current_channel, self.base_label)
+			channel = Channel(address, current_channel, self.base_label, self.sfx)
 			self.channels += [(current_channel, channel)]
 
 			self.labels += channel.labels
 
-			label_text = '\n%s_Ch%d: ; %x' % (
+			label_text = '%s_Ch%d: ; %x' % (
 				self.base_label,
 				current_channel,
 				channel.start_address
@@ -303,21 +319,26 @@ class Sound:
 
 		asms = []
 
-		text = '%s: ; %x' % (self.base_label, self.start_address) + '\n'
+		label_text = '%s: ; %x' % (self.base_label, self.start_address)
+		asms += [(self.start_address, label_text, self.start_address)]
+
 		for i, (num, channel) in enumerate(self.channels):
 			channel_id = num - 1
 			if i == 0:
 				channel_id += (len(self.channels) - 1) << 6
-			text += '\tdbw $%.2x, %s_Ch%d' % (channel_id, self.base_label, num) + '\n'
-		text += '; %x\n' % self.address
-		asms += [(self.start_address, text, self.start_address + len(self.channels) * 3)]
+			address = self.start_address + i * 3
+			text = '\tdbw $%.2x, %s_Ch%d' % (channel_id, self.base_label, num)
+			asms += [(address, text, address + 3)]
+
+		comment_text = '; %x\n' % self.address
+		asms += [(self.address, comment_text, self.address)]
 
 		for num, channel in self.channels:
 			asms += channel.output
 
 		asms = sort_asms(asms)
 		self.last_address = asms[-1][2]
-		asms += [(self.last_address,'; %x' % self.last_address, self.last_address)]
+		asms += [(self.last_address,'; %x\n' % self.last_address, self.last_address)]
 
 		self.asms += asms
 
@@ -382,21 +403,21 @@ def export_sounds(origin, names, path, base_label='Sound_'):
 			out.write(output)
 
 
-def dump_sound_clump(origin, names, base_label='Sound_'):
+def dump_sound_clump(origin, names, base_label='Sound_', sfx=False):
 	"""some sounds are grouped together and/or share most components.
 	these can't reasonably be split into files for each sound."""
 
 	output = []
 	for i, name in enumerate(names):
 		sound_at = read_bank_address_pointer(origin + i * 3)
-		sound = Sound(sound_at, base_label + name)
+		sound = Sound(sound_at, base_label + name, sfx)
 		output += sound.asms + sound.labels
 	output = sort_asms(output)
 	return output
 
 
-def export_sound_clump(origin, names, path, base_label='Sound_'):
-	output = dump_sound_clump(origin, names, base_label)
+def export_sound_clump(origin, names, path, base_label='Sound_', sfx=False):
+	output = dump_sound_clump(origin, names, base_label, sfx)
 	with open(path, 'w') as out:
 		out.write('\n'.join(asm for address, asm, last_address in output))
 
@@ -411,7 +432,7 @@ def generate_crystal_music_pointers():
 
 def dump_crystal_sfx():
 	from sfx_names import sfx_names
-	export_sound_clump(0xe927c, sfx_names, os.path.join(conf.path, 'audio', 'sfx.asm'), 'Sfx_')
+	export_sound_clump(0xe927c, sfx_names, os.path.join(conf.path, 'audio', 'sfx.asm'), 'Sfx_', sfx=True)
 
 def generate_crystal_sfx_pointers():
 	from sfx_names import sfx_names
@@ -419,7 +440,7 @@ def generate_crystal_sfx_pointers():
 
 def dump_crystal_cries():
 	from cry_names import cry_names
-	export_sound_clump(0xe91b0, cry_names, os.path.join(conf.path, 'audio', 'cries.asm'), 'Cry_')
+	export_sound_clump(0xe91b0, cry_names, os.path.join(conf.path, 'audio', 'cries.asm'), 'Cry_', sfx=True)
 
 def generate_crystal_cry_pointers():
 	from cry_names import cry_names
@@ -428,4 +449,6 @@ def generate_crystal_cry_pointers():
 
 if __name__ == '__main__':
 	dump_crystal_music()
+	dump_crystal_cries()
+	dump_crystal_sfx()
 
