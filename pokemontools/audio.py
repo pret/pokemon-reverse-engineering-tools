@@ -432,7 +432,13 @@ def generate_crystal_music_pointers():
 
 def dump_crystal_sfx():
 	from sfx_names import sfx_names
-	export_sound_clump(0xe927c, sfx_names, os.path.join(conf.path, 'audio', 'sfx.asm'), 'Sfx_', sfx=True)
+	first_crystal_sfx = 190
+	crystal_sfx_names = sfx_names[first_crystal_sfx:]
+	main_sfx_names = sfx_names[:first_crystal_sfx]
+	sfx_pointers_address = 0xe927c
+	crystal_sfx_pointers_address = sfx_pointers_address + first_crystal_sfx * 3
+	export_sound_clump(sfx_pointers_address, main_sfx_names, os.path.join(conf.path, 'audio', 'sfx.asm'), 'Sfx_', sfx=True)
+	export_sound_clump(crystal_sfx_pointers_address, crystal_sfx_names, os.path.join(conf.path, 'audio', 'sfx_crystal.asm'), 'Sfx_', sfx=True)
 
 def generate_crystal_sfx_pointers():
 	from sfx_names import sfx_names
