@@ -58,6 +58,27 @@ def sort_asms(asms):
 		address, last_address = asm[0], asm[2]
 	return trimmed
 
+def insert_asm_incbins(asms):
+	new_asms = []
+	for i, asm in enumerate(asms):
+		new_asms += [asm]
+		if i + 1 < len(asms):
+			last_address, next_address = asm[2], asms[i + 1][0]
+			if last_address < next_address:
+				new_asms += [generate_incbin_asm(last_address, next_address)]
+	return new_asms
+
+def generate_incbin_asm(start_address, end_address):
+	incbin = (
+		start_address,
+		'\nINCBIN "baserom.gbc", $%x, $%x - $%x\n\n' % (
+			start_address, end_address, start_address
+		),
+		end_address
+	)
+	return incbin
+
+
 
 class NybbleParam:
 	size = 0.5
@@ -356,14 +377,9 @@ class Sound:
 		"""insert outside labels here"""
 		asms = self.asms
 
-		# incbins dont really count as parsed data
-		incbins = []
-		for i, (address, asm, last_address) in enumerate(asms):
-			if i + 1 < len(asms):
-                                next_address = asms[i + 1][0]
-				if last_address != next_address:
-					incbins += [(last_address, 'INCBIN "baserom.gbc", $%x, $%x - $%x' % (last_address, next_address, last_address), next_address)]
-		asms += incbins
+		# Incbin trailing commands that didnt get picked up
+		asms = insert_asm_incbins(asms)
+
 		for label in self.labels + labels:
 			if self.start_address <= label[0] < self.last_address:
 				asms += [label]
@@ -379,31 +395,34 @@ def read_bank_address_pointer(addr):
 def dump_sounds(origin, names, base_label='Sound_'):
 	"""Dump sound data from a pointer table."""
 
-	# first pass to grab labels and boundaries
+	# Some songs share labels.
+	# Do an extra pass to grab shared labels before writing output.
+
+	sounds = []
 	labels = []
 	addresses = []
 	for i, name in enumerate(names):
 		sound_at = read_bank_address_pointer(origin + i * 3)
 		sound = Sound(sound_at, base_label + name)
+		sounds += [sound]
 		labels += sound.labels
-		addresses += [(sound.start_address, sound.last_address)]
-	addresses = sorted(addresses)
+		addresses += [sound_at]
+	addresses.sort()
 
 	outputs = []
 	for i, name in enumerate(names):
-		sound_at = read_bank_address_pointer(origin + i * 3)
-		sound = Sound(sound_at, base_label + name)
-		output = sound.to_asm(labels) + '\n'
-		# incbin trailing commands that didnt get picked up
-		index = addresses.index((sound.start_address, sound.last_address))
-		if index + 1 < len(addresses):
-			next_address = addresses[index + 1][0]
-			if 5 > next_address - sound.last_address > 0:
-				if next_address / 0x4000 == sound.last_address / 0x4000:
-					output += '\nINCBIN "baserom.gbc", $%x, $%x - $%x\n' % (sound.last_address, next_address, sound.last_address)
+		sound = sounds[i]
 
+		# Place a dummy asm at the end to catch end-of-file incbins.
+		index = addresses.index(sound.start_address) + 1
+		if index < len(addresses):
+			next_address = addresses[index]
+			sound.asms += [(next_address, '', next_address)]
+
+		output = sound.to_asm(labels) + '\n'
 		filename = name.lower() + '.asm'
 		outputs += [(filename, output)]
+
 	return outputs
 
 
@@ -423,6 +442,7 @@ def dump_sound_clump(origin, names, base_label='Sound_', sfx=False):
 		sound = Sound(sound_at, base_label + name, sfx)
 		output += sound.asms + sound.labels
 	output = sort_asms(output)
+	output = insert_asm_incbins(output)
 	return output
 
 
