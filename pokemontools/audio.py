@@ -247,12 +247,7 @@ class Channel:
 						self.base_label,
 						label_address
 					)
-					label_output = (
-						label_address,
-						'%s: ; %x' % (label, label_address),
-						label_address
-					)
-					self.labels += [label_output]
+					self.labels += [generate_label_asm(label, label_address)]
 					asm = asm.replace(
 						'$%x' % (get_local_address(label_address)),
 						label
@@ -343,18 +338,12 @@ class Sound:
 
 			self.labels += channel.labels
 
-			label_text = '%s_Ch%d: ; %x' % (
-				self.base_label,
-				current_channel,
-				channel.start_address
-			)
-			label_output = (channel.start_address, label_text, channel.start_address)
-			self.labels += [label_output]
+			label = '%s_Ch%d' % (self.base_label, current_channel)
+			self.labels += [generate_label_asm(label, channel.start_address)]
 
 		asms = []
 
-		label_text = '%s: ; %x' % (self.base_label, self.start_address)
-		asms += [(self.start_address, label_text, self.start_address)]
+		asms += [generate_label_asm(self.base_label, self.start_address)]
 
 		for i, (num, channel) in enumerate(self.channels):
 			channel_id = num - 1
