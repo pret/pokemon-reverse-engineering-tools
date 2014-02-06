@@ -64,7 +64,7 @@ def insert_asm_incbins(asms):
 		new_asms += [asm]
 		if i + 1 < len(asms):
 			last_address, next_address = asm[2], asms[i + 1][0]
-			if last_address < next_address:
+			if last_address < next_address and last_address / 0x4000 == next_address / 0x4000:
 				new_asms += [generate_incbin_asm(last_address, next_address)]
 	return new_asms
 
@@ -409,7 +409,9 @@ def dump_sounds(origin, names, base_label='Sound_'):
 		index = addresses.index(sound.start_address) + 1
 		if index < len(addresses):
 			next_address = addresses[index]
-			sound.asms += [(next_address, '', next_address)]
+			max_command_length = 5
+			if next_address - sound.last_address <= max_command_length:
+				sound.asms += [(next_address, '', next_address)]
 
 		output = sound.to_asm(labels) + '\n'
 		filename = name.lower() + '.asm'
@@ -454,13 +456,31 @@ def generate_crystal_music_pointers():
 
 def dump_crystal_sfx():
 	from sfx_names import sfx_names
-	first_crystal_sfx = 190
-	crystal_sfx_names = sfx_names[first_crystal_sfx:]
-	main_sfx_names = sfx_names[:first_crystal_sfx]
+
 	sfx_pointers_address = 0xe927c
-	crystal_sfx_pointers_address = sfx_pointers_address + first_crystal_sfx * 3
-	export_sound_clump(sfx_pointers_address, main_sfx_names, os.path.join(conf.path, 'audio', 'sfx.asm'), 'Sfx_', sfx=True)
-	export_sound_clump(crystal_sfx_pointers_address, crystal_sfx_names, os.path.join(conf.path, 'audio', 'sfx_crystal.asm'), 'Sfx_', sfx=True)
+
+	sfx = dump_sound_clump(sfx_pointers_address, sfx_names, 'Sfx_', sfx=True)
+	sfx = sort_asms(sfx)
+
+	# Split up sfx and crystal sfx.
+	crystal_sfx = None
+	for i, asm in enumerate(sfx):
+		address, content, last_address = asm
+		if i + 1 < len(sfx):
+			next_address = sfx[i + 1][0]
+			if next_address > last_address and last_address / 0x4000 != next_address / 0x4000:
+				crystal_sfx = sfx[i + 1:]
+				sfx = sfx[:i + 1]
+				break
+	if crystal_sfx:
+		path = os.path.join(conf.path, 'audio', 'sfx_crystal.asm')
+		with open(path, 'w') as out:
+			out.write('\n'.join(asm for address, asm, last_address in crystal_sfx))
+
+	path = os.path.join(conf.path, 'audio', 'sfx.asm')
+	with open(path, 'w') as out:
+		out.write('\n'.join(asm for address, asm, last_address in sfx))
+
 
 def generate_crystal_sfx_pointers():
 	from sfx_names import sfx_names
