@@ -204,7 +204,7 @@ sfx_names = [
 	'IntroSuicune4',
 	'GameFreakPresents',
 	'Tingle',
-	'UnknownCb',
+	'UnknownCB',
 	'TwoPcBeeps',
 	'4NoteDitty',
 	'Twinkle',
