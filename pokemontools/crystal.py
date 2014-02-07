@@ -76,6 +76,7 @@ conf.gbhw = os.path.join(data_path, "gbhw.asm")
 conf.hram = os.path.join(data_path, "hram.asm")
 
 from map_names import map_names
+from song_names import song_names
 
 # ---- script_parse_table explanation ----
 # This is an IntervalMap that keeps track of previously parsed scripts, texts
@@ -1440,6 +1441,18 @@ class DataByteWordMacro(Command):
     def parse(self): pass
     def to_asm(self): pass
 
+
+event_flags = wram.read_constants(os.path.join(conf.path, 'constants/event_flags.asm'))
+
+class EventFlagParam(MultiByteParam):
+
+    def to_asm(self):
+        if self.parsed_number in event_flags.keys():
+            return event_flags[self.parsed_number]
+        return MultiByteParam.to_asm(self)
+
+
+
 class MovementCommand(Command):
     # the vast majority of movement commands do not end the movement script
     end = False
@@ -2249,12 +2262,12 @@ pksv_crystal_more = {
     0x2E: ["giveegg", ["pkmn", PokemonParam], ["level", DecimalParam]],
     0x2F: ["givepokeitem", ["pointer", PointerParamToItemAndLetter]],
     0x30: ["checkpokeitem", ["pointer", PointerParamToItemAndLetter]], # not pksv
-    0x31: ["checkevent", ["bit_number", MultiByteParam]],
-    0x32: ["clearevent", ["bit_number", MultiByteParam]],
-    0x33: ["setevent", ["bit_number", MultiByteParam]],
-    0x34: ["checkflag", ["bit_number", MultiByteParam]],
-    0x35: ["clearflag", ["bit_number", MultiByteParam]],
-    0x36: ["setflag", ["bit_number", MultiByteParam]],
+    0x31: ["checkevent", ["event_flag", EventFlagParam]],
+    0x32: ["clearevent", ["event_flag", EventFlagParam]],
+    0x33: ["setevent", ["event_flag", EventFlagParam]],
+    0x34: ["checkflag", ["event_flag", EventFlagParam]],
+    0x35: ["clearflag", ["event_flag", EventFlagParam]],
+    0x36: ["setflag", ["event_flag", EventFlagParam]],
     0x37: ["wildon"],
     0x38: ["wildoff"],
     0x39: ["xycompare", ["pointer", MultiByteParam]],
@@ -2336,7 +2349,7 @@ pksv_crystal_more = {
     0x81: ["musicfadeout", ["music", MultiByteParam], ["fadetime", SingleByteParam]],
     0x82: ["playmapmusic"],
     0x83: ["reloadmapmusic"],
-    0x84: ["cry", ["cry_id", MultiByteParam]], # XXX maybe it should use PokemonParam
+    0x84: ["cry", ["cry_id", PokemonParam]],
     0x85: ["playsound", ["sound_pointer", MultiByteParam]],
     0x86: ["waitbutton"],
     0x87: ["warpsound"],
@@ -2372,7 +2385,7 @@ pksv_crystal_more = {
     0xA5: ["displaylocation", ["id", SingleByteParam], ["memory", SingleByteParam]],
     0xA6: ["trainerclassname", ["id", SingleByteParam]],
     0xA7: ["name", ["type", SingleByteParam], ["id", SingleByteParam]],
-    0xA8: ["wait", ["unknown", SingleByteParam]],
+    0xA8: ["wait", ["duration", DecimalParam]],
     0xA9: ["unknown0xa9"],
 }
 def create_command_classes(debug=False):
@@ -3279,14 +3292,14 @@ class TrainerFragment(Command):
     Maybe this shouldn't be a Command. The output might sprawl
     over multiple lines, and maybe it should be commented in to_asm?
 
-    [Bit no. (2byte)][Trainer group][Trainer]
+    [Event flag (2byte)][Trainer group][Trainer]
     [2byte pointer to Text when seen]
     [2byte pointer to text when trainer beaten]
     [2byte pointer to script when lost (0000=Blackout)]
     [2byte pointer to script if won/talked to again]
 
-    The bit number tell the game later on if the trainer has been
-    beaten already (bit = 1) or not (bit = 0). All Bit number of BitTable1.
+    The event flag tells the game later on if the trainer has been
+    beaten already (set) or not (reset).
 
     03 = Nothing
     04 = Nothing
@@ -3298,7 +3311,7 @@ class TrainerFragment(Command):
     base_label = "Trainer_"
     override_byte_check = True
     param_types = {
-        0: {"name": "bit_number", "class": MultiByteParam},
+        0: {"name": "event_flag", "class": EventFlagParam},
         1: {"name": "trainer_group", "class": TrainerGroupParam},
         2: {"name": "trainer_id", "class": TrainerIdParam},
         3: {"name": "text_when_seen", "class": TextPointerLabelParam},
@@ -3392,7 +3405,7 @@ class TrainerFragment(Command):
     def to_asm(self):
         xspacing = ""
         output = ""
-        output += xspacing + "; bit/flag number\n"
+        output += xspacing + "; event flag\n"
         output += xspacing + "dw $%.2x"%(self.params[0].parsed_number)
         output += "\n\n"+xspacing+"; trainer group && trainer id\n"
         output += xspacing + "db %s, %s" % (self.params[1].to_asm(), self.params[2].to_asm())
@@ -3948,13 +3961,188 @@ def make_trainer_group_name_trainer_ids(trainer_group_table, debug=True):
     if debug:
         logging.info("done improving trainer names")
 
+
+class SpriteParam(SingleByteParam):
+    sprites = {
+        0x1: 'SPRITE_CHRIS',
+        0x2: 'SPRITE_CHRIS_BIKE',
+        0x3: 'SPRITE_GAMEBOY_KID',
+        0x4: 'SPRITE_SILVER',
+        0x5: 'SPRITE_OAK',
+        0x6: 'SPRITE_RED',
+        0x7: 'SPRITE_BLUE',
+        0x8: 'SPRITE_BILL',
+        0x9: 'SPRITE_ELDER',
+        0xa: 'SPRITE_JANINE',
+        0xb: 'SPRITE_KURT',
+        0xc: 'SPRITE_MOM',
+        0xd: 'SPRITE_BLAINE',
+        0xe: 'SPRITE_REDS_MOM',
+        0xf: 'SPRITE_DAISY',
+        0x10: 'SPRITE_ELM',
+        0x11: 'SPRITE_WILL',
+        0x12: 'SPRITE_FALKNER',
+        0x13: 'SPRITE_WHITNEY',
+        0x14: 'SPRITE_BUGSY',
+        0x15: 'SPRITE_MORTY',
+        0x16: 'SPRITE_CHUCK',
+        0x17: 'SPRITE_JASMINE',
+        0x18: 'SPRITE_PRYCE',
+        0x19: 'SPRITE_CLAIR',
+        0x1a: 'SPRITE_BROCK',
+        0x1b: 'SPRITE_KAREN',
+        0x1c: 'SPRITE_BRUNO',
+        0x1d: 'SPRITE_MISTY',
+        0x1e: 'SPRITE_LANCE',
+        0x1f: 'SPRITE_SURGE',
+        0x20: 'SPRITE_ERIKA',
+        0x21: 'SPRITE_KOGA',
+        0x22: 'SPRITE_SABRINA',
+        0x23: 'SPRITE_COOLTRAINER_M',
+        0x24: 'SPRITE_COOLTRAINER_F',
+        0x25: 'SPRITE_BUG_CATCHER',
+        0x26: 'SPRITE_TWIN',
+        0x27: 'SPRITE_YOUNGSTER',
+        0x28: 'SPRITE_LASS',
+        0x29: 'SPRITE_TEACHER',
+        0x2a: 'SPRITE_BUENA',
+        0x2b: 'SPRITE_SUPER_NERD',
+        0x2c: 'SPRITE_ROCKER',
+        0x2d: 'SPRITE_POKEFAN_M',
+        0x2e: 'SPRITE_POKEFAN_F',
+        0x2f: 'SPRITE_GRAMPS',
+        0x30: 'SPRITE_GRANNY',
+        0x31: 'SPRITE_SWIMMER_GUY',
+        0x32: 'SPRITE_SWIMMER_GIRL',
+        0x33: 'SPRITE_BIG_SNORLAX',
+        0x34: 'SPRITE_SURFING_PIKACHU',
+        0x35: 'SPRITE_ROCKET',
+        0x36: 'SPRITE_ROCKET_GIRL',
+        0x37: 'SPRITE_NURSE',
+        0x38: 'SPRITE_LINK_RECEPTIONIST',
+        0x39: 'SPRITE_CLERK',
+        0x3a: 'SPRITE_FISHER',
+        0x3b: 'SPRITE_FISHING_GURU',
+        0x3c: 'SPRITE_SCIENTIST',
+        0x3d: 'SPRITE_KIMONO_GIRL',
+        0x3e: 'SPRITE_SAGE',
+        0x3f: 'SPRITE_UNUSED_GUY',
+        0x40: 'SPRITE_GENTLEMAN',
+        0x41: 'SPRITE_BLACK_BELT',
+        0x42: 'SPRITE_RECEPTIONIST',
+        0x43: 'SPRITE_OFFICER',
+        0x44: 'SPRITE_CAL',
+        0x45: 'SPRITE_SLOWPOKE',
+        0x46: 'SPRITE_CAPTAIN',
+        0x47: 'SPRITE_BIG_LAPRAS',
+        0x48: 'SPRITE_GYM_GUY',
+        0x49: 'SPRITE_SAILOR',
+        0x4a: 'SPRITE_BIKER',
+        0x4b: 'SPRITE_PHARMACIST',
+        0x4c: 'SPRITE_MONSTER',
+        0x4d: 'SPRITE_FAIRY',
+        0x4e: 'SPRITE_BIRD',
+        0x4f: 'SPRITE_DRAGON',
+        0x50: 'SPRITE_BIG_ONIX',
+        0x51: 'SPRITE_N64',
+        0x52: 'SPRITE_SUDOWOODO',
+        0x53: 'SPRITE_SURF',
+        0x54: 'SPRITE_POKE_BALL',
+        0x55: 'SPRITE_POKEDEX',
+        0x56: 'SPRITE_PAPER',
+        0x57: 'SPRITE_VIRTUAL_BOY',
+        0x58: 'SPRITE_OLD_LINK_RECEPTIONIST',
+        0x59: 'SPRITE_ROCK',
+        0x5a: 'SPRITE_BOULDER',
+        0x5b: 'SPRITE_SNES',
+        0x5c: 'SPRITE_FAMICOM',
+        0x5d: 'SPRITE_FRUIT_TREE',
+        0x5e: 'SPRITE_GOLD_TROPHY',
+        0x5f: 'SPRITE_SILVER_TROPHY',
+        0x60: 'SPRITE_KRIS',
+        0x61: 'SPRITE_KRIS_BIKE',
+        0x62: 'SPRITE_KURT_OUTSIDE',
+        0x63: 'SPRITE_SUICUNE',
+        0x64: 'SPRITE_ENTEI',
+        0x65: 'SPRITE_RAIKOU',
+        0x66: 'SPRITE_STANDING_YOUNGSTER',
+    }
+
+    pokemon_sprites = {
+        0x80: 'SPRITE_UNOWN',
+        0x81: 'SPRITE_GEODUDE',
+        0x82: 'SPRITE_GROWLITHE',
+        0x83: 'SPRITE_WEEDLE',
+        0x84: 'SPRITE_SHELLDER',
+        0x85: 'SPRITE_ODDISH',
+        0x86: 'SPRITE_GENGAR',
+        0x87: 'SPRITE_ZUBAT',
+        0x88: 'SPRITE_MAGIKARP',
+        0x89: 'SPRITE_SQUIRTLE',
+        0x8a: 'SPRITE_TOGEPI',
+        0x8b: 'SPRITE_BUTTERFREE',
+        0x8c: 'SPRITE_DIGLETT',
+        0x8d: 'SPRITE_POLIWAG',
+        0x8e: 'SPRITE_PIKACHU',
+        0x8f: 'SPRITE_CLEFAIRY',
+        0x90: 'SPRITE_CHARMANDER',
+        0x91: 'SPRITE_JYNX',
+        0x92: 'SPRITE_STARMIE',
+        0x93: 'SPRITE_BULBASAUR',
+        0x94: 'SPRITE_JIGGLYPUFF',
+        0x95: 'SPRITE_GRIMER',
+        0x96: 'SPRITE_EKANS',
+        0x97: 'SPRITE_PARAS',
+        0x98: 'SPRITE_TENTACOOL',
+        0x99: 'SPRITE_TAUROS',
+        0x9a: 'SPRITE_MACHOP',
+        0x9b: 'SPRITE_VOLTORB',
+        0x9c: 'SPRITE_LAPRAS',
+        0x9d: 'SPRITE_RHYDON',
+        0x9e: 'SPRITE_MOLTRES',
+        0x9f: 'SPRITE_SNORLAX',
+        0xa0: 'SPRITE_GYARADOS',
+        0xa1: 'SPRITE_LUGIA',
+        0xa2: 'SPRITE_HO_OH',
+    }
+
+    variable_sprites = {
+        0xe0: 'SPRITE_DAYCARE_MON_1',
+        0xe1: 'SPRITE_DAYCARE_MON_2',
+        0xf0: 'SPRITE_VARS',
+        0xf0: 'SPRITE_CONSOLE',
+        0xf1: 'SPRITE_DOLL_1',
+        0xf2: 'SPRITE_DOLL_2',
+        0xf3: 'SPRITE_BIG_DOLL',
+        0xf4: 'SPRITE_WEIRD_TREE',
+        0xf5: 'SPRITE_OLIVINE_RIVAL',
+        0xf6: 'SPRITE_AZALEA_ROCKET',
+        0xf7: 'SPRITE_FUSCHIA_GYM_1',
+        0xf8: 'SPRITE_FUSCHIA_GYM_2',
+        0xf9: 'SPRITE_FUSCHIA_GYM_3',
+        0xfa: 'SPRITE_FUSCHIA_GYM_4',
+        0xfb: 'SPRITE_COPYCAT',
+        0xfc: 'SPRITE_JANINE_IMPERSONATOR',
+    }
+
+    def to_asm(self):
+        if self.byte in self.sprites.keys():
+            return self.sprites[self.byte]
+        if self.byte in self.pokemon_sprites.keys():
+            return self.sprites[self.byte]
+        if self.byte in self.variable_sprites.keys():
+            return self.sprites[self.byte]
+        return SingleByteParam.to_asm(self)
+
+
+
 class PeopleEvent(Command):
     size = people_event_byte_size
     macro_name = "person_event"
     base_label = "PeopleEvent_"
     override_byte_check = True
     param_types = {
-        0: {"name": "sprite", "class": HexByte},
+        0: {"name": "sprite", "class": SpriteParam},
         1: {"name": "y from top+4", "class": DecimalParam},
         2: {"name": "x from top+4", "class": DecimalParam},
         3: {"name": "facing", "class": HexByte},
@@ -3964,14 +4152,14 @@ class PeopleEvent(Command):
         7: {"name": "color_function", "class": HexByte},
         8: {"name": "sight_range", "class": DecimalParam},
         9: {"name": "pointer", "class": PointerLabelParam}, # or ScriptPointerLabelParam or ItemLabelParam
-        10: {"name": "BitTable1 bit number", "class": MultiByteParam},
+        10: {"name": "event flag", "class": EventFlagParam},
     }
 
     def xto_asm(self):
         output = "\n; person-event\n; picture, y, x, facing, movement, clock_hour, clock_daytime, color_function, sight_range\n"
         output += "db $%.2x, %d, %d, $%.2x, $%.2x, %d, %d, $%.2x, %d\n" % (self.params[0].byte, self.params[1].byte, self.params[2].byte, self.params[3].byte, self.params[4].byte, self.params[5].byte, self.params[6].byte, self.params[7].byte, self.params[8].byte)
         output += "; pointer\ndw %s\n" % (self.params[9].to_asm())
-        output += "; BitTable1 bit number\ndw %s" % (self.params[10].to_asm())
+        output += "; event flag\ndw %s" % (self.params[10].to_asm())
         return output
 
     def __init__(self, address, id, bank=None, map_group=None, map_id=None, debug=False, label=None, force=False):
@@ -4056,7 +4244,7 @@ class PeopleEvent(Command):
         self.color_function = self.params[7].byte
         self.sight_range = self.params[8].byte
         self.pointer = self.params[9].bytes
-        self.bit_number = self.params[10].bytes
+        self.event_flag = self.params[10].bytes
         return True
 
 
@@ -4163,14 +4351,14 @@ def old_parse_people_event_bytes(some_bytes, address=None, map_group=None, map_i
                 }
 
         # XXX not sure what's going on here
-        # bit no. of bit table 1 (hidden if set)
+        # event flag (hidden if set)
         # note: FFFF for none
         when_byte = int(bytes[11], 16)
         hide = int(bytes[12], 16)
 
-        bit_number_of_bit_table1_byte2 = int(bytes[11], 16)
-        bit_number_of_bit_table1_byte1 = int(bytes[12], 16)
-        bit_number_of_bit_table1 = bit_number_of_bit_table1_byte1 + (bit_number_of_bit_table1_byte2 << 8)
+        event_flag_byte2 = int(bytes[11], 16)
+        event_flag_byte1 = int(bytes[12], 16)
+        event_flag = event_flag_byte1 + (event_flag_byte2 << 8)
 
         people_event = {
             "pict": pict,
@@ -4187,7 +4375,7 @@ def old_parse_people_event_bytes(some_bytes, address=None, map_group=None, map_i
 
             #"text_block": text_block,   # script pointer byte 1
             #"text_bank": text_bank,     # script pointer byte 2
-            "when_byte": when_byte,      # bit no. of bit table 1 (hidden if set)
+            "when_byte": when_byte,      # event flag (hidden if set)
             "hide": hide,                # note: FFFF for none
 
             "is_trainer": is_trainer,
@@ -4244,7 +4432,7 @@ class SignpostRemoteBase:
 
 class SignpostRemoteScriptChunk(SignpostRemoteBase):
     """
-    a signpost might point to [Bit-Nr. (2byte)][2byte pointer to script]
+    a signpost might point to [Event flag (2byte)][2byte pointer to script]
     """
     base_label = "SignpostRemoteScript_"
     size = 4
@@ -4253,10 +4441,10 @@ class SignpostRemoteScriptChunk(SignpostRemoteBase):
         address = self.address
         bank = self.bank
 
-        #bit_table_byte1 = ord(rom[address])
-        #bit_table_byte2 = ord(rom[address+1])
-        bit_table = MultiByteParam(address=address, map_group=self.map_group, map_id=self.map_id, debug=self.debug)
-        self.params.append(bit_table)
+        #event_flag_byte1 = ord(rom[address])
+        #event_flag_byte2 = ord(rom[address+1])
+        event_flag = MultiByteParam(address=address, map_group=self.map_group, map_id=self.map_id, debug=self.debug)
+        self.params.append(event_flag)
 
         #script_address = calculate_pointer_from_bytes_at(address+2, bank=bank)
         #script = parse_script_engine_script_at(script_address, map_group=self.map_group, map_id=self.map_id, debug=self.debug)
@@ -4265,14 +4453,14 @@ class SignpostRemoteScriptChunk(SignpostRemoteBase):
         self.script = script_param.script
         self.signpost.remote_script = self.script
 
-        #self.bit_table_bytes = [bit_table_byte1, bit_table_byte2]
+        #self.event_flag_bytes = [event_flag_byte1, event_flag_byte2]
         #self.script_address = script_address
         #self.script = script
 
 
 class SignpostRemoteItemChunk(SignpostRemoteBase):
     """
-    a signpost might point to [Bit-Nr. (2byte)][Item no.]
+    a signpost might point to [Event flag (2byte)][Item no.]
     """
     base_label = "SignpostRemoteItem_"
     size = 3
@@ -4281,8 +4469,8 @@ class SignpostRemoteItemChunk(SignpostRemoteBase):
         address = self.address
         bank = self.bank
 
-        bit_table = MultiByteParam(address=address, map_group=self.map_group, map_id=self.map_id, debug=self.debug)
-        self.params.append(bit_table)
+        event_flag = MultiByteParam(address=address, map_group=self.map_group, map_id=self.map_id, debug=self.debug)
+        self.params.append(event_flag)
 
         item = ItemLabelByte(address=address+2)
         self.params.append(item)
@@ -4291,7 +4479,7 @@ class SignpostRemoteItemChunk(SignpostRemoteBase):
 
 class SignpostRemoteUnknownChunk(SignpostRemoteBase):
     """
-    a signpost might point to [Bit-Nr. (2byte)][??]
+    a signpost might point to [Event flag (2byte)][??]
     """
     base_label = "SignpostRemoteUnknown_"
     size = 3
@@ -4300,8 +4488,8 @@ class SignpostRemoteUnknownChunk(SignpostRemoteBase):
         address = self.address
         bank = self.bank
 
-        bit_table = MultiByteParam(address=address, bank=self.bank, map_group=self.map_group, map_id=self.map_id, debug=self.debug)
-        self.params.append(bit_table)
+        event_flag = MultiByteParam(address=address, bank=self.bank, map_group=self.map_group, map_id=self.map_id, debug=self.debug)
+        self.params.append(event_flag)
 
         byte = SingleByteParam(address=address+2)
         self.params.append(byte)
@@ -4325,14 +4513,14 @@ class Signpost(Command):
                 script pointer to: script
         04      Sign can only be read from left
                 script pointer to: script
-        05      If bit of BitTable1 is set then pointer is interpreted
-                script pointer to: [Bit-Nr. (2byte)][2byte pointer to script]
-        06      If bit of BitTable1 is not set then pointer is interpreted
-                script pointer to: [Bit-Nr. (2byte)][2byte pointer to script]
-        07      If bit of BitTable1 is set then item is given
-                script pointer to: [Bit-Nr. (2byte)][Item no.]
+        05      If event flag is set then pointer is interpreted
+                script pointer to: [event flag (2byte)][2byte pointer to script]
+        06      If event flag is not set then pointer is interpreted
+                script pointer to: [event flag (2byte)][2byte pointer to script]
+        07      If event flag is set then item is given
+                script pointer to: [event flag (2byte)][Item no.]
         08      No Action
-                script pointer to: [Bit-Nr. (2byte)][??]
+                script pointer to: [event flag (2byte)][??]
     """
     size = 5
     macro_name = "signpost"
@@ -4406,14 +4594,14 @@ class Signpost(Command):
             #self.script_address = script_address
             #self.script = script
         elif func in [5, 6]:
-            # signpost's script pointer points to [Bit-Nr. (2byte)][2byte pointer to script]
+            # signpost's script pointer points to [event flag (2byte)][2byte pointer to script]
             ptr_byte1 = int(bytes[3], 16)
             ptr_byte2 = int(bytes[4], 16)
             pointer = ptr_byte1 + (ptr_byte2 << 8)
             address = pointers.calculate_pointer(pointer, bank)
 
-            bit_table_byte1 = ord(rom[address])
-            bit_table_byte2 = ord(rom[address+1])
+            event_flag_byte1 = ord(rom[address])
+            event_flag_byte2 = ord(rom[address+1])
             script_ptr_byte1 = ord(rom[address+2])
             script_ptr_byte2 = ord(rom[address+3])
             script_address = calculate_pointer_from_bytes_at(address+2, bank=bank)
@@ -4437,7 +4625,7 @@ class Signpost(Command):
             param.label = Label(address=param.address, object=param, name="Map"+map_names[self.map_group][self.map_id]["label"]+"Signpost"+str(self.id)+"Script")
 
         elif func == 7:
-            # signpost's script pointer points to [Bit-Nr. (2byte)][Item no.]
+            # signpost's script pointer points to [event flag (2byte)][Item no.]
             ptr_byte1 = int(bytes[3], 16)
             ptr_byte2 = int(bytes[4], 16)
             pointer = ptr_byte1 + (ptr_byte2 << 8)
@@ -4456,12 +4644,12 @@ class Signpost(Command):
             mb = PointerLabelParam(address=self.address+3, map_group=self.map_group, map_id=self.map_id, debug=self.debug)
             self.params.append(mb)
 
-            #bit_table_byte1 = ord(rom[address])
-            #bit_table_byte2 = ord(rom[address+1])
-            #self.bit_table_bytes = [bit_table_byte1, bit_table_byte2]
+            #event_flag_byte1 = ord(rom[address])
+            #event_flag_byte2 = ord(rom[address+1])
+            #self.event_flag_bytes = [event_flag_byte1, event_flag_byte2]
             #self.item_id = item_id
         elif func == 8:
-            # signpost's script pointer points to [Bit-Nr. (2byte)][??]
+            # signpost's script pointer points to [event flag (2byte)][??]
             ptr_byte1 = int(bytes[3], 16)
             ptr_byte2 = int(bytes[4], 16)
             pointer = ptr_byte1 + (ptr_byte2 << 8)
@@ -4512,6 +4700,132 @@ def parse_signposts(address, signpost_count, bank=None, map_group=None, map_id=N
     all_signposts.extend(signposts)
     return signposts
 
+
+class LandmarkParam(SingleByteParam):
+    landmarks = [
+        'SPECIAL_MAP',
+
+        # johto
+        'NEW_BARK_TOWN',
+        'ROUTE_29',
+        'CHERRYGROVE_CITY',
+        'ROUTE_30',
+        'ROUTE_31',
+        'VIOLET_CITY',
+        'SPROUT_TOWER',
+        'ROUTE_32',
+        'RUINS_OF_ALPH',
+        'UNION_CAVE',
+        'ROUTE_33',
+        'AZALEA_TOWN',
+        'SLOWPOKE_WELL',
+        'ILEX_FOREST',
+        'ROUTE_34',
+        'GOLDENROD_CITY',
+        'RADIO_TOWER',
+        'ROUTE_35',
+        'NATIONAL_PARK',
+        'ROUTE_36',
+        'ROUTE_37',
+        'ECRUTEAK_CITY',
+        'TIN_TOWER',
+        'BURNED_TOWER',
+        'ROUTE_38',
+        'ROUTE_39',
+        'OLIVINE_CITY',
+        'LIGHTHOUSE',
+        'BATTLE_TOWER',
+        'ROUTE_40',
+        'WHIRL_ISLANDS',
+        'ROUTE_41',
+        'CIANWOOD_CITY',
+        'ROUTE_42',
+        'MT_MORTAR',
+        'MAHOGANY_TOWN',
+        'ROUTE_43',
+        'LAKE_OF_RAGE',
+        'ROUTE_44',
+        'ICE_PATH',
+        'BLACKTHORN_CITY',
+        'DRAGONS_DEN',
+        'ROUTE_45',
+        'DARK_CAVE',
+        'ROUTE_46',
+        'SILVER_CAVE',
+
+        # kanto
+        'PALLET_TOWN',
+        'ROUTE_1',
+        'VIRIDIAN_CITY',
+        'ROUTE_2',
+        'PEWTER_CITY',
+        'ROUTE_3',
+        'MT_MOON',
+        'ROUTE_4',
+        'CERULEAN_CITY',
+        'ROUTE_24',
+        'ROUTE_25',
+        'ROUTE_5',
+        'UNDERGROUND',
+        'ROUTE_6',
+        'VERMILION_CITY',
+        'DIGLETTS_CAVE',
+        'ROUTE_7',
+        'ROUTE_8',
+        'ROUTE_9',
+        'ROCK_TUNNEL',
+        'ROUTE_10',
+        'POWER_PLANT',
+        'LAVENDER_TOWN',
+        'LAV_RADIO_TOWER',
+        'CELADON_CITY',
+        'SAFFRON_CITY',
+        'ROUTE_11',
+        'ROUTE_12',
+        'ROUTE_13',
+        'ROUTE_14',
+        'ROUTE_15',
+        'ROUTE_16',
+        'ROUTE_17',
+        'ROUTE_18',
+        'FUCHSIA_CITY',
+        'ROUTE_19',
+        'ROUTE_20',
+        'SEAFOAM_ISLANDS',
+        'CINNABAR_ISLAND',
+        'ROUTE_21',
+        'ROUTE_22',
+        'VICTORY_ROAD',
+        'ROUTE_23',
+        'INDIGO_PLATEAU',
+        'ROUTE_26',
+        'ROUTE_27',
+        'TOHJO_FALLS',
+        'ROUTE_28',
+        'FAST_SHIP',
+    ]
+
+    def to_asm(self):
+        if self.byte < len(self.landmarks):
+            return self.landmarks[self.byte]
+        return SingleByteParam.to_asm(self)
+
+
+class SongParam(SingleByteParam):
+    def to_asm(self):
+        if self.byte < len(song_names):
+            return 'MUSIC_' + song_names[self.byte].upper().replace(' ','_')
+        return SingleByteParam.to_asm(self)
+
+
+class TimeOfDayParam(DecimalParam):
+    times = ['MORN', 'DAY', 'NITE', 'DARKNESS']
+    def to_asm(self):
+        if self.byte < len(self.times):
+            return self.times[self.byte]
+        return DecimalParam.to_asm(self)
+
+
 class MapHeader:
     base_label = "MapHeader_"
 
@@ -4545,9 +4859,9 @@ class MapHeader:
         # TODO: is the bank really supposed to be 0x25 all the time ??
         self.second_map_header = SecondMapHeader(self.second_map_header_address, map_group=self.map_group, map_id=self.map_id, debug=self.debug)
         all_second_map_headers.append(self.second_map_header)
-        self.location_on_world_map = HexByte(address=address+5)
-        self.music = HexByte(address=address+6)
-        self.time_of_day = DecimalParam(address=address+7)
+        self.location_on_world_map = LandmarkParam(address=address+5)
+        self.music = SongParam(address=address+6)
+        self.time_of_day = TimeOfDayParam(address=address+7)
         self.fishing_group = DecimalParam(address=address+8)
 
     def get_dependencies(self, recompute=False, global_dependencies=set()):
