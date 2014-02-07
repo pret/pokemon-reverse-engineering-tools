@@ -4,6 +4,10 @@ import os
 
 from math import ceil
 
+from song_names import song_names
+from sfx_names import sfx_names
+from cry_names import cry_names
+
 from gbz80disasm import get_global_address, get_local_address
 from labels import line_has_label
 from crystal import music_classes as sound_classes
@@ -498,22 +502,18 @@ def dump_crystal_music():
 	"""
 	Dump and export Pokemon Crystal music to files in audio/music/.
 	"""
-	from song_names import song_names
 	export_sounds(0xe906e, song_names, os.path.join(conf.path, 'audio', 'music'), 'Music_')
 
 def generate_crystal_music_pointers():
 	"""
 	Return a pointer table for Pokemon Crystal music.
 	"""
-	from song_names import song_names
 	return '\n'.join('\tdbw BANK({0}), {0}'.format('Music_' + label) for label in song_names)
 
 def dump_crystal_sfx():
 	"""
 	Dump and export Pokemon Crystal sound effects to audio/sfx.asm and audio/sfx_crystal.asm.
 	"""
-	from sfx_names import sfx_names
-
 	sfx_pointers_address = 0xe927c
 
 	sfx = dump_sound_clump(sfx_pointers_address, sfx_names, 'Sfx_', sfx=True)
@@ -548,7 +548,6 @@ def generate_crystal_sfx_pointers():
 	"""
 	Return a pointer table for Pokemon Crystal sound effects.
 	"""
-	from sfx_names import sfx_names
 	lines = ['\tdbw BANK({0}), {0}'.format('Sfx_' + label) for label in sfx_names]
 	first_crystal_sfx = 190
 	lines = lines[:first_crystal_sfx] + ['\n; Crystal adds the following SFX:\n'] + lines[first_crystal_sfx:]
@@ -558,8 +557,6 @@ def dump_crystal_cries():
 	"""
 	Dump and export Pokemon Crystal cries to audio/cries.asm.
 	"""
-	from cry_names import cry_names
-
 	path = os.path.join(conf.path, 'audio', 'cries.asm')
 
 	cries = dump_sound_clump(0xe91b0, cry_names, 'Cry_', sfx=True)
@@ -582,7 +579,6 @@ def generate_crystal_cry_pointers():
 	"""
 	Return a pointer table for Pokemon Crystal cries.
 	"""
-	from cry_names import cry_names
 	return '\n'.join('\tdbw BANK({0}), {0}'.format('Cry_' + label) for label in cry_names)
 
 
