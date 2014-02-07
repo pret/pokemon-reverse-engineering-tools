@@ -1124,6 +1124,14 @@ class PokemonParam(SingleByteParam):
         else:
             return str(self.byte)
 
+class PokemonWordParam(MultiByteParam):
+    def to_asm(self):
+        pokemon_constant = get_pokemon_constant_by_id(self.parsed_number)
+        if pokemon_constant:
+            return pokemon_constant
+        else:
+            return str(self.parsed_number)
+
 
 class PointerParamToItemAndLetter(MultiByteParam):
     # [2F][2byte pointer to item no + 0x20 bytes letter text]
@@ -2349,7 +2357,7 @@ pksv_crystal_more = {
     0x81: ["musicfadeout", ["music", MultiByteParam], ["fadetime", SingleByteParam]],
     0x82: ["playmapmusic"],
     0x83: ["reloadmapmusic"],
-    0x84: ["cry", ["cry_id", PokemonParam]],
+    0x84: ["cry", ["cry_id", PokemonWordParam]],
     0x85: ["playsound", ["sound_pointer", MultiByteParam]],
     0x86: ["waitbutton"],
     0x87: ["warpsound"],
