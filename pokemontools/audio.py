@@ -4,6 +4,10 @@ import os
 
 from math import ceil
 
+from song_names import song_names
+from sfx_names import sfx_names
+from cry_names import cry_names
+
 from gbz80disasm import get_global_address, get_local_address
 from labels import line_has_label
 from crystal import music_classes as sound_classes
@@ -48,7 +52,52 @@ def sort_asms(asms):
 
 	Format: [(address, asm, last_address), ...]
 	"""
-	return sorted(set(asms), key=asm_sort)
+	asms = sorted(set(asms), key=asm_sort)
+	trimmed = []
+	address, last_address = None, None
+	for asm in asms:
+		if asm == (address, asm[1], last_address) and last_address - address:
+			continue
+		trimmed += [asm]
+		address, last_address = asm[0], asm[2]
+	return trimmed
+
+def insert_asm_incbins(asms):
+	"""
+	Insert baserom incbins between address gaps in asm lists.
+	"""
+	new_asms = []
+	for i, asm in enumerate(asms):
+		new_asms += [asm]
+		if i + 1 < len(asms):
+			last_address, next_address = asm[2], asms[i + 1][0]
+			if last_address < next_address and last_address / 0x4000 == next_address / 0x4000:
+				new_asms += [generate_incbin_asm(last_address, next_address)]
+	return new_asms
+
+def generate_incbin_asm(start_address, end_address):
+	"""
+	Return baserom incbin text for an address range.
+
+	Format: 'INCBIN "baserom.gbc", {start}, {end} - {start}'
+	"""
+	incbin = (
+		start_address,
+		'\nINCBIN "baserom.gbc", $%x, $%x - $%x\n\n' % (
+			start_address, end_address, start_address
+		),
+		end_address
+	)
+	return incbin
+
+def generate_label_asm(label, address):
+	"""
+	Return label definition text at a given address.
+
+	Format: '{label}: ; {address}'
+	"""
+	label_text = '%s: ; %x' % (label, address)
+	return (address, label_text, address)
 
 
 class NybbleParam:
@@ -147,30 +196,52 @@ class Note(Command):
 		return True
 
 
-class Noise(Note):
-	macro_name = "noise"
+class SoundCommand(Note):
+	macro_name = "sound"
 	end = False
 	param_types = {
-		0: {"name": "duration", "class": LoNybbleParam},
+		0: {"name": "duration", "class": SingleByteParam},
 		1: {"name": "intensity", "class": SingleByteParam},
 		2: {"name": "frequency", "class": MultiByteParam},
 	}
-	allowed_lengths = [2,3]
+	allowed_lengths = [3]
 	override_byte_check = True
 	is_rgbasm_macro = False
 
+class Noise(SoundCommand):
+	macro_name = "noise"
+	param_types = {
+		0: {"name": "duration", "class": SingleByteParam},
+		1: {"name": "intensity", "class": SingleByteParam},
+		2: {"name": "frequency", "class": SingleByteParam},
+	}
 
 
 class Channel:
 	"""A sound channel data parser."""
 
-	def __init__(self, address, channel=1, base_label='Sound'):
+	def __init__(self, address, channel=1, base_label=None, sfx=False, label=None, used_labels=[]):
 		self.start_address = address
 		self.address = address
 		self.channel = channel
+
 		self.base_label = base_label
-		self.output = []
+		if self.base_label == None:
+			self.base_label = 'Sound_' + hex(self.start_address)
+
+		self.label = label
+		if self.label == None:
+			self.label = self.base_label
+
+		self.sfx = sfx
+
+		self.used_labels = used_labels
 		self.labels = []
+		used_label = generate_label_asm(self.label, self.start_address)
+		self.labels += [used_label]
+		self.used_labels += [used_label]
+
+		self.output = []
 		self.parse()
 
 	def parse(self):
@@ -194,6 +265,9 @@ class Channel:
 					del class_.params[class_.size - 1]
 				noise = not noise
 
+			elif class_.macro_name == 'togglesfx':
+				self.sfx = not self.sfx
+
 			asm = class_.to_asm()
 
 			# label any jumps or calls
@@ -204,12 +278,7 @@ class Channel:
 						self.base_label,
 						label_address
 					)
-					label_output = (
-						label_address,
-						'\n%s: ; %x' % (label, label_address),
-						label_address
-					)
-					self.labels += [label_output]
+					self.labels += [generate_label_asm(label, label_address)]
 					asm = asm.replace(
 						'$%x' % (get_local_address(label_address)),
 						label
@@ -224,19 +293,35 @@ class Channel:
 				if class_.params[0].byte == 0:
 					done = True
 
-			# keep going past enders if theres more to parse
-			if any(self.address <= address for address, asm, last_address in self.output + self.labels):
-				if done:
-					self.output += [(self.address, '; %x' % self.address, self.address)]
-				done = False
-
 			# dumb safety checks
 			if (
 				self.address >= len(rom) or
 				self.address / 0x4000 != self.start_address / 0x4000
 			) and not done:
 				done = True
-				raise Exception, 'reached the end of the bank without finishing!'
+				raise Exception, self.label + ': reached the end of the bank without finishing!'
+
+		self.output += [(self.address, '; %x\n' % self.address, self.address)]
+
+		# parse any other branches too
+		self.labels = list(set(self.labels))
+		for address, asm, last_address in self.labels:
+			if (
+				address >= self.address
+				and (address, asm, last_address) not in self.used_labels
+			):
+
+				self.used_labels += [(address, asm, last_address)]
+				sub = Channel(
+					address=address,
+					channel=self.channel,
+					base_label=self.base_label,
+					label=asm.split(':')[0],
+					used_labels=self.used_labels,
+					sfx=self.sfx,
+				)
+				self.output += sub.output
+				self.labels += sub.labels
 
 	def to_asm(self):
 		output = sort_asms(self.output + self.labels)
@@ -257,17 +342,23 @@ class Channel:
 		for class_ in sound_classes:
 			if class_.id == i:
 				return class_
-		if self.channel == 8: return Noise
+		if self.sfx:
+			if self.channel in [4, 8]:
+				return Noise
+			return SoundCommand
 		return Note
 
 
 class Sound:
-	"""Interprets a sound data header."""
+	"""
+	Interprets a sound data header and its channel data.
+	"""
 
-	def __init__(self, address, name=''):
+	def __init__(self, address, name='', sfx=False):
 		self.start_address = address
 		self.bank = address / 0x4000
 		self.address = address
+		self.sfx = sfx
 
 		self.name = name
 		self.base_label = 'Sound_%x' % self.start_address
@@ -288,36 +379,31 @@ class Sound:
 			address = rom[self.address] + rom[self.address + 1] * 0x100
 			address = self.bank * 0x4000 + address % 0x4000
 			self.address += 2
-			channel = Channel(address, current_channel, self.base_label)
+			channel = Channel(address, current_channel, self.base_label, self.sfx, label='%s_Ch%d' % (self.base_label, current_channel))
 			self.channels += [(current_channel, channel)]
-
 			self.labels += channel.labels
-
-			label_text = '\n%s_Ch%d: ; %x' % (
-				self.base_label,
-				current_channel,
-				channel.start_address
-			)
-			label_output = (channel.start_address, label_text, channel.start_address)
-			self.labels += [label_output]
 
 		asms = []
 
-		text = '%s: ; %x' % (self.base_label, self.start_address) + '\n'
+		asms += [generate_label_asm(self.base_label, self.start_address)]
+
 		for i, (num, channel) in enumerate(self.channels):
 			channel_id = num - 1
 			if i == 0:
 				channel_id += (len(self.channels) - 1) << 6
-			text += '\tdbw $%.2x, %s_Ch%d' % (channel_id, self.base_label, num) + '\n'
-		text += '; %x\n' % self.address
-		asms += [(self.start_address, text, self.start_address + len(self.channels) * 3)]
+			address = self.start_address + i * 3
+			text = '\tdbw $%.2x, %s_Ch%d' % (channel_id, self.base_label, num)
+			asms += [(address, text, address + 3)]
+
+		comment_text = '; %x\n' % self.address
+		asms += [(self.address, comment_text, self.address)]
 
 		for num, channel in self.channels:
 			asms += channel.output
 
 		asms = sort_asms(asms)
 		self.last_address = asms[-1][2]
-		asms += [(self.last_address,'; %x' % self.last_address, self.last_address)]
+		asms += [(self.last_address,'; %x\n' % self.last_address, self.last_address)]
 
 		self.asms += asms
 
@@ -325,14 +411,9 @@ class Sound:
 		"""insert outside labels here"""
 		asms = self.asms
 
-		# incbins dont really count as parsed data
-		incbins = []
-		for i, (address, asm, last_address) in enumerate(asms):
-			if i + 1 < len(asms):
-                                next_address = asms[i + 1][0]
-				if last_address != next_address:
-					incbins += [(last_address, 'INCBIN "baserom.gbc", $%x, $%x - $%x' % (last_address, next_address, last_address), next_address)]
-		asms += incbins
+		# Incbin trailing commands that didnt get picked up
+		asms = insert_asm_incbins(asms)
+
 		for label in self.labels + labels:
 			if self.start_address <= label[0] < self.last_address:
 				asms += [label]
@@ -341,38 +422,48 @@ class Sound:
 
 
 def read_bank_address_pointer(addr):
+	"""
+	Return a bank and address at a given rom offset.
+	"""
 	bank, address = rom[addr], rom[addr+1] + rom[addr+2] * 0x100
 	return get_global_address(address, bank)
 	
 
 def dump_sounds(origin, names, base_label='Sound_'):
-	"""Dump sound data from a pointer table."""
+	"""
+	Dump sound data from a pointer table.
+	"""
 
-	# first pass to grab labels and boundaries
+	# Some songs share labels.
+	# Do an extra pass to grab shared labels before writing output.
+
+	sounds = []
 	labels = []
 	addresses = []
 	for i, name in enumerate(names):
 		sound_at = read_bank_address_pointer(origin + i * 3)
 		sound = Sound(sound_at, base_label + name)
+		sounds += [sound]
 		labels += sound.labels
-		addresses += [(sound.start_address, sound.last_address)]
-	addresses = sorted(addresses)
+		addresses += [sound_at]
+	addresses.sort()
 
 	outputs = []
 	for i, name in enumerate(names):
-		sound_at = read_bank_address_pointer(origin + i * 3)
-		sound = Sound(sound_at, base_label + name)
-		output = sound.to_asm(labels) + '\n'
-		# incbin trailing commands that didnt get picked up
-		index = addresses.index((sound.start_address, sound.last_address))
-		if index + 1 < len(addresses):
-			next_address = addresses[index + 1][0]
-			if 5 > next_address - sound.last_address > 0:
-				if next_address / 0x4000 == sound.last_address / 0x4000:
-					output += '\nINCBIN "baserom.gbc", $%x, $%x - $%x\n' % (sound.last_address, next_address, sound.last_address)
+		sound = sounds[i]
 
+		# Place a dummy asm at the end to catch end-of-file incbins.
+		index = addresses.index(sound.start_address) + 1
+		if index < len(addresses):
+			next_address = addresses[index]
+			max_command_length = 5
+			if next_address - sound.last_address <= max_command_length:
+				sound.asms += [(next_address, '', next_address)]
+
+		output = sound.to_asm(labels) + '\n'
 		filename = name.lower() + '.asm'
 		outputs += [(filename, output)]
+
 	return outputs
 
 
@@ -382,50 +473,117 @@ def export_sounds(origin, names, path, base_label='Sound_'):
 			out.write(output)
 
 
-def dump_sound_clump(origin, names, base_label='Sound_'):
-	"""some sounds are grouped together and/or share most components.
-	these can't reasonably be split into files for each sound."""
+def dump_sound_clump(origin, names, base_label='Sound_', sfx=False):
+	"""
+	Some sounds are grouped together and/or share most components.
+	These can't reasonably be split into separate files for each sound.
+	"""
 
 	output = []
 	for i, name in enumerate(names):
 		sound_at = read_bank_address_pointer(origin + i * 3)
-		sound = Sound(sound_at, base_label + name)
+		sound = Sound(sound_at, base_label + name, sfx)
 		output += sound.asms + sound.labels
 	output = sort_asms(output)
 	return output
 
 
-def export_sound_clump(origin, names, path, base_label='Sound_'):
-	output = dump_sound_clump(origin, names, base_label)
+def export_sound_clump(origin, names, path, base_label='Sound_', sfx=False):
+	"""
+	Dump and export a sound clump to a given file path.
+	"""
+	output = dump_sound_clump(origin, names, base_label, sfx)
+	output = insert_asm_incbins(output)
 	with open(path, 'w') as out:
 		out.write('\n'.join(asm for address, asm, last_address in output))
 
 
 def dump_crystal_music():
-	from song_names import song_names
+	"""
+	Dump and export Pokemon Crystal music to files in audio/music/.
+	"""
 	export_sounds(0xe906e, song_names, os.path.join(conf.path, 'audio', 'music'), 'Music_')
 
 def generate_crystal_music_pointers():
-	from song_names import song_names
+	"""
+	Return a pointer table for Pokemon Crystal music.
+	"""
 	return '\n'.join('\tdbw BANK({0}), {0}'.format('Music_' + label) for label in song_names)
 
 def dump_crystal_sfx():
-	from sfx_names import sfx_names
-	export_sound_clump(0xe927c, sfx_names, os.path.join(conf.path, 'audio', 'sfx.asm'), 'Sfx_')
+	"""
+	Dump and export Pokemon Crystal sound effects to audio/sfx.asm and audio/sfx_crystal.asm.
+	"""
+	sfx_pointers_address = 0xe927c
+
+	sfx = dump_sound_clump(sfx_pointers_address, sfx_names, 'Sfx_', sfx=True)
+
+	unknown_sfx = Sound(0xf0d5f, 'UnknownSfx', sfx=True)
+	sfx += unknown_sfx.asms + unknown_sfx.labels
+
+	sfx = sort_asms(sfx)
+	sfx = insert_asm_incbins(sfx)
+
+	# Split up sfx and crystal sfx.
+	crystal_sfx = None
+	for i, asm in enumerate(sfx):
+		address, content, last_address = asm
+		if i + 1 < len(sfx):
+			next_address = sfx[i + 1][0]
+			if next_address > last_address and last_address / 0x4000 != next_address / 0x4000:
+				crystal_sfx = sfx[i + 1:]
+				sfx = sfx[:i + 1]
+				break
+	if crystal_sfx:
+		path = os.path.join(conf.path, 'audio', 'sfx_crystal.asm')
+		with open(path, 'w') as out:
+			out.write('\n'.join(asm for address, asm, last_address in crystal_sfx))
+
+	path = os.path.join(conf.path, 'audio', 'sfx.asm')
+	with open(path, 'w') as out:
+		out.write('\n'.join(asm for address, asm, last_address in sfx))
+
 
 def generate_crystal_sfx_pointers():
-	from sfx_names import sfx_names
-	return '\n'.join('\tdbw BANK({0}), {0}'.format('Sfx_' + label) for label in sfx_names)
+	"""
+	Return a pointer table for Pokemon Crystal sound effects.
+	"""
+	lines = ['\tdbw BANK({0}), {0}'.format('Sfx_' + label) for label in sfx_names]
+	first_crystal_sfx = 190
+	lines = lines[:first_crystal_sfx] + ['\n; Crystal adds the following SFX:\n'] + lines[first_crystal_sfx:]
+	return '\n'.join(lines)
 
 def dump_crystal_cries():
-	from cry_names import cry_names
-	export_sound_clump(0xe91b0, cry_names, os.path.join(conf.path, 'audio', 'cries.asm'), 'Cry_')
+	"""
+	Dump and export Pokemon Crystal cries to audio/cries.asm.
+	"""
+	path = os.path.join(conf.path, 'audio', 'cries.asm')
+
+	cries = dump_sound_clump(0xe91b0, cry_names, 'Cry_', sfx=True)
+
+	# Unreferenced cry channel data.
+	cry_2e_ch8      = Channel(0xf3134, channel=8, sfx=True).output + [generate_label_asm('Cry_2E_Ch8',      0xf3134)]
+	unknown_cry_ch5 = Channel(0xf35d3, channel=5, sfx=True).output + [generate_label_asm('Unknown_Cry_Ch5', 0xf35d3)]
+	unknown_cry_ch6 = Channel(0xf35ee, channel=6, sfx=True).output + [generate_label_asm('Unknown_Cry_Ch6', 0xf35ee)]
+	unknown_cry_ch8 = Channel(0xf3609, channel=8, sfx=True).output + [generate_label_asm('Unknown_Cry_Ch8', 0xf3609)]
+
+	cries += cry_2e_ch8 + unknown_cry_ch5 + unknown_cry_ch6 + unknown_cry_ch8
+	cries = sort_asms(cries)
+	cries = insert_asm_incbins(cries)
+
+	with open(path, 'w') as out:
+		out.write('\n'.join(asm for address, asm, last_address in cries))
+
 
 def generate_crystal_cry_pointers():
-	from cry_names import cry_names
+	"""
+	Return a pointer table for Pokemon Crystal cries.
+	"""
 	return '\n'.join('\tdbw BANK({0}), {0}'.format('Cry_' + label) for label in cry_names)
 
 
 if __name__ == '__main__':
 	dump_crystal_music()
+	dump_crystal_cries()
+	dump_crystal_sfx()
 
