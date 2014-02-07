@@ -59,6 +59,9 @@ def sort_asms(asms):
 	return trimmed
 
 def insert_asm_incbins(asms):
+	"""
+	Insert baserom incbins between address gaps in asm lists.
+	"""
 	new_asms = []
 	for i, asm in enumerate(asms):
 		new_asms += [asm]
@@ -69,6 +72,11 @@ def insert_asm_incbins(asms):
 	return new_asms
 
 def generate_incbin_asm(start_address, end_address):
+	"""
+	Return baserom incbin text for an address range.
+
+	Format: 'INCBIN "baserom.gbc", {start}, {end} - {start}'
+	"""
 	incbin = (
 		start_address,
 		'\nINCBIN "baserom.gbc", $%x, $%x - $%x\n\n' % (
@@ -79,6 +87,11 @@ def generate_incbin_asm(start_address, end_address):
 	return incbin
 
 def generate_label_asm(label, address):
+	"""
+	Return label definition text at a given address.
+
+	Format: '{label}: ; {address}'
+	"""
 	label_text = '%s: ; %x' % (label, address)
 	return (address, label_text, address)
 
@@ -333,7 +346,9 @@ class Channel:
 
 
 class Sound:
-	"""Interprets a sound data header."""
+	"""
+	Interprets a sound data header and its channel data.
+	"""
 
 	def __init__(self, address, name='', sfx=False):
 		self.start_address = address
@@ -403,12 +418,17 @@ class Sound:
 
 
 def read_bank_address_pointer(addr):
+	"""
+	Return a bank and address at a given rom offset.
+	"""
 	bank, address = rom[addr], rom[addr+1] + rom[addr+2] * 0x100
 	return get_global_address(address, bank)
 	
 
 def dump_sounds(origin, names, base_label='Sound_'):
-	"""Dump sound data from a pointer table."""
+	"""
+	Dump sound data from a pointer table.
+	"""
 
 	# Some songs share labels.
 	# Do an extra pass to grab shared labels before writing output.
@@ -450,8 +470,10 @@ def export_sounds(origin, names, path, base_label='Sound_'):
 
 
 def dump_sound_clump(origin, names, base_label='Sound_', sfx=False):
-	"""some sounds are grouped together and/or share most components.
-	these can't reasonably be split into files for each sound."""
+	"""
+	Some sounds are grouped together and/or share most components.
+	These can't reasonably be split into separate files for each sound.
+	"""
 
 	output = []
 	for i, name in enumerate(names):
@@ -463,6 +485,9 @@ def dump_sound_clump(origin, names, base_label='Sound_', sfx=False):
 
 
 def export_sound_clump(origin, names, path, base_label='Sound_', sfx=False):
+	"""
+	Dump and export a sound clump to a given file path.
+	"""
 	output = dump_sound_clump(origin, names, base_label, sfx)
 	output = insert_asm_incbins(output)
 	with open(path, 'w') as out:
@@ -470,14 +495,23 @@ def export_sound_clump(origin, names, path, base_label='Sound_', sfx=False):
 
 
 def dump_crystal_music():
+	"""
+	Dump and export Pokemon Crystal music to files in audio/music/.
+	"""
 	from song_names import song_names
 	export_sounds(0xe906e, song_names, os.path.join(conf.path, 'audio', 'music'), 'Music_')
 
 def generate_crystal_music_pointers():
+	"""
+	Return a pointer table for Pokemon Crystal music.
+	"""
 	from song_names import song_names
 	return '\n'.join('\tdbw BANK({0}), {0}'.format('Music_' + label) for label in song_names)
 
 def dump_crystal_sfx():
+	"""
+	Dump and export Pokemon Crystal sound effects to audio/sfx.asm and audio/sfx_crystal.asm.
+	"""
 	from sfx_names import sfx_names
 
 	sfx_pointers_address = 0xe927c
@@ -511,6 +545,9 @@ def dump_crystal_sfx():
 
 
 def generate_crystal_sfx_pointers():
+	"""
+	Return a pointer table for Pokemon Crystal sound effects.
+	"""
 	from sfx_names import sfx_names
 	lines = ['\tdbw BANK({0}), {0}'.format('Sfx_' + label) for label in sfx_names]
 	first_crystal_sfx = 190
@@ -518,6 +555,9 @@ def generate_crystal_sfx_pointers():
 	return '\n'.join(lines)
 
 def dump_crystal_cries():
+	"""
+	Dump and export Pokemon Crystal cries to audio/cries.asm.
+	"""
 	from cry_names import cry_names
 
 	path = os.path.join(conf.path, 'audio', 'cries.asm')
@@ -539,6 +579,9 @@ def dump_crystal_cries():
 
 
 def generate_crystal_cry_pointers():
+	"""
+	Return a pointer table for Pokemon Crystal cries.
+	"""
 	from cry_names import cry_names
 	return '\n'.join('\tdbw BANK({0}), {0}'.format('Cry_' + label) for label in cry_names)
 
