@@ -9,6 +9,11 @@ import os
 NUM_OBJECTS = 0x10
 OBJECT_LENGTH = 0x10
 
+
+def rgbasm_to_py(text):
+    return text.replace('$', '0x').replace('%', '0b')
+
+
 def make_wram_labels(wram_sections):
     wram_labels = {}
     for section in wram_sections:
@@ -17,6 +22,9 @@ def make_wram_labels(wram_sections):
                 wram_labels[label['address']] = []
             wram_labels[label['address']] += [label['label']]
     return wram_labels
+
+def bracket_value(string, i=0):
+    return string.split('[')[1 + i*2].split(']')[0]
 
 def read_bss_sections(bss):
     sections = []
@@ -30,10 +38,40 @@ def read_bss_sections(bss):
         if 'SECTION' in line:
             if section: sections.append(section) # last section
 
-            address = eval(line[line.find('[')+1:line.find(']')].replace('$','0x'))
+        comment_index = line.find(';')
+        line, comment = line[:comment_index].lstrip(), line[comment_index:]
+
+        if 'SECTION' == line[:7]:
+            if section: # previous
+                sections += [section]
+
+            section_def = line.split(',')
+            name  = section_def[0].split('"')[1]
+            type_ = section_def[1].strip()
+            if len(section_def) > 2:
+                bank = bracket_value(section_def[2])
+            else:
+                bank = None
+
+            if '[' in type_:
+                address = int(rgbasm_to_py(bracket_value(type_)), 16)
+            else:
+                types = {
+                    'VRAM':  0x8000,
+                    'SRAM':  0xa000,
+                    'WRAM0': 0xc000,
+                    'WRAMX': 0xd000,
+                    'HRAM':  0xff80,
+                }
+                if address == None or bank != section['bank'] or section['type'] != type_:
+                    if type_ in types.keys():
+                        address = types[type_]
+                # else: keep going from this address
+
             section = {
-                'name': line.split('"')[1],
-                #'type': line.split(',')[1].split('[')[0].strip(),
+                'name': name,
+                'type': type_,
+                'bank': bank,
                 'start': address,
                 'labels': [],
             }
@@ -49,7 +87,7 @@ def read_bss_sections(bss):
                 }]
 
         elif line[:3] == 'ds ':
-            length = eval(line[3:line.find(';')].replace('$','0x'))
+            length = eval(rgbasm_to_py(line[3:]))
             address += length
             # adjacent labels use the same space
             for label in section['labels'][::-1]:
@@ -68,7 +106,7 @@ def read_bss_sections(bss):
     return sections
 
 def constants_to_dict(constants):
-    return dict((eval(constant[constant.find('EQU')+3:constant.find(';')].replace('$','0x')), constant[:constant.find('EQU')].strip()) for constant in constants)
+    return dict((eval(rgbasm_to_py(constant[constant.find('EQU')+3:constant.find(';')])), constant[:constant.find('EQU')].strip()) for constant in constants)
 
 def scrape_constants(text):
     if type(text) is not list:
@@ -79,10 +117,10 @@ def read_constants(filepath):
     """
     Load lines from a file and call scrape_constants.
     """
-    lines = None
-
-    with open(filepath, "r") as file_handler:
-        lines = file_handler.readlines()
+    lines = []
+    if os.path.exists(filepath):
+        with open(filepath, "r") as file_handler:
+            lines = file_handler.readlines()
 
     constants = scrape_constants(lines)
     return constants
@@ -99,9 +137,21 @@ class WRAMProcessor(object):
         self.config = config
 
         self.paths = {}
-        self.paths["wram"] = os.path.join(self.config.path, "wram.asm")
-        self.paths["hram"] = os.path.join(self.config.path, "hram.asm")
-        self.paths["gbhw"] = os.path.join(self.config.path, "gbhw.asm")
+
+        if hasattr(self.config, "wram"):
+            self.paths["wram"] = self.config.wram
+        else:
+            self.paths["wram"] = os.path.join(self.config.path, "wram.asm")
+
+        if hasattr(self.config, "hram"):
+            self.paths["hram"] = self.config.hram
+        else:
+            self.paths["hram"] = os.path.join(self.config.path, "hram.asm")
+
+        if hasattr(self.config, "gbhw"):
+            self.paths["gbhw"] = self.config.gbhw
+        else:
+            self.paths["gbhw"] = os.path.join(self.config.path, "gbhw.asm")
 
     def initialize(self):
         """

@@ -1012,7 +1012,7 @@ def get_uncompressed_gfx(start, num_tiles, filename):
 
 
 
-def hex_to_rgb(word):
+def bin_to_rgb(word):
     red = word & 0b11111
     word >>= 5
     green = word & 0b11111
@@ -1020,23 +1020,39 @@ def hex_to_rgb(word):
     blue = word & 0b11111
     return (red, green, blue)
 
-def grab_palettes(address, length=0x80):
+def rgb_from_rom(address, length=0x80):
+    return convert_binary_pal_to_text(rom[address:address+length])
+
+def convert_binary_pal_to_text_by_filename(filename):
+    with open(filename) as f:
+        pal = bytearray(f.read())
+    return convert_binary_pal_to_text(pal)
+
+def convert_binary_pal_to_text(pal):
     output = ''
-    for word in range(length/2):
-        color = ord(rom[address+1])*0x100 + ord(rom[address])
-        address += 2
-        color = hex_to_rgb(color)
-        red = str(color[0]).zfill(2)
-        green = str(color[1]).zfill(2)
-        blue = str(color[2]).zfill(2)
-        output += '\tRGB '+red+', '+green+', '+blue
+    words = [hi * 0x100 + lo for lo, hi in zip(pal[::2], pal[1::2])]
+    for word in words:
+        red, green, blue = ['%.2d' % c for c in bin_to_rgb(word)]
+        output += '\tRGB ' + ', '.join((red, green, blue))
         output += '\n'
     return output
 
+def read_rgb_macros(lines):
+    colors = []
+    for line in lines:
+        macro = line.split(" ")[0].strip()
+        if macro == 'RGB':
+            params = ' '.join(line.split(" ")[1:]).split(',')
+            red, green, blue = [int(v) for v in params]
+            colors += [[red, green, blue]]
+    return colors
 
 
-
-
+def rewrite_binary_pals_to_text(filenames):
+    for filename in filenames:
+        pal_text = convert_binary_pal_to_text_by_filename(filename)
+        with open(filename, 'w') as out:
+            out.write(pal_text)
 
 
 def dump_monster_pals():
@@ -1147,6 +1163,9 @@ def to_lines(image, width):
 
 
 def dmg2rgb(word):
+    """
+    For PNGs.
+    """
     def shift(value):
         while True:
             yield value & (2**5 - 1)
@@ -1159,25 +1178,47 @@ def dmg2rgb(word):
 
 
 def rgb_to_dmg(color):
+    """
+    For PNGs.
+    """
     word =  (color['r'] / 8)
     word += (color['g'] / 8) << 5
     word += (color['b'] / 8) << 10
     return word
 
 
-def png_pal(filename):
-    with open(filename, 'rb') as pal_data:
-        words = pal_data.read()
-    dmg_pals = []
-    for word in range(len(words)/2):
-        dmg_pals.append(ord(words[word*2]) + ord(words[word*2+1])*0x100)
+def pal_to_png(filename):
+    """
+    Interpret a .pal file as a png palette.
+    """
+    with open(filename) as rgbs:
+        colors = read_rgb_macros(rgbs.readlines())
+    a = 255
     palette = []
+    for color in colors:
+        # even distribution over 000-255
+        r, g, b = [int(hue * 8.25) for hue in color]
+        palette += [(r, g, b, a)]
     white = (255,255,255,255)
     black = (000,000,000,255)
-    for word in dmg_pals: palette += [dmg2rgb(word)]
-    if white not in dmg_pals and len(palette) < 4: palette = [white] + palette
-    if black not in dmg_pals and len(palette) < 4: palette += [black]
+    if white not in palette and len(palette) < 4:
+        palette = [white] + palette
+    if black not in palette and len(palette) < 4:
+        palette = palette + [black]
     return palette
+
+
+def png_to_rgb(palette):
+    """
+    Convert a png palette to rgb macros.
+    """
+    output = ''
+    for color in palette:
+        r, g, b = [color[c] / 8 for c in 'rgb']
+        output += '\tRGB ' + ', '.join(['%.2d' % hue for hue in (r, g, b)])
+        output += '\n'
+    return output
+
 
 
 def export_2bpp_to_png(filein, fileout=None, pal_file=None, height=0, width=0):
@@ -1234,7 +1275,7 @@ def convert_2bpp_to_png(image, width=0, height=0, pal_file=None):
         px_map    = [[3 - pixel for pixel in line] for line in lines]
 
     else: # gbc color
-        palette   = png_pal(pal_file)
+        palette   = pal_to_png(pal_file)
         greyscale = False
         bitdepth  = 8
         px_map    = [[pixel for pixel in line] for line in lines]
@@ -1371,13 +1412,22 @@ def png_to_2bpp(filein):
 
 
 def export_palette(palette, filename):
+    """
+    Export a palette from png to rgb macros in a .pal file.
+    """
+
     if os.path.exists(filename):
-        output = []
-        for color in palette:
-            word = rgb_to_dmg(color)
-            output += [word & 0xff]
-            output += [word >> 8]
-        to_file(filename, output)
+
+        # Pic palettes are 2 colors (black/white are added later).
+        with open(filename) as rgbs:
+            colors = read_rgb_macros(rgbs.readlines())
+
+        if len(colors) == 2:
+            palette = palette[1:3]
+
+        text = png_to_rgb(palette)
+        with open(filename, 'w') as out:
+            out.write(text)
 
 
 def png_to_lz(filein):
@@ -1516,10 +1566,15 @@ def export_lz_to_png(filename):
     """
     assert filename[-3:] == ".lz"
     lz_data = open(filename, "rb").read()
+
     bpp = Decompressed(lz_data).output
     bpp_filename = filename.replace(".lz", ".2bpp")
     to_file(bpp_filename, bpp)
+
     export_2bpp_to_png(bpp_filename)
+
+    # touch the lz file so it doesn't get remade
+    os.utime(filename, None)
 
 def dump_tileset_pngs():
     """
@@ -1565,6 +1620,8 @@ def expand_pic_palettes():
                     if len(palette) == 4:
                         with open(filename, 'wb') as out:
                             out.write(w + palette + b)
+
+
 
 if __name__ == "__main__":
     debug = False
@@ -1626,6 +1683,9 @@ if __name__ == "__main__":
 
     elif argv[1] == 'png-to-1bpp':
         export_png_to_1bpp(argv[2])
+
+    elif argv[1] == '1bpp-to-png':
+        export_1bpp_to_png(argv[2])
 
     elif argv[1] == '2bpp-to-lz':
         if argv[2] == '--vert':

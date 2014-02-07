@@ -15,6 +15,7 @@ from Tkinter import (
     X,
     TclError,
 )
+import tkFileDialog
 
 from ttk import (
     Frame,
@@ -178,7 +179,8 @@ class Application(Frame):
     def new_map(self):
         self.map_name = None
         self.init_map()
-        self.map.blockdata = [self.paint_tile] * 20 * 20
+        self.map.blockdata_filename = os.path.join(self.config.map_dir, 'newmap.blk')
+        self.map.blockdata = bytearray([self.paint_tile] * 20 * 20)
         self.map.width = 20
         self.map.height = 20
         self.draw_map()
@@ -193,7 +195,8 @@ class Application(Frame):
     def save_map(self):
         if hasattr(self, 'map'):
             if self.map.blockdata_filename:
-                with open(self.map.blockdata_filename, 'wb') as save:
+                filename = tkFileDialog.asksaveasfilename(initialfile=self.map.blockdata_filename)
+                with open(filename, 'wb') as save:
                     save.write(self.map.blockdata)
                 self.log.info('blockdata saved as {}'.format(self.map.blockdata_filename))
             else:
@@ -445,7 +448,7 @@ class Tileset:
     def get_tiles(self):
         filename = self.get_tileset_gfx_filename()
         if not os.path.exists(filename):
-            gfx.export_2bpp_to_png(filename.replace('.png','.2bpp'), filename)
+            gfx.export_2bpp_to_png(filename.replace('.png','.2bpp'))
         self.img = Image.open(filename)
         self.img.width, self.img.height = self.img.size
         self.tiles = []
@@ -505,30 +508,9 @@ class Tileset:
         self.palettes = get_palettes(filename)
 
 def get_palettes(filename):
-    pals = bytearray(open(filename, 'rb').read())
-
-    num_colors = 4
-    color_length = 2
-
-    palette_length = num_colors * color_length
-
-    num_pals = len(pals) / palette_length
-
-    palettes = []
-    for pal in xrange(num_pals):
-        palettes += [[]]
-
-        for color in xrange(num_colors):
-            i = pal * palette_length
-            i += color * color_length
-            word = pals[i] + pals[i+1] * 0x100
-            palettes[pal] += [[
-                c & 0x1f for c in [
-                    word >> 0,
-                    word >> 5,
-                    word >> 10,
-                ]
-            ]]
+    lines = open(filename, 'r').readlines()
+    colors = gfx.read_rgb_macros(lines)
+    palettes = [colors[i:i+4] for i in xrange(0, len(colors), 4)]
     return palettes
 
 def get_available_maps(config=config):
