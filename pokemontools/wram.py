@@ -10,6 +10,13 @@ NUM_OBJECTS = 0x10
 OBJECT_LENGTH = 0x10
 
 
+def separate_comment(line):
+    if ';' in line:
+        i = line.find(';')
+        return line[:i], line[i:]
+    return line, None
+
+
 def rgbasm_to_py(text):
     return text.replace('$', '0x').replace('%', '0b')
 
@@ -26,22 +33,36 @@ def make_wram_labels(wram_sections):
 def bracket_value(string, i=0):
     return string.split('[')[1 + i*2].split(']')[0]
 
-def read_bss_sections(bss):
-    sections = []
-    section = {
-        "labels": [],
-    }
-    address = None
-    if type(bss) is not list: bss = bss.split('\n')
+def read_bss_sections(bss, sections=[], section=None, address=None, macros={}):
+
+    if section is None:
+        section = {
+            "labels": [],
+        }
+
+    if type(bss) is str:
+        bss = bss.split('\n')
+
+    macro = False
+    macro_name = None
     for line in bss:
         line = line.lstrip()
-        if 'SECTION' in line:
-            if section: sections.append(section) # last section
+        line, comment = separate_comment(line)
+        line = line.strip()
 
-        comment_index = line.find(';')
-        line, comment = line[:comment_index].lstrip(), line[comment_index:]
+        if line[-4:].upper() == 'ENDM':
+            macro = False
+            macro_name = None
 
-        if 'SECTION' == line[:7]:
+        elif macro:
+            macros[macro_name] += [line]
+
+        elif line[-5:].upper() == 'MACRO':
+            macro_name = line.split(':')[0]
+            macro = True
+            macros[macro_name] = []
+
+        elif 'SECTION' == line[:7]:
             if section: # previous
                 sections += [section]
 
@@ -77,8 +98,10 @@ def read_bss_sections(bss):
             }
 
         elif ':' in line:
-            # rgbds allows labels without :, but prefer convention
+            # rgbasm allows labels without :, but prefer convention
             label = line[:line.find(':')]
+            if '\\' in label:
+                raise Exception, line + ' ' + label
             if ';' not in label:
                 section['labels'] += [{
                     'label': label,
@@ -86,21 +109,39 @@ def read_bss_sections(bss):
                     'length': 0,
                 }]
 
-        elif line[:3] == 'ds ':
-            length = eval(rgbasm_to_py(line[3:]))
-            address += length
-            # adjacent labels use the same space
-            for label in section['labels'][::-1]:
-                if label['length'] == 0:
-                    label['length'] = length
-                else:
-                    break
-
-        elif 'EQU' in line:
+        elif 'EQU' in line.split():
             # some space is defined using constants
             name, value = line.split('EQU')
             name, value = name.strip(), value.strip().replace('$','0x').replace('%','0b')
             globals()[name] = eval(value)
+
+        elif line.strip():
+            parts = line.strip().split(' ')
+            token = parts[0].strip()
+            params = ' '.join(parts[1:]).split(',')
+
+            if token in ['ds', 'db', 'dw']:
+                if len(params):
+                    length = eval(rgbasm_to_py(params[0]))
+                else:
+                    length = {'ds': 1, 'db': 1, 'dw': 2}[token]
+                    address += length
+                # assume adjacent labels to use the same space
+                for label in section['labels'][::-1]:
+                    if label['length'] == 0:
+                        label['length'] = length
+                    else:
+                        break
+
+            elif token in macros.keys():
+                macro_text = '\n'.join(macros[token]) + '\n'
+                for i, p in enumerate(params):
+                    macro_text = macro_text.replace('\\'+str(i+1),p)
+                macro_text = macro_text.split('\n')
+                macro_sections = read_bss_sections(macro_text, sections=sections, section=section, address=address)
+                section = macro_sections[-1]
+                address = section['labels'][-1]['address'] + section['labels'][-1]['length']
+                del macro_sections[-1]
 
     sections.append(section)
     return sections
