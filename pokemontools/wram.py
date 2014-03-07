@@ -5,9 +5,12 @@ RGBDS BSS section and constant parsing.
 
 import os
 
-# TODO: parse these constants from constants.asm
-NUM_OBJECTS = 0x10
-OBJECT_LENGTH = 0x10
+
+def separate_comment(line):
+    if ';' in line:
+        i = line.find(';')
+        return line[:i], line[i:]
+    return line, None
 
 
 def rgbasm_to_py(text):
@@ -26,84 +29,149 @@ def make_wram_labels(wram_sections):
 def bracket_value(string, i=0):
     return string.split('[')[1 + i*2].split(']')[0]
 
-def read_bss_sections(bss):
-    sections = []
-    section = {
-        "labels": [],
+class BSSReader:
+    """Really?"""
+    sections  = []
+    section   = None
+    address   = None
+    macros    = {}
+    constants = {
+        # TODO: parse these constants from constants.asm
+        'NUM_OBJECTS': 0x10,
+        'OBJECT_LENGTH': 0x10,
     }
-    address = None
-    if type(bss) is not list: bss = bss.split('\n')
-    for line in bss:
-        line = line.lstrip()
-        if 'SECTION' in line:
-            if section: sections.append(section) # last section
 
-        comment_index = line.find(';')
-        line, comment = line[:comment_index].lstrip(), line[comment_index:]
+    section_types = {
+        'VRAM':  0x8000,
+        'SRAM':  0xa000,
+        'WRAM0': 0xc000,
+        'WRAMX': 0xd000,
+        'HRAM':  0xff80,
+    }
 
-        if 'SECTION' == line[:7]:
-            if section: # previous
-                sections += [section]
+    def __init__(self, *args, **kwargs):
+        self.__dict__.update(kwargs)
 
-            section_def = line.split(',')
-            name  = section_def[0].split('"')[1]
-            type_ = section_def[1].strip()
-            if len(section_def) > 2:
-                bank = bracket_value(section_def[2])
+    def read_bss_line(self, l):
+        parts = l.strip().split(' ')
+        token = parts[0].strip()
+        params = ' '.join(parts[1:]).split(',')
+
+        if token in ['ds', 'db', 'dw']:
+            if any(params):
+                length = eval(rgbasm_to_py(params[0]), self.constants)
             else:
-                bank = None
-
-            if '[' in type_:
-                address = int(rgbasm_to_py(bracket_value(type_)), 16)
-            else:
-                types = {
-                    'VRAM':  0x8000,
-                    'SRAM':  0xa000,
-                    'WRAM0': 0xc000,
-                    'WRAMX': 0xd000,
-                    'HRAM':  0xff80,
-                }
-                if address == None or bank != section['bank'] or section['type'] != type_:
-                    if type_ in types.keys():
-                        address = types[type_]
-                # else: keep going from this address
-
-            section = {
-                'name': name,
-                'type': type_,
-                'bank': bank,
-                'start': address,
-                'labels': [],
-            }
-
-        elif ':' in line:
-            # rgbds allows labels without :, but prefer convention
-            label = line[:line.find(':')]
-            if ';' not in label:
-                section['labels'] += [{
-                    'label': label,
-                    'address': address,
-                    'length': 0,
-                }]
-
-        elif line[:3] == 'ds ':
-            length = eval(rgbasm_to_py(line[3:]))
-            address += length
-            # adjacent labels use the same space
-            for label in section['labels'][::-1]:
+                length = {'ds': 1, 'db': 1, 'dw': 2}[token]
+            self.address += length
+            # assume adjacent labels to use the same space
+            for label in self.section['labels'][::-1]:
                 if label['length'] == 0:
                     label['length'] = length
                 else:
                     break
 
-        elif 'EQU' in line:
-            # some space is defined using constants
-            name, value = line.split('EQU')
-            name, value = name.strip(), value.strip().replace('$','0x').replace('%','0b')
-            globals()[name] = eval(value)
+        elif token in self.macros.keys():
+            macro_text = '\n'.join(self.macros[token]) + '\n'
+            for i, p in enumerate(params):
+                macro_text = macro_text.replace('\\'+str(i+1),p)
+            macro_text = macro_text.split('\n')
+            macro_reader = BSSReader(
+                sections  = list(self.sections),
+                section   = dict(self.section),
+                address   = self.address,
+                constants = self.constants,
+            )
+            macro_sections = macro_reader.read_bss_sections(macro_text)
+            self.section = macro_sections[-1]
+            self.address = self.section['labels'][-1]['address'] + self.section['labels'][-1]['length']
 
-    sections.append(section)
-    return sections
+
+    def read_bss_sections(self, bss):
+
+        if self.section is None:
+            self.section = {
+                "labels": [],
+            }
+
+        if type(bss) is str:
+            bss = bss.split('\n')
+
+        macro = False
+        macro_name = None
+        for line in bss:
+            line = line.lstrip()
+            line, comment = separate_comment(line)
+            line = line.strip()
+
+            if line[-4:].upper() == 'ENDM':
+                macro = False
+                macro_name = None
+
+            elif macro:
+                self.macros[macro_name] += [line]
+
+            elif line[-5:].upper() == 'MACRO':
+                macro_name = line.split(':')[0]
+                macro = True
+                self.macros[macro_name] = []
+
+            elif 'SECTION' == line[:7]:
+                if self.section: # previous
+                    self.sections += [self.section]
+
+                section_def = line.split(',')
+                name  = section_def[0].split('"')[1]
+                type_ = section_def[1].strip()
+                if len(section_def) > 2:
+                    bank = bracket_value(section_def[2])
+                else:
+                    bank = None
+
+                if '[' in type_:
+                    self.address = int(rgbasm_to_py(bracket_value(type_)), 16)
+                else:
+                    if self.address == None or bank != self.section['bank'] or self.section['type'] != type_:
+                        self.address = self.section_types.get(type_, self.address)
+                    # else: keep going from this address
+
+                self.section = {
+                    'name': name,
+                    'type': type_,
+                    'bank': bank,
+                    'start': self.address,
+                    'labels': [],
+                }
+
+            elif ':' in line:
+                # rgbasm allows labels without :, but prefer convention
+                label = line[:line.find(':')]
+                if '\\' in label:
+                    raise Exception, line + ' ' + label
+                if ';' not in label:
+                    section_label = {
+                        'label': label,
+                        'address': self.address,
+                        'length': 0,
+                    }
+                    self.section['labels'] += [section_label]
+                    self.read_bss_line(line.split(':')[-1])
+
+            elif 'EQU' in line.split():
+                # some space is defined using constants
+                name, value = line.split('EQU')
+                name, value = name.strip(), value.strip().replace('$','0x').replace('%','0b')
+                self.constants[name] = eval(value, self.constants)
+
+            elif line:
+                self.read_bss_line(line)
+
+        self.sections += [self.section]
+        return self.sections
+
+def read_bss_sections(bss):
+    reader = BSSReader()
+    return reader.read_bss_sections(bss)
+
 
 def constants_to_dict(constants):
     return dict((eval(rgbasm_to_py(constant[constant.find('EQU')+3:constant.find(';')])), constant[:constant.find('EQU')].strip()) for constant in constants)
