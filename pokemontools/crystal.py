@@ -7095,12 +7095,7 @@ def get_label_for(address):
         else:
             return "AlreadyParsedNoDefaultUnknownLabel_" + hex(address)
 
-    #return "NotYetParsed_"+hex(address)
-    if address > 0x7FFF:
-        value = 0x4000 + (address % 0x4000)
-        return "$%.2x"%(value)
-    else:
-        return "$%.2x"%(address)
+    return None
 
 # all_new_labels is a temporary replacement for all_labels,
 # at least until the two approaches are merged in the code base.
