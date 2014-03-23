@@ -7061,6 +7061,8 @@ def get_ram_label(address):
     """
     returns a label assigned to a particular ram address
     """
+    if not hasattr(wram, "wram_labels"):
+        setup_wram_labels()
     if address in wram.wram_labels.keys():
         return wram.wram_labels[address][-1]
     return None
