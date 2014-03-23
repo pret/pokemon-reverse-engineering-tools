@@ -1220,27 +1220,72 @@ def png_to_rgb(palette):
     return output
 
 
+def read_filename_arguments(filename):
+    int_args = {
+        'w': 'width',
+        'h': 'height',
+        't': 'tile_padding',
+    }
+    parsed_arguments = {}
+    arguments = os.path.splitext(filename)[0].split('.')[1:]
+    for argument in arguments:
+        arg   = argument[0]
+        param = argument[1:]
+        if param.isdigit():
+            arg = int_args.get(arg, False)
+            if arg:
+                parsed_arguments[arg] = int(param)
+    return parsed_arguments
 
-def export_2bpp_to_png(filein, fileout=None, pal_file=None, height=0, width=0):
+
+def export_2bpp_to_png(filein, fileout=None, pal_file=None, height=0, width=0, tile_padding=0):
+
     if fileout == None:
         fileout = os.path.splitext(filein)[0] + '.png'
+
     image = open(filein, 'rb').read()
+
+    arguments = {
+        'width': width,
+        'height': height,
+        'pal_file': pal_file,
+        'tile_padding': tile_padding,
+    }
+    arguments.update(read_filename_arguments(filein))
 
     if pal_file == None:
         if os.path.exists(os.path.splitext(fileout)[0]+'.pal'):
             pal_file = os.path.splitext(fileout)[0]+'.pal'
 
-    width, height, palette, greyscale, bitdepth, px_map = convert_2bpp_to_png(image, width=width, height=height, pal_file=pal_file)
+    result = convert_2bpp_to_png(
+        image,
+        width=arguments['width'],
+        height=arguments['height'],
+        pal_file=arguments['pal_file'],
+        tile_padding=arguments['tile_padding']
+    )
+    width, height, palette, greyscale, bitdepth, px_map = result
 
-    w = png.Writer(width, height, palette=palette, compression=9, greyscale=greyscale, bitdepth=bitdepth)
+    w = png.Writer(
+        width,
+        height,
+        palette=palette,
+        compression=9,
+        greyscale=greyscale,
+        bitdepth=bitdepth
+    )
     with open(fileout, 'wb') as f:
         w.write(f, px_map)
 
 
-def convert_2bpp_to_png(image, width=0, height=0, pal_file=None):
+def convert_2bpp_to_png(image, width=0, height=0, pal_file=None, tile_padding=0):
     """
     Convert a planar 2bpp graphic to png.
     """
+
+    # Pad the image by a given number of tiles if asked.
+    image += chr(0) * 0x10 * tile_padding
+
     num_pixels = len(image) * 4
     assert num_pixels > 0, 'empty image!'
 
@@ -1283,8 +1328,14 @@ def convert_2bpp_to_png(image, width=0, height=0, pal_file=None):
     return width, height, palette, greyscale, bitdepth, px_map
 
 
-def export_png_to_2bpp(filein, fileout=None, palout=None):
-    image, palette = png_to_2bpp(filein)
+def export_png_to_2bpp(filein, fileout=None, palout=None, tile_padding=0):
+
+    arguments = {
+        'tile_padding': tile_padding,
+    }
+    arguments.update(read_filename_arguments(filein))
+
+    image, palette = png_to_2bpp(filein, arguments['tile_padding'])
 
     if fileout == None:
         fileout = os.path.splitext(filein)[0] + '.2bpp'
@@ -1317,7 +1368,7 @@ def get_image_padding(width, height, wstep=8, hstep=8):
     return padding
 
 
-def png_to_2bpp(filein):
+def png_to_2bpp(filein, tile_padding=0):
     """
     Convert a png image to planar 2bpp.
     """
@@ -1407,6 +1458,9 @@ def png_to_2bpp(filein):
                     bottom += (quad & 1) << (7 - bit)
                     top += (quad /2 & 1) << (7 - bit)
                 image += [bottom, top]
+
+    # Remove any tile padding used to make the png rectangular.
+    image = image[:-tile_padding * 0x10]
 
     return image, palette
 
