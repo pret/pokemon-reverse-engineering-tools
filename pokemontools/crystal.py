@@ -909,26 +909,29 @@ class PointerLabelParam(MultiByteParam):
 
         # setup output bytes if the label was not found
         if not label:
-            #pointer_part = (", ".join([(self.prefix+"%.2x")%x for x in reversed(self.bytes[1:])]))
-            pointer_part = self.prefix+("%.2x"%self.bytes[1])+("%.2x"%self.bytes[0])
+            if bank == True:
+                lo, hi = self.bytes[1:3]
+            else:
+                lo, hi = self.bytes[0:2]
+            pointer_part = "{0}{1:2x}{2:2x}".format(self.prefix, hi, lo)
 
         # bank positioning matters!
         if bank == True or bank == "reverse": # bank, pointer
             # possibly use BANK(LABEL) if we know the bank
-            if not label:
-                bank_part = ((self.prefix+"%.2x")%bank)
+            if label:
+                bank_part = "BANK({})".format(label)
             else:
-                if "$" in label:
+                if "$" in pointer_part:
                     if 0x4000 <= caddress <= 0x7FFF:
                         #bank_part = "$%.2x" % (pointers.calculate_bank(self.parent.parent.address))
                         bank_part = "1"
                     else:
                         bank_part = "$%.2x" % (pointers.calculate_bank(caddress))
                 else:
-                    bank_part = "BANK("+label+")"
+                    bank_part = ((self.prefix+"%.2x")%bank)
             # for labels, expand bank_part at build time
             if bank in ["reverse", True] and label:
-                return pointer_part
+                return label
             # return the asm based on the order the bytes were specified to be in
             elif bank == "reverse": # pointer, bank
                 return pointer_part+", "+bank_part
