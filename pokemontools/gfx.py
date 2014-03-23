@@ -1298,13 +1298,15 @@ def convert_2bpp_to_png(image, width=0, height=0, pal_file=None, tile_padding=0)
     if width * height != num_pixels:
         # look for possible combos of width/height that would form a rectangle
         matches = []
+        # Height need not be divisible by 8, but width must.
+        # See pokered gfx/minimize_pic.1bpp.
         for w in range(8, num_pixels / 2 + 1, 8):
             h = num_pixels / w
-            if w * h == num_pixels and h % 8 == 0:
+            if w * h == num_pixels:
                 matches += [(w, h)]
         # go for the most square image
         if len(matches):
-            width, height = sorted(matches, key= lambda (w, h): w + h)[0] # favor height
+            width, height = sorted(matches, key= lambda (w, h): (h % 8 != 0, w + h))[0] # favor height
 
     # if it still isn't rectangular then the image isn't made of tiles
     if width * height != num_pixels:
