@@ -4,6 +4,7 @@ import os
 import sys
 import png
 from math import sqrt, floor, ceil
+import argparse
 
 import configuration
 config = configuration.Config()
@@ -70,6 +71,46 @@ def transpose(tiles, width=None):
     tiles = sorted(enumerate(tiles), key= lambda (i, tile): i % width)
     return [tile for i, tile in tiles]
 
+def transpose_tiles(image, width=None):
+    return connect(transpose(get_tiles(image), width))
+
+def interleave(tiles, width):
+    """
+      00 01 02 03 04 05     00 02 04 06 08 0a
+      06 07 08 09 0a 0b     01 03 05 07 09 0b
+      0c 0d 0e 0f 10 11 --> 0c 0e 10 12 14 16
+      12 13 14 15 16 17     0d 0f 11 13 15 17
+      18 19 1a 1b 1c 1d     18 1a 1c 1e 20 22
+      1e 1f 20 21 22 23     19 1b 1d 1f 21 23
+    """
+    interleaved = []
+    left, right = split(tiles[::2], width), split(tiles[1::2], width)
+    for l, r in zip(left, right):
+        interleaved += l + r
+    return interleaved
+
+def deinterleave(tiles, width):
+    """
+      00 02 04 06 08 0a     00 01 02 03 04 05 
+      01 03 05 07 09 0b     06 07 08 09 0a 0b
+      0c 0e 10 12 14 16 --> 0c 0d 0e 0f 10 11
+      0d 0f 11 13 15 17     12 13 14 15 16 17
+      18 1a 1c 1e 20 22     18 19 1a 1b 1c 1d
+      19 1b 1d 1f 21 23     1e 1f 20 21 22 23
+    """
+    deinterleaved = []
+    rows = list(split(tiles, width))
+    for left, right in zip(rows[::2], rows[1::2]):
+        for l, r in zip(left, right):
+            deinterleaved += [l, r]
+    return deinterleaved
+
+def interleave_tiles(image, width):
+    return connect(interleave(get_tiles(image), width))
+
+def deinterleave_tiles(image, width):
+    return connect(deinterleave(get_tiles(image), width))
+
 
 def to_file(filename, data):
     file = open(filename, 'wb')
@@ -122,7 +163,7 @@ lz_end = 0xff
 class Compressed:
 
     """
-    Compress 2bpp data.
+    Compress arbitrary data, usually 2bpp.
     """
 
     def __init__(self, image=None, mode='horiz', size=None):
@@ -507,10 +548,10 @@ class Compressed:
 
 class Decompressed:
     """
-    Parse compressed 2bpp data.
+    Parse compressed data, usually 2bpp.
 
     parameters:
-        [compressed 2bpp data]
+        [compressed data]
         [tile arrangement] default: 'vert'
         [size of pic] default: None
         [start] (optional)
@@ -618,7 +659,7 @@ class Decompressed:
 
     def doLiteral(self):
         """
-        Copy 2bpp data directly.
+        Copy data directly.
         """
         for byte in range(self.length):
             self.next()
@@ -654,7 +695,7 @@ class Decompressed:
 
     def doFlip(self):
         """
-        Repeat flipped bytes from 2bpp output.
+        Repeat flipped bytes from output.
 
         eg  11100100 -> 00100111
         quat 3 2 1 0 ->  0 2 1 3
@@ -665,14 +706,14 @@ class Decompressed:
 
     def doReverse(self):
         """
-        Repeat reversed bytes from 2bpp output.
+        Repeat reversed bytes from output.
         """
         for byte in range(self.length):
             self.output.append(self.output[self.displacement-byte])
 
     def doRepeat(self):
         """
-        Repeat bytes from 2bpp output.
+        Repeat bytes from output.
         """
         for byte in range(self.length):
             self.output.append(self.output[self.displacement+byte])
@@ -1220,50 +1261,131 @@ def png_to_rgb(palette):
     return output
 
 
+def read_filename_arguments(filename):
+    int_args = {
+        'w': 'width',
+        'h': 'height',
+        't': 'tile_padding',
+    }
+    parsed_arguments = {}
+    arguments = os.path.splitext(filename)[0].split('.')[1:]
+    for argument in arguments:
+        arg   = argument[0]
+        param = argument[1:]
+        if param.isdigit():
+            arg = int_args.get(arg, False)
+            if arg:
+                parsed_arguments[arg] = int(param)
+        elif len(argument) == 3:
+            w, x, h = argument[:3]
+            if w.isdigit() and h.isdigit() and x == 'x':
+                parsed_arguments['pic_dimensions'] = (int(w), int(h))
+        elif argument == 'interleave':
+            parsed_arguments['interleave'] = True
+    return parsed_arguments
 
-def export_2bpp_to_png(filein, fileout=None, pal_file=None, height=0, width=0):
+
+def export_2bpp_to_png(filein, fileout=None, pal_file=None, height=0, width=0, tile_padding=0, pic_dimensions=None):
+
     if fileout == None:
         fileout = os.path.splitext(filein)[0] + '.png'
+
     image = open(filein, 'rb').read()
+
+    arguments = {
+        'width': width,
+        'height': height,
+        'pal_file': pal_file,
+        'tile_padding': tile_padding,
+        'pic_dimensions': pic_dimensions,
+    }
+    arguments.update(read_filename_arguments(filein))
 
     if pal_file == None:
         if os.path.exists(os.path.splitext(fileout)[0]+'.pal'):
-            pal_file = os.path.splitext(fileout)[0]+'.pal'
+            arguments['pal_file'] = os.path.splitext(fileout)[0]+'.pal'
 
-    width, height, palette, greyscale, bitdepth, px_map = convert_2bpp_to_png(image, width=width, height=height, pal_file=pal_file)
+    result = convert_2bpp_to_png(image, **arguments)
+    width, height, palette, greyscale, bitdepth, px_map = result
 
-    w = png.Writer(width, height, palette=palette, compression=9, greyscale=greyscale, bitdepth=bitdepth)
+    w = png.Writer(
+        width,
+        height,
+        palette=palette,
+        compression=9,
+        greyscale=greyscale,
+        bitdepth=bitdepth
+    )
     with open(fileout, 'wb') as f:
         w.write(f, px_map)
 
 
-def convert_2bpp_to_png(image, width=0, height=0, pal_file=None):
+def convert_2bpp_to_png(image, **kwargs):
     """
     Convert a planar 2bpp graphic to png.
     """
-    num_pixels = len(image) * 4
-    assert num_pixels > 0, 'empty image!'
+
+    width          = kwargs.get('width', 0)
+    height         = kwargs.get('height', 0)
+    tile_padding   = kwargs.get('tile_padding', 0)
+    pic_dimensions = kwargs.get('pic_dimensions', None)
+    pal_file       = kwargs.get('pal_file', None)
+    interleave     = kwargs.get('interleave', False)
+
+    # Width must be specified to interleave.
+    if interleave and width:
+        image = ''.join(interleave_tiles(image, width / 8))
+
+    # Pad the image by a given number of tiles if asked.
+    image += chr(0) * 0x10 * tile_padding
+
+    # Frontpics are transposed independently of animation graphics.
+    if pic_dimensions:
+        w, h  = pic_dimensions
+        i     = w * h * 0x10
+        pic   = ''.join(transpose_tiles(image[:i], w))
+        anim  = image[i:]
+        image = pic + anim
+        # Pad out animation tiles as well.
+        image += chr(0) * 0x10 * ((w - len(get_tiles(image)) % h) % w)
+
+    def px_length(img):
+        return len(img) * 4
+    def tile_length(img):
+        return len(img) * 4 / (8*8)
+
+    if width and height:
+        tile_width = width / 8
+        more_tile_padding = (tile_width - (tile_length(image) % tile_width or tile_width))
+        image += chr(0) * 0x10 * more_tile_padding
+
+    elif width and not height:
+        tile_width = width / 8
+        more_tile_padding = (tile_width - (tile_length(image) % tile_width or tile_width))
+        image += chr(0) * 0x10 * more_tile_padding
+        height = px_length(image) / width
+
+    elif height and not width:
+        tile_height = height / 8
+        more_tile_padding = (tile_height - (tile_length(image) % tile_height or tile_height))
+        image += chr(0) * 0x10 * more_tile_padding
+        width = px_length(image) / height
 
     # at least one dimension should be given
-    if height == 0 and width != 0:
-        height = num_pixels / width
-    elif width == 0 and height != 0:
-        width = num_pixels / height
-
-    if width * height != num_pixels:
+    if width * height != px_length(image):
         # look for possible combos of width/height that would form a rectangle
         matches = []
-        for w in range(8, num_pixels / 2 + 1, 8):
-            h = num_pixels / w
-            if w * h == num_pixels and h % 8 == 0:
+        # Height need not be divisible by 8, but width must.
+        # See pokered gfx/minimize_pic.1bpp.
+        for w in range(8, px_length(image) / 2 + 1, 8):
+            h = px_length(image) / w
+            if w * h == px_length(image):
                 matches += [(w, h)]
         # go for the most square image
         if len(matches):
-            width, height = sorted(matches, key= lambda (w, h): w + h)[0] # favor height
-
-    # if it still isn't rectangular then the image isn't made of tiles
-    if width * height != num_pixels:
-        raise Exception, 'Image can\'t be divided into tiles (%d px)!' % (num_pixels)
+            width, height = sorted(matches, key= lambda (w, h): (h % 8 != 0, w + h))[0] # favor height
+        else:
+            raise Exception, 'Image can\'t be divided into tiles (%d px)!' % (px_length(image))
 
     # convert tiles to lines
     lines = to_lines(flatten(image), width)
@@ -1283,8 +1405,15 @@ def convert_2bpp_to_png(image, width=0, height=0, pal_file=None):
     return width, height, palette, greyscale, bitdepth, px_map
 
 
-def export_png_to_2bpp(filein, fileout=None, palout=None):
-    image, palette = png_to_2bpp(filein)
+def export_png_to_2bpp(filein, fileout=None, palout=None, tile_padding=0, pic_dimensions=None):
+
+    arguments = {
+        'tile_padding': tile_padding,
+        'pic_dimensions': pic_dimensions,
+    }
+    arguments.update(read_filename_arguments(filein))
+
+    image, palette = png_to_2bpp(filein, **arguments)
 
     if fileout == None:
         fileout = os.path.splitext(filein)[0] + '.2bpp'
@@ -1317,10 +1446,14 @@ def get_image_padding(width, height, wstep=8, hstep=8):
     return padding
 
 
-def png_to_2bpp(filein):
+def png_to_2bpp(filein, **kwargs):
     """
     Convert a png image to planar 2bpp.
     """
+
+    tile_padding   = kwargs.get('tile_padding', 0)
+    pic_dimensions = kwargs.get('pic_dimensions', None)
+    interleave     = kwargs.get('interleave', False)
 
     with open(filein, 'rb') as data:
         width, height, rgba, info = png.Reader(data).asRGBA8()
@@ -1408,6 +1541,20 @@ def png_to_2bpp(filein):
                     top += (quad /2 & 1) << (7 - bit)
                 image += [bottom, top]
 
+    # Frontpics are transposed independently of animation graphics.
+    if pic_dimensions:
+        w, h  = pic_dimensions
+        i     = w * h * 0x10
+        pic   = transpose_tiles(image[:i], w)
+        anim  = image[i:]
+        image = pic + anim
+
+    # Remove any tile padding used to make the png rectangular.
+    image = image[:len(image) - tile_padding * 0x10]
+
+    if interleave:
+        image = deinterleave_tiles(image, num_columns)
+
     return image, palette
 
 
@@ -1436,7 +1583,7 @@ def png_to_lz(filein):
 
     export_png_to_2bpp(filein)
     image = open(name+'.2bpp', 'rb').read()
-    to_file(name+'.lz', Compressed(image).output)
+    to_file(name+'.2bpp'+'.lz', Compressed(image).output)
 
 
 
@@ -1456,15 +1603,31 @@ def convert_1bpp_to_2bpp(data):
     return output
 
 
+def export_2bpp_to_1bpp(filename):
+    name, extension = os.path.splitext(filename)
+    image = open(filename, 'rb').read()
+    image = convert_2bpp_to_1bpp(image)
+    to_file(name + '.1bpp', image)
+
+def export_1bpp_to_2bpp(filename):
+    name, extension = os.path.splitext(filename)
+    image = open(filename, 'rb').read()
+    image = convert_1bpp_to_2bpp(image)
+    to_file(name + '.2bpp', image)
+
+
 def export_1bpp_to_png(filename, fileout=None):
 
     if fileout == None:
         fileout = os.path.splitext(filename)[0] + '.png'
 
+    arguments = read_filename_arguments(filename)
+
     image = open(filename, 'rb').read()
     image = convert_1bpp_to_2bpp(image)
 
-    width, height, palette, greyscale, bitdepth, px_map = convert_2bpp_to_png(image)
+    result = convert_2bpp_to_png(image, **arguments)
+    width, height, palette, greyscale, bitdepth, px_map = result
 
     w = png.Writer(width, height, palette=palette, compression=9, greyscale=greyscale, bitdepth=bitdepth)
     with open(fileout, 'wb') as f:
@@ -1472,15 +1635,17 @@ def export_1bpp_to_png(filename, fileout=None):
 
 
 def export_png_to_1bpp(filename, fileout=None):
-    image = png_to_1bpp(filename)
 
     if fileout == None:
         fileout = os.path.splitext(filename)[0] + '.1bpp'
 
+    arguments = read_filename_arguments(filename)
+    image = png_to_1bpp(filename, **arguments)
+
     to_file(fileout, image)
 
-def png_to_1bpp(filename):
-    image, palette = png_to_2bpp(filename)
+def png_to_1bpp(filename, **kwargs):
+    image, palette = png_to_2bpp(filename, **kwargs)
     return convert_2bpp_to_1bpp(image)
 
 
@@ -1568,7 +1733,7 @@ def export_lz_to_png(filename):
     lz_data = open(filename, "rb").read()
 
     bpp = Decompressed(lz_data).output
-    bpp_filename = filename.replace(".lz", ".2bpp")
+    bpp_filename = os.path.splitext(filename)[0]
     to_file(bpp_filename, bpp)
 
     export_2bpp_to_png(bpp_filename)
@@ -1622,80 +1787,76 @@ def expand_pic_palettes():
                             out.write(w + palette + b)
 
 
+def convert_to_2bpp(filenames=[]):
+    for filename in filenames:
+        name, extension = os.path.splitext(filename)
+        if extension == '.1bpp':
+            export_1bpp_to_2bpp(filename)
+        elif extension == '.2bpp':
+            pass
+        elif extension == '.png':
+            export_png_to_2bpp(filename)
+        else:
+            raise Exception, "Don't know how to convert {} to 2bpp!".format(filename)
+
+def convert_to_1bpp(filenames=[]):
+    for filename in filenames:
+        name, extension = os.path.splitext(filename)
+        if extension == '.1bpp':
+            pass
+        elif extension == '.2bpp':
+            export_2bpp_to_1bpp(filename)
+        elif extension == '.png':
+            export_png_to_1bpp(filename)
+        else:
+            raise Exception, "Don't know how to convert {} to 1bpp!".format(filename)
+
+def convert_to_png(filenames=[]):
+    for filename in filenames:
+        name, extension = os.path.splitext(filename)
+        if extension == '.1bpp':
+            export_1bpp_to_png(filename)
+        elif extension == '.2bpp':
+            export_2bpp_to_png(filename)
+        elif extension == '.png':
+            pass
+        else:
+            raise Exception, "Don't know how to convert {} to png!".format(filename)
+
+def compress(filenames=[]):
+    for filename in filenames:
+        data = open(filename, 'rb').read()
+        lz_data = Compressed(data).output
+        to_file(filename + '.lz', lz_data)
+
+def decompress(filenames=[]):
+    for filename in filenames:
+        name, extension = os.path.splitext(filename)
+        lz_data = open(filename, 'rb').read()
+        data = Decompressed(lz_data).output
+        to_file(name, data)
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument('mode')
+    ap.add_argument('filenames', nargs='*')
+    args = ap.parse_args()
+
+    method = {
+        '2bpp': convert_to_2bpp,
+        '1bpp': convert_to_1bpp,
+        'png':  convert_to_png,
+        'lz':   compress,
+        'unlz': decompress,
+    }.get(args.mode, None)
+
+    if method == None:
+        raise Exception, "Unknown conversion method!"
+
+    method(args.filenames)
+
 
 if __name__ == "__main__":
-    debug = False
+    main()
 
-    argv = [None] * 5
-    for i, arg in enumerate(sys.argv):
-        argv[i] = arg
-
-    if argv[1] == 'dump-pngs':
-        mass_to_colored_png()
-
-    elif argv[1] == 'mass-decompress':
-        mass_decompress()
-
-    elif argv[1] == 'front-to-2bpp':
-        decompress_frontpic(argv[2])
-
-    elif argv[1] == 'anim-from-front':
-        decompress_frontpic_anim(argv[2])
-
-    elif argv[1] == 'lz-to-2bpp':
-        name = os.path.splitext(argv[3])[0]
-        lz = open(name+'.lz', 'rb').read()
-        if argv[2] == '--vert':
-            to_file(name+'.2bpp', Decompressed(lz, 'vert').output)
-        else:
-            to_file(name+'.2bpp', Decompressed(lz).output)
-
-    elif argv[1] == 'lz-to-png':
-        if argv[2] == '--vert':
-            name = os.path.splitext(argv[3])[0]
-            lz = open(name+'.lz', 'rb').read()
-            to_file(name+'.2bpp', Decompressed(lz, 'vert').output)
-            export_2bpp_to_png(name+'.2bpp')
-        else:
-            export_lz_to_png(argv[2])
-
-    elif argv[1] == 'png-to-lz':
-        # python gfx.py png-to-lz [--front anim(2bpp) | --vert] [png]
-        if argv[2] == '--front':
-            # front.2bpp and tiles.2bpp are combined before compression,
-            # so we have to pass in the anim file and pic size
-            name = os.path.splitext(argv[4])[0]
-            export_png_to_2bpp(name+'.png', name+'.2bpp')
-            pic  = open(name+'.2bpp', 'rb').read()
-            anim = open(argv[3], 'rb').read()
-            size = int(sqrt(len(pic)/16)) # assume square pic
-            to_file(name+'.lz', Compressed(pic + anim, 'vert', size).output)
-        elif argv[2] == '--vert':
-            name = os.path.splitext(argv[3])[0]
-            export_png_to_2bpp(name+'.png', name+'.2bpp')
-            pic = open(name+'.2bpp', 'rb').read()
-            to_file(name+'.lz', Compressed(pic, 'vert').output)
-        else:
-            png_to_lz(argv[2])
-
-    elif argv[1] == 'png-to-2bpp':
-        export_png_to_2bpp(argv[2])
-
-    elif argv[1] == 'png-to-1bpp':
-        export_png_to_1bpp(argv[2])
-
-    elif argv[1] == '1bpp-to-png':
-        export_1bpp_to_png(argv[2])
-
-    elif argv[1] == '2bpp-to-lz':
-        if argv[2] == '--vert':
-            filein = argv[3]
-            fileout = argv[4]
-            compress_file(filein, fileout, 'vert')
-        else:
-            filein = argv[2]
-            fileout = argv[3]
-            compress_file(filein, fileout)
-
-    elif argv[1] == '2bpp-to-png':
-        export_2bpp_to_png(argv[2])
