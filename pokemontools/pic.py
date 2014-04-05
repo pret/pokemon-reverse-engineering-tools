@@ -250,20 +250,36 @@ class Compressor:
 
     def compress(self):
         """
-        Compress the image six times (twice for each mode) and use the smallest one.
-
-        TODO: Better tiebreaking for same-size pics.
+        Compress the image five times (twice for each mode, except 0)
+        and use the smallest one (in bits).
         """
         rams = [[],[]]
         datas = []
+
         for mode in xrange(3):
-            # Note: order is redundant for mode 0.
+
+            # Order is redundant for mode 0.
+
+            # While this seems like an optimization,
+            # it's actually required for 1:1 compression
+            # to the original compressed pics.
+
+            # This appears to be the algorithm
+            # that Game Freak's compressor used.
+
+            # Using order 0 instead of 1 breaks this feature.
+
             for order in xrange(2):
-                rams[0] = self.image[0::2]
-                rams[1] = self.image[1::2]
+                if mode == 0 and order == 0:
+                    continue
+                for i in xrange(2):
+                    rams[i] = self.image[i::2]
                 self._interpret_compress(rams, mode, order)
-                datas += [self.data[:]]
-        self.data = sorted(datas, key=len)[0]
+                datas += [(self.data[:], int(self.which_bit))]
+
+        # Pick the smallest pic, measured in bits.
+        datas = sorted(datas, key=lambda (data, bit): (len(data), -bit))
+        self.data, self.which_bit = datas[0]
 
     def _interpret_compress(self, rams, mode, order):
         self.data = []
@@ -418,6 +434,30 @@ def compress(f):
     comp.compress()
     return comp.data
 
+
+def decompress_file(filename):
+    """
+    Decompress a pic given a filename.
+    Export the resulting planar 2bpp image to
+    """
+    pic = open(filename, 'rb')
+    image = decompress(pic)
+    image = transpose_tiles(image)
+    image = bytearray(image)
+    output_filename = os.path.splitext(filename)[0] + '.2bpp'
+    with open(output_filename, 'wb') as out:
+        out.write(image)
+
+def compress_file(filename):
+    image = open(filename, 'rb').read()
+    image = transpose_tiles(image)
+    pic = compress(image)
+    pic = bytearray(pic)
+    output_filename = os.path.splitext(filename)[0] + '.pic'
+    with open(output_filename, 'wb') as out:
+	out.write(pic)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('mode')
@@ -426,21 +466,9 @@ def main():
 
     for filename in args.filenames:
         if args.mode == 'decompress':
-            pic = open(filename, 'rb')
-            image = decompress(pic)
-            image = transpose_tiles(image)
-            image = bytearray(image)
-            output_filename = os.path.splitext(filename)[0] + '.2bpp'
-            with open(output_filename, 'wb') as out:
-                out.write(image)
+            decompress_file(filename)
         elif args.mode == 'compress':
-            image = open(filename, 'rb').read()
-            image = transpose_tiles(image)
-            pic = compress(image)
-            pic = bytearray(pic)
-            output_filename = os.path.splitext(filename)[0] + '.pic'
-            with open(output_filename, 'wb') as out:
-                out.write(pic)
+            compress_file(filename)
 
 if __name__ == '__main__':
     main()
