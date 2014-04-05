@@ -112,6 +112,18 @@ def deinterleave_tiles(image, width):
     return connect(deinterleave(get_tiles(image), width))
 
 
+def condense_tiles_to_map(image):
+    tiles = get_tiles(image)
+    new_tiles = []
+    tilemap = []
+    for tile in tiles:
+        if tile not in new_tiles:
+            new_tiles += [tile]
+        tilemap += [new_tiles.index(tile)]
+    new_image = connect(new_tiles)
+    return new_image, tilemap
+
+
 def to_file(filename, data):
     file = open(filename, 'wb')
     for byte in data:
@@ -1282,6 +1294,11 @@ def read_filename_arguments(filename):
                 parsed_arguments['pic_dimensions'] = (int(w), int(h))
         elif argument == 'interleave':
             parsed_arguments['interleave'] = True
+        elif argument == 'norepeat':
+            parsed_arguments['norepeat'] = True
+        elif argument == 'arrange':
+            parsed_arguments['norepeat'] = True
+            parsed_arguments['tilemap']  = True
     return parsed_arguments
 
 
@@ -1413,11 +1430,15 @@ def export_png_to_2bpp(filein, fileout=None, palout=None, tile_padding=0, pic_di
     }
     arguments.update(read_filename_arguments(filein))
 
-    image, palette = png_to_2bpp(filein, **arguments)
+    image, palette, tmap = png_to_2bpp(filein, **arguments)
 
     if fileout == None:
         fileout = os.path.splitext(filein)[0] + '.2bpp'
     to_file(fileout, image)
+
+    if tmap != None:
+        mapout = os.path.splitext(fileout)[0] + '.tilemap'
+        to_file(mapout, tmap)
 
     if palout == None:
         palout = os.path.splitext(fileout)[0] + '.pal'
@@ -1454,6 +1475,8 @@ def png_to_2bpp(filein, **kwargs):
     tile_padding   = kwargs.get('tile_padding', 0)
     pic_dimensions = kwargs.get('pic_dimensions', None)
     interleave     = kwargs.get('interleave', False)
+    norepeat       = kwargs.get('norepeat', False)
+    tilemap        = kwargs.get('tilemap', False)
 
     with open(filein, 'rb') as data:
         width, height, rgba, info = png.Reader(data).asRGBA8()
@@ -1555,7 +1578,12 @@ def png_to_2bpp(filein, **kwargs):
     if interleave:
         image = deinterleave_tiles(image, num_columns)
 
-    return image, palette
+    if norepeat:
+        image, tmap = condense_tiles_to_map(image)
+    if not tilemap:
+        tmap = None
+
+    return image, palette, tmap
 
 
 def export_palette(palette, filename):
@@ -1645,7 +1673,7 @@ def export_png_to_1bpp(filename, fileout=None):
     to_file(fileout, image)
 
 def png_to_1bpp(filename, **kwargs):
-    image, palette = png_to_2bpp(filename, **kwargs)
+    image, palette, tmap = png_to_2bpp(filename, **kwargs)
     return convert_2bpp_to_1bpp(image)
 
 
