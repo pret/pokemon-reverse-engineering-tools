@@ -1454,12 +1454,12 @@ def get_image_padding(width, height, wstep=8, hstep=8):
         'bottom': 0,
     }
 
-    if width % wstep:
+    if width % wstep and width >= wstep:
        pad = float(width % wstep) / 2
        padding['left']   = int(ceil(pad))
        padding['right']  = int(floor(pad))
 
-    if height % hstep:
+    if height % hstep and height >= hstep:
        pad = float(height % hstep) / 2
        padding['top']    = int(ceil(pad))
        padding['bottom'] = int(floor(pad))
@@ -1543,15 +1543,15 @@ def png_to_2bpp(filein, **kwargs):
     # Graphics are stored in tiles instead of lines
     tile_width  = 8
     tile_height = 8
-    num_columns = width / tile_width
-    num_rows = height / tile_height
+    num_columns = max(width, tile_width) / tile_width
+    num_rows = max(height, tile_height) / tile_height
     image = []
 
     for row in xrange(num_rows):
         for column in xrange(num_columns):
 
             # Split it up into strips to convert to planar data
-            for strip in xrange(tile_height):
+            for strip in xrange(min(tile_height, height)):
                 anchor = (
                     row * num_columns * tile_width * tile_height +
                     column * tile_width +
