@@ -318,31 +318,33 @@ class Compressor:
         rle = 0
         nums = 0
         bitgroups = []
-        for i in xrange(self.height * self.width * 32):
-            byte = i / (self.width * 32)
-            byte = byte * self.width * 8 + i % (self.width * 8)
-            bit = i / (self.width * 8)
-            bit = (bit * 2) % 8
-            bitgroup = (ram[byte] >> (6 - bit)) & 3
-            if bitgroup == 0:
-                if rle == 0:
-                    self._writebit(0)
-                elif rle == 1:
-                    nums += 1
-                else:
-                    self._data_packet(bitgroups)
-                    self._writebit(0)
-                    self._writebit(0)
-                rle = 1
-                bitgroups = []
-            else:
-                if rle == 0:
-                    self._writebit(1)
-                elif rle == 1:
-                    self._rle(nums)
-                rle = -1
-                bitgroups += [bitgroup]
-                nums = 0
+
+        for x in xrange(self.width):
+            for bit in xrange(0, 8, 2):
+                byte = x * self.height * 8
+                for y in xrange(self.height * 8):
+                    bitgroup = (ram[byte] >> (6 - bit)) & 3
+                    if bitgroup == 0:
+                        if rle == 0:
+                            self._writebit(0)
+                        elif rle == 1:
+                            nums += 1
+                        else:
+                            self._data_packet(bitgroups)
+                            self._writebit(0)
+                            self._writebit(0)
+                        rle = 1
+                        bitgroups = []
+                    else:
+                        if rle == 0:
+                            self._writebit(1)
+                        elif rle == 1:
+                            self._rle(nums)
+                        rle = -1
+                        bitgroups += [bitgroup]
+                        nums = 0
+                    byte += 1
+
         if rle == 1:
             self._rle(nums)
         else:
@@ -354,16 +356,27 @@ class Compressor:
             self._writebit((bitgroup >> 0) & 1)
 
     def _rle(self, nums):
-        bitcount = -1
         nums += 1
-        search = nums
-        while search > 0:
-            try:
-                bitcount = self.table1.index(search)
-                break
-            except:
-                search -= 1
-        number = nums - self.table1[bitcount]
+
+        # Get the previous power of 2.
+        # Deriving the bitcount from that seems to be
+        # faster on average than using the lookup table.
+        v = nums
+        v += 1
+        v |= v >> 1
+        v |= v >> 2
+        v |= v >> 4
+        v |= v >> 8
+        v |= v >> 16
+        v -= v >> 1
+        v -= 1
+        number = nums - v
+
+        bitcount = -1
+        while v:
+            v >>= 1
+            bitcount += 1
+
         for j in xrange(bitcount):
             self._writebit(1)
         self._writebit(0)
@@ -397,11 +410,11 @@ class Compressor:
         if self.which_bit == -1:
             self.which_bit = 7
             self.data += [0]
-        self.data[-1] |= bit << self.which_bit
+        if bit: self.data[-1] |= bit << self.which_bit
 
     def _writeint(self, num, size=None):
         bits = []
-        if size is not None:
+        if size:
             for i in xrange(size):
                 bits += [num & 1]
                 num >>= 1
