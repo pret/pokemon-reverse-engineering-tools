@@ -25,7 +25,7 @@ class Decompressor:
     """
     pokered pic decompression.
 
-    Lifted from github.com/magical/pokemon-sprites-rby.
+    Ported to python 2.7 from the python 3 code at https://github.com/magical/pokemon-sprites-rby.
     """
 
     table1 = [(2 << i) - 1 for i in xrange(16)]
