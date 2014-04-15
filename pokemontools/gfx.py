@@ -1356,15 +1356,22 @@ def convert_2bpp_to_png(image, **kwargs):
     # Pad the image by a given number of tiles if asked.
     image += chr(0) * 0x10 * tile_padding
 
-    # Frontpics are transposed independently of animation graphics.
+    # Some images are transposed in blocks.
     if pic_dimensions:
         w, h  = pic_dimensions
-        i     = w * h * 0x10
-        pic   = ''.join(transpose_tiles(image[:i], w))
-        anim  = image[i:]
-        image = pic + anim
-        # Pad out animation tiles as well.
-        image += chr(0) * 0x10 * ((w - len(get_tiles(image)) % h) % w)
+        if not width: width = w * 8
+
+        pic_length = w * h * 0x10
+
+        trailing = len(image) % pic_length
+
+        pic = []
+        for i in xrange(0, len(image) - trailing, pic_length):
+            pic += transpose_tiles(image[i:i+pic_length], w)
+        image = ''.join(pic) + image[len(image) - trailing:]
+
+        # Pad out trailing lines.
+        image += chr(0) * 0x10 * ((w - (len(image) / 0x10) % h) % w)
 
     def px_length(img):
         return len(img) * 4
@@ -1564,13 +1571,23 @@ def png_to_2bpp(filein, **kwargs):
                     top += (quad /2 & 1) << (7 - bit)
                 image += [bottom, top]
 
-    # Frontpics are transposed independently of animation graphics.
     if pic_dimensions:
-        w, h  = pic_dimensions
-        i     = w * h * 0x10
-        pic   = transpose_tiles(image[:i], w)
-        anim  = image[i:]
-        image = pic + anim
+        w, h = pic_dimensions
+
+        tiles = get_tiles(image)
+        pic_length = w * h
+        tile_width = width / 8
+        trailing = len(tiles) % pic_length
+        new_image = []
+        for block in xrange(len(tiles) / pic_length):
+            offset = (h * tile_width) * ((block * w) / tile_width) + ((block * w) % tile_width)
+            pic = []
+            for row in xrange(h):
+                index = offset + (row * tile_width)
+                pic += tiles[index:index + w]
+            new_image += transpose(pic, w)
+        new_image += tiles[len(tiles) - trailing:]
+        image = connect(new_image)
 
     # Remove any tile padding used to make the png rectangular.
     image = image[:len(image) - tile_padding * 0x10]
