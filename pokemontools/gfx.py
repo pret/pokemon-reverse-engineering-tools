@@ -1834,7 +1834,7 @@ def expand_pic_palettes():
 
 def convert_to_2bpp(filenames=[]):
     for filename in filenames:
-        name, extension = os.path.splitext(filename)
+        filename, name, extension = try_decompress(filename)
         if extension == '.1bpp':
             export_1bpp_to_2bpp(filename)
         elif extension == '.2bpp':
@@ -1846,7 +1846,7 @@ def convert_to_2bpp(filenames=[]):
 
 def convert_to_1bpp(filenames=[]):
     for filename in filenames:
-        name, extension = os.path.splitext(filename)
+        filename, name, extension = try_decompress(filename)
         if extension == '.1bpp':
             pass
         elif extension == '.2bpp':
@@ -1858,7 +1858,7 @@ def convert_to_1bpp(filenames=[]):
 
 def convert_to_png(filenames=[]):
     for filename in filenames:
-        name, extension = os.path.splitext(filename)
+        filename, name, extension = try_decompress(filename)
         if extension == '.1bpp':
             export_1bpp_to_png(filename)
         elif extension == '.2bpp':
@@ -1880,6 +1880,19 @@ def decompress(filenames=[]):
         lz_data = open(filename, 'rb').read()
         data = Decompressed(lz_data).output
         to_file(name, data)
+
+def try_decompress(filename):
+    """
+    Try to decompress a graphic when determining the filetype.
+    This skips the manual unlz step when attempting
+    to convert lz-compressed graphics to png.
+    """
+    name, extension = os.path.splitext(filename)
+    if extension == '.lz':
+        decompress([filename])
+        filename = name
+        name, extension = os.path.splitext(filename)
+    return filename, name, extension
 
 
 def main():
