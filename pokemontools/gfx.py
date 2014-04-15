@@ -112,6 +112,18 @@ def deinterleave_tiles(image, width):
     return connect(deinterleave(get_tiles(image), width))
 
 
+def condense_tiles_to_map(image):
+    tiles = get_tiles(image)
+    new_tiles = []
+    tilemap = []
+    for tile in tiles:
+        if tile not in new_tiles:
+            new_tiles += [tile]
+        tilemap += [new_tiles.index(tile)]
+    new_image = connect(new_tiles)
+    return new_image, tilemap
+
+
 def to_file(filename, data):
     file = open(filename, 'wb')
     for byte in data:
@@ -1282,6 +1294,11 @@ def read_filename_arguments(filename):
                 parsed_arguments['pic_dimensions'] = (int(w), int(h))
         elif argument == 'interleave':
             parsed_arguments['interleave'] = True
+        elif argument == 'norepeat':
+            parsed_arguments['norepeat'] = True
+        elif argument == 'arrange':
+            parsed_arguments['norepeat'] = True
+            parsed_arguments['tilemap']  = True
     return parsed_arguments
 
 
@@ -1339,15 +1356,22 @@ def convert_2bpp_to_png(image, **kwargs):
     # Pad the image by a given number of tiles if asked.
     image += chr(0) * 0x10 * tile_padding
 
-    # Frontpics are transposed independently of animation graphics.
+    # Some images are transposed in blocks.
     if pic_dimensions:
         w, h  = pic_dimensions
-        i     = w * h * 0x10
-        pic   = ''.join(transpose_tiles(image[:i], w))
-        anim  = image[i:]
-        image = pic + anim
-        # Pad out animation tiles as well.
-        image += chr(0) * 0x10 * ((w - len(get_tiles(image)) % h) % w)
+        if not width: width = w * 8
+
+        pic_length = w * h * 0x10
+
+        trailing = len(image) % pic_length
+
+        pic = []
+        for i in xrange(0, len(image) - trailing, pic_length):
+            pic += transpose_tiles(image[i:i+pic_length], w)
+        image = ''.join(pic) + image[len(image) - trailing:]
+
+        # Pad out trailing lines.
+        image += chr(0) * 0x10 * ((w - (len(image) / 0x10) % h) % w)
 
     def px_length(img):
         return len(img) * 4
@@ -1413,11 +1437,15 @@ def export_png_to_2bpp(filein, fileout=None, palout=None, tile_padding=0, pic_di
     }
     arguments.update(read_filename_arguments(filein))
 
-    image, palette = png_to_2bpp(filein, **arguments)
+    image, palette, tmap = png_to_2bpp(filein, **arguments)
 
     if fileout == None:
         fileout = os.path.splitext(filein)[0] + '.2bpp'
     to_file(fileout, image)
+
+    if tmap != None:
+        mapout = os.path.splitext(fileout)[0] + '.tilemap'
+        to_file(mapout, tmap)
 
     if palout == None:
         palout = os.path.splitext(fileout)[0] + '.pal'
@@ -1433,12 +1461,12 @@ def get_image_padding(width, height, wstep=8, hstep=8):
         'bottom': 0,
     }
 
-    if width % wstep:
+    if width % wstep and width >= wstep:
        pad = float(width % wstep) / 2
        padding['left']   = int(ceil(pad))
        padding['right']  = int(floor(pad))
 
-    if height % hstep:
+    if height % hstep and height >= hstep:
        pad = float(height % hstep) / 2
        padding['top']    = int(ceil(pad))
        padding['bottom'] = int(floor(pad))
@@ -1454,6 +1482,8 @@ def png_to_2bpp(filein, **kwargs):
     tile_padding   = kwargs.get('tile_padding', 0)
     pic_dimensions = kwargs.get('pic_dimensions', None)
     interleave     = kwargs.get('interleave', False)
+    norepeat       = kwargs.get('norepeat', False)
+    tilemap        = kwargs.get('tilemap', False)
 
     with open(filein, 'rb') as data:
         width, height, rgba, info = png.Reader(data).asRGBA8()
@@ -1520,15 +1550,15 @@ def png_to_2bpp(filein, **kwargs):
     # Graphics are stored in tiles instead of lines
     tile_width  = 8
     tile_height = 8
-    num_columns = width / tile_width
-    num_rows = height / tile_height
+    num_columns = max(width, tile_width) / tile_width
+    num_rows = max(height, tile_height) / tile_height
     image = []
 
     for row in xrange(num_rows):
         for column in xrange(num_columns):
 
             # Split it up into strips to convert to planar data
-            for strip in xrange(tile_height):
+            for strip in xrange(min(tile_height, height)):
                 anchor = (
                     row * num_columns * tile_width * tile_height +
                     column * tile_width +
@@ -1541,13 +1571,23 @@ def png_to_2bpp(filein, **kwargs):
                     top += (quad /2 & 1) << (7 - bit)
                 image += [bottom, top]
 
-    # Frontpics are transposed independently of animation graphics.
     if pic_dimensions:
-        w, h  = pic_dimensions
-        i     = w * h * 0x10
-        pic   = transpose_tiles(image[:i], w)
-        anim  = image[i:]
-        image = pic + anim
+        w, h = pic_dimensions
+
+        tiles = get_tiles(image)
+        pic_length = w * h
+        tile_width = width / 8
+        trailing = len(tiles) % pic_length
+        new_image = []
+        for block in xrange(len(tiles) / pic_length):
+            offset = (h * tile_width) * ((block * w) / tile_width) + ((block * w) % tile_width)
+            pic = []
+            for row in xrange(h):
+                index = offset + (row * tile_width)
+                pic += tiles[index:index + w]
+            new_image += transpose(pic, w)
+        new_image += tiles[len(tiles) - trailing:]
+        image = connect(new_image)
 
     # Remove any tile padding used to make the png rectangular.
     image = image[:len(image) - tile_padding * 0x10]
@@ -1555,7 +1595,12 @@ def png_to_2bpp(filein, **kwargs):
     if interleave:
         image = deinterleave_tiles(image, num_columns)
 
-    return image, palette
+    if norepeat:
+        image, tmap = condense_tiles_to_map(image)
+    if not tilemap:
+        tmap = None
+
+    return image, palette, tmap
 
 
 def export_palette(palette, filename):
@@ -1645,7 +1690,7 @@ def export_png_to_1bpp(filename, fileout=None):
     to_file(fileout, image)
 
 def png_to_1bpp(filename, **kwargs):
-    image, palette = png_to_2bpp(filename, **kwargs)
+    image, palette, tmap = png_to_2bpp(filename, **kwargs)
     return convert_2bpp_to_1bpp(image)
 
 
@@ -1789,7 +1834,7 @@ def expand_pic_palettes():
 
 def convert_to_2bpp(filenames=[]):
     for filename in filenames:
-        name, extension = os.path.splitext(filename)
+        filename, name, extension = try_decompress(filename)
         if extension == '.1bpp':
             export_1bpp_to_2bpp(filename)
         elif extension == '.2bpp':
@@ -1801,7 +1846,7 @@ def convert_to_2bpp(filenames=[]):
 
 def convert_to_1bpp(filenames=[]):
     for filename in filenames:
-        name, extension = os.path.splitext(filename)
+        filename, name, extension = try_decompress(filename)
         if extension == '.1bpp':
             pass
         elif extension == '.2bpp':
@@ -1813,7 +1858,7 @@ def convert_to_1bpp(filenames=[]):
 
 def convert_to_png(filenames=[]):
     for filename in filenames:
-        name, extension = os.path.splitext(filename)
+        filename, name, extension = try_decompress(filename)
         if extension == '.1bpp':
             export_1bpp_to_png(filename)
         elif extension == '.2bpp':
@@ -1835,6 +1880,19 @@ def decompress(filenames=[]):
         lz_data = open(filename, 'rb').read()
         data = Decompressed(lz_data).output
         to_file(name, data)
+
+def try_decompress(filename):
+    """
+    Try to decompress a graphic when determining the filetype.
+    This skips the manual unlz step when attempting
+    to convert lz-compressed graphics to png.
+    """
+    name, extension = os.path.splitext(filename)
+    if extension == '.lz':
+        decompress([filename])
+        filename = name
+        name, extension = os.path.splitext(filename)
+    return filename, name, extension
 
 
 def main():
