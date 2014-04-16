@@ -13,8 +13,10 @@ import pokemon_constants
 import trainers
 import romstr
 
-if __name__ != "__main__":
+
+def load_rom():
     rom = romstr.RomStr.load(filename=config.rom_path)
+    return rom
 
 
 def split(list_, interval):
@@ -755,6 +757,7 @@ def make_sizes():
     """
     Front pics have specified sizes.
     """
+    rom = load_rom()
     top = 251
     base_stats = 0x51424
     # print monster sizes
@@ -772,10 +775,8 @@ def make_sizes():
 
 
 
-fxs = 0xcfcf6
-num_fx = 40
-
-def decompress_fx_by_id(id):
+def decompress_fx_by_id(id, fxs=0xcfcf6):
+    rom = load_rom()
     address = fxs + id*4 # len_fxptr
     # get size
     num_tiles = ord(rom[address]) # # tiles
@@ -787,7 +788,7 @@ def decompress_fx_by_id(id):
     fx = Decompressed(rom, 'horiz', num_tiles, address)
     return fx
 
-def decompress_fx():
+def decompress_fx(num_fx=40):
     for id in range(num_fx):
         fx = decompress_fx_by_id(id)
         filename = './gfx/fx/' + str(id).zfill(3) + '.2bpp' # ./gfx/fx/039.2bpp
@@ -806,6 +807,7 @@ num_unowns = 26
 unown_dex = 201
 
 def decompress_monster_by_id(id=0, type=front):
+    rom = load_rom()
     # no unowns here
     if id + 1 == unown_dex: return None
     # get size
@@ -840,6 +842,7 @@ def decompress_monsters(type=front):
 
 
 def decompress_unown_by_id(letter, type=front):
+    rom = load_rom()
     # get size
     if type == front:
         size = sizes[unown_dex-1]
@@ -875,6 +878,7 @@ trainers = 0x128000
 num_trainers = 67
 
 def decompress_trainer_by_id(id):
+    rom = load_rom()
     # get pointer
     address = trainers + id*3 # bank, address
     bank = ord(rom[address]) + 0x36 # crystal
@@ -924,6 +928,7 @@ intro_gfx = [
 ]
 
 def decompress_intro():
+    rom = load_rom()
     for name, address in intro_gfx:
         filename = './gfx/intro/' + name + '.2bpp'
         gfx = Decompressed( rom, 'horiz', None, address )
@@ -937,12 +942,14 @@ title_gfx = [
 ]
 
 def decompress_title():
+    rom = load_rom()
     for name, address in title_gfx:
         filename = './gfx/title/' + name + '.2bpp'
         gfx = Decompressed( rom, 'horiz', None, address )
         to_file(filename, gfx.output)
 
 def decompress_tilesets():
+    rom = load_rom()
     tileset_headers = 0x4d596
     len_tileset = 15
     num_tilesets = 0x25
@@ -962,6 +969,7 @@ misc = [
     ('pokegear_sprites', 0x914DD, 'horiz'),
 ]
 def decompress_misc():
+    rom = load_rom()
     for name, address, mode in misc:
         filename = './gfx/misc/' + name + '.2bpp'
         gfx = Decompressed( rom, mode, None, address )
@@ -1006,6 +1014,7 @@ def decompress_from_address(address, mode='horiz', filename='de.2bpp', size=None
     """
     Write decompressed data from an address to a 2bpp file.
     """
+    rom = load_rom()
     image = Decompressed(rom, mode, size, address)
     to_file(filename, image.pic)
 
@@ -1054,10 +1063,10 @@ def get_uncompressed_gfx(start, num_tiles, filename):
     """
     Grab tiles directly from rom and write to file.
     """
+    rom = load_rom()
     bytes_per_tile = 0x10
     length = num_tiles*bytes_per_tile
     end = start + length
-    rom = load_rom()
     image = []
     for address in range(start,end):
         image.append(ord(rom[address]))
@@ -1074,6 +1083,7 @@ def bin_to_rgb(word):
     return (red, green, blue)
 
 def rgb_from_rom(address, length=0x80):
+    rom = load_rom()
     return convert_binary_pal_to_text(rom[address:address+length])
 
 def convert_binary_pal_to_text_by_filename(filename):
