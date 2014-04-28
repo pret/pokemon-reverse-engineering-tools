@@ -310,8 +310,8 @@ def load_rom(filename=None):
     try:
         rom = open(filename, "rb").read()
         return True
-    except Exception, exception:
-        print "error loading rom"
+    except Exception as exception:
+        print("error loading rom")
         return False
 
 def assert_rom():
@@ -699,5 +699,5 @@ if __name__ == "__main__":
 
     for header in map_headers:
         if header in bad_maps: continue
-        print "map " + str(header) + " has " + str(map_headers[header]["number_of_referenced_texts"]) + " referenced texts"
+        print("map " + str(header) + " has " + str(map_headers[header]["number_of_referenced_texts"]) + " referenced texts")
 
