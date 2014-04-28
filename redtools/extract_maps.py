@@ -4,6 +4,8 @@
 import json
 import os
 
+from __future__ import print_function
+
 #parse hex values as base 16 (see calculate_pointer)
 base = 16
 
