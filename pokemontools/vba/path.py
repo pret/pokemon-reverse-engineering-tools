@@ -639,6 +639,7 @@ def plan_and_draw_path_on(map_group_id=1, map_id=1, initial_location=(0, 0), fin
 
     pokemontools.crystal.cachably_parse_rom()
     pokemontools.map_gfx.add_pokecrystal_paths_to_configuration(config)
+    pokemontools.map_gfx.load_all_sprite_images()
 
     # get the map based on data from the rom
     parsed_map = pokemontools.crystal.map_names[map_group_id][map_id]["header_new"]
