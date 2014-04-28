@@ -67,6 +67,11 @@ def transpose(tiles, width=None):
       12 13 14 15 16 17     03 09 0f 15 1b 21
       18 19 1a 1b 1c 1d     04 0a 10 16 1c 22
       1e 1f 20 21 22 23     05 0b 11 17 1d 23
+
+      00 01 02 03     00 04 08
+      04 05 06 07 <-> 01 05 09
+      08 09 0a 0b     02 06 0a
+                      03 07 0b
     """
     if width == None:
         width = int(sqrt(len(tiles))) # assume square image
@@ -1377,7 +1382,7 @@ def convert_2bpp_to_png(image, **kwargs):
 
         pic = []
         for i in xrange(0, len(image) - trailing, pic_length):
-            pic += transpose_tiles(image[i:i+pic_length], w)
+            pic += transpose_tiles(image[i:i+pic_length], h)
         image = ''.join(pic) + image[len(image) - trailing:]
 
         # Pad out trailing lines.
