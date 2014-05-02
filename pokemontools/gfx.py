@@ -16,7 +16,7 @@ import romstr
 
 def load_rom():
     rom = romstr.RomStr.load(filename=config.rom_path)
-    return rom
+    return bytearray(rom)
 
 
 def split(list_, interval):
@@ -185,28 +185,14 @@ class Compressed:
     Compress arbitrary data, usually 2bpp.
     """
 
-    def __init__(self, image=None, mode='horiz', size=None):
+    def __init__(self, image=None, start=0, end=None):
         assert image, 'need something to compress!'
-        image = list(image)
+
+        if end == None:
+            end = len(image)
+
+        image = bytearray(image[start:end])
         self.image = image
-        self.pic = []
-        self.animtiles = []
-
-        # only transpose pic (animtiles were never transposed in decompression)
-        if size != None:
-            for byte in range((size*size)*16):
-                self.pic += image[byte]
-            for byte in range(((size*size)*16),len(image)):
-                self.animtiles += image[byte]
-        else:
-            self.pic = image
-
-        if mode == 'vert':
-            self.tiles = get_tiles(self.pic)
-            self.tiles = transpose(self.tiles)
-            self.pic = connect(self.tiles)
-
-        self.image = self.pic + self.animtiles
 
         self.end = len(self.image)
 
@@ -276,7 +262,7 @@ class Compressed:
 
     def getCurByte(self):
         if self.address < self.end:
-            self.byte = ord(self.image[self.address])
+            self.byte = self.image[self.address]
         else: self.byte = None
 
     def next(self):
@@ -327,7 +313,7 @@ class Compressed:
         for i in range(self.address,num_words):
             word = []
             for j in range(letters):
-                word.append( ord(self.image[i+j]) )
+                word.append( self.image[i+j] )
             words.append((word, i))
 
             zeros = []
@@ -472,12 +458,12 @@ class Compressed:
         if self.address+3 >= self.end: return False
 
         self.alts.append(self.byte)
-        self.alts.append(ord(self.image[self.address+1]))
+        self.alts.append(self.image[self.address+1])
 
         # are we onto smething?
-        if ( ord(self.image[self.address+2]) == self.alts[0] ):
+        if ( self.image[self.address+2] == self.alts[0] ):
             cur_alt = 0
-            while (ord(self.image[(self.address)+1]) == self.alts[num_alts&1]) & (num_alts <= max_length):
+            while (self.image[(self.address)+1] == self.alts[num_alts&1]) & (num_alts <= max_length):
                 num_alts += 1
                 self.next()
             # include the last alternated byte
@@ -497,10 +483,10 @@ class Compressed:
         #num_alts = 0
 
         #self.alts.append(self.byte)
-        #self.alts.append(ord(self.image[self.address+1]))
+        #self.alts.append(self.image[self.address+1])
 
         #i = 0
-        #while (ord(self.image[self.address+1]) == self.alts[i^1]) & (num_alts <= max_length):
+        #while (self.image[self.address+1] == self.alts[i^1]) & (num_alts <= max_length):
         #   num_alts += 1
         #   i ^=1
         #   self.next()
@@ -579,11 +565,11 @@ class Decompressed:
     data can be fed in from rom if [start] is specified
     """
 
-    def __init__(self, lz=None, mode=None, size=None, start=0):
+    def __init__(self, lz=None, start=0, debug=False):
         # todo: play nice with Compressed
 
-        assert lz, 'need something to compress!'
-        self.lz = lz
+        assert lz, 'need something to decompress!'
+        self.lz = bytearray(lz)
 
         self.byte = None
         self.address = 0
@@ -593,26 +579,10 @@ class Decompressed:
 
         self.decompress()
 
-        debug = False
+        self.compressed_data = self.lz[self.start : self.start + self.address]
+
         # print tuple containing start and end address
         if debug: print '(' + hex(self.start) + ', ' + hex(self.start + self.address+1) + '),'
-
-        # only transpose pic
-        self.pic = []
-        self.animtiles = []
-
-        if size != None:
-            self.tiles = get_tiles(self.output)
-            self.pic = connect(self.tiles[:(size*size)])
-            self.animtiles = connect(self.tiles[(size*size):])
-        else: self.pic = self.output
-
-        if mode == 'vert':
-            self.tiles = get_tiles(self.pic)
-            self.tiles = transpose(self.tiles)
-            self.pic = connect(self.tiles)
-
-        self.output = self.pic + self.animtiles
 
 
     def decompress(self):
@@ -626,6 +596,7 @@ class Decompressed:
             self.getCurByte()
 
             if (self.byte == lz_end):
+                self.address += 1
                 break
 
             self.cmd = (self.byte & 0b11100000) >> 5
@@ -670,7 +641,7 @@ class Decompressed:
 
 
     def getCurByte(self):
-        self.byte = ord(self.lz[self.start+self.address])
+        self.byte = self.lz[self.start+self.address]
 
     def next(self):
         self.address += 1
@@ -758,51 +729,38 @@ sizes = [
     6, 7, 7, 7, 7, 5, 6, 7, 7, 7, 5,
 ]
 
-def make_sizes():
+def make_sizes(num_monsters=251):
     """
     Front pics have specified sizes.
     """
     rom = load_rom()
-    top = 251
     base_stats = 0x51424
-    # print monster sizes
-    address = base_stats + 0x11
 
-    output = ''
-
-    for id in range(top):
-        size = (ord(rom[address])) & 0x0f
-        if id % 16 == 0: output += '\n\t'
-        output += str(size) + ', '
-        address += 0x20
-
-    print output
+    address = base_stats + 0x11 # pic size
+    sizes   = rom[address : address + 0x20 * num_monsters : 0x20]
+    sizes   = map(lambda x: str(x & 0xf), sizes)
+    return '\n'.join(' ' * 8 + ', '.join(split(sizes, 16)))
 
 
-
-def decompress_fx_by_id(id, fxs=0xcfcf6):
+def decompress_fx_by_id(i, fxs=0xcfcf6):
     rom = load_rom()
-    address = fxs + id*4 # len_fxptr
-    # get size
-    num_tiles = ord(rom[address]) # # tiles
-    # get pointer
-    bank = ord(rom[address+1])
-    address = (ord(rom[address+3]) << 8) + ord(rom[address+2])
-    address = (bank * 0x4000) + (address & 0x3fff)
-    # decompress
-    fx = Decompressed(rom, 'horiz', num_tiles, address)
+    addr = fxs + i * 4
+
+    num_tiles = rom[addr]
+    bank      = rom[addr+1]
+    address   = rom[addr+3] * 0x100 + rom[addr+2]
+
+    offset = rom_offset(bank, address)
+    fx = Decompressed(rom, start=offset)
     return fx
 
-def decompress_fx(num_fx=40):
-    for id in range(num_fx):
-        fx = decompress_fx_by_id(id)
-        filename = './gfx/fx/' + str(id).zfill(3) + '.2bpp' # ./gfx/fx/039.2bpp
-        to_file(filename, fx.pic)
+def rip_compressed_fx(dest='gfx/fx', num_fx=40, fxs=0xcfcf6):
+    for i in xrange(num_fx):
+        name = '%.3d' % i
+        fx = decompress_fx_by_id(i, fxs)
+        filename = os.path.join(dest, name + '.2bpp.lz')
+        to_file(filename, fx.compressed_data)
 
-
-num_pics = 2
-front = 0
-back = 1
 
 monsters = 0x120000
 num_monsters = 251
@@ -811,256 +769,246 @@ unowns = 0x124000
 num_unowns = 26
 unown_dex = 201
 
-def decompress_monster_by_id(id=0, type=front):
-    rom = load_rom()
-    # no unowns here
-    if id + 1 == unown_dex: return None
-    # get size
-    if type == front:
-        size = sizes[id]
-    else: size = None
-    # get pointer
-    address = monsters + (id*2 + type)*3 # bank, address
-    bank = ord(rom[address]) + 0x36 # crystal
-    address = (ord(rom[address+2]) << 8) + ord(rom[address+1])
-    address = (bank * 0x4000) + (address & 0x3fff)
-    # decompress
-    monster = Decompressed(rom, 'vert', size, address)
+def decompress_monster_by_id(rom, mon=0, face='front', crystal=True):
+    """
+    For Unown, use decompress_unown_by_id instead.
+    """
+    if crystal:
+        bank_offset = 0x36
+    else:
+        bank_offset = 0
+
+    address = monsters + (mon * 2 + {'front': 0, 'back': 1}.get(face, 0)) * 3
+    bank    = rom[address] + bank_offset
+    address = rom[address+2] * 0x100 + rom[address+1]
+    address = bank * 0x4000 + (address - (0x4000 * bool(bank)))
+    monster = Decompressed(rom, start=address)
     return monster
 
-def decompress_monsters(type=front):
-    for id in range(num_monsters):
-        # decompress
-        monster = decompress_monster_by_id(id, type)
-        if monster != None: # no unowns here
-            if not type: # front
-                filename = 'front.2bpp'
-                folder = './gfx/pics/' + str(id+1).zfill(3) + '/'
-                to_file(folder+filename, monster.pic)
-                filename = 'tiles.2bpp'
-                folder = './gfx/pics/' + str(id+1).zfill(3) + '/'
-                to_file(folder+filename, monster.animtiles)
-            else: # back
-                filename = 'back.2bpp'
-                folder = './gfx/pics/' + str(id+1).zfill(3) + '/'
-                to_file(folder+filename, monster.pic)
+def rip_compressed_monster_pics(rom, dest='gfx/pics/', face='both', num_mons=num_monsters, crystal=True):
+    """
+    Extract <num_mons> compressed Pokemon pics from <rom> to directory <dest>.
+    """
+    for mon in range(num_mons):
 
+        mon_name = pokemon_constants[mon + 1].lower().replace('__','_')
+        size = sizes[mon]
 
-def decompress_unown_by_id(letter, type=front):
-    rom = load_rom()
-    # get size
-    if type == front:
-        size = sizes[unown_dex-1]
-    else: size = None
-    # get pointer
-    address = unowns + (letter*2 + type)*3 # bank, address
-    bank = ord(rom[address]) + 0x36 # crystal
-    address = (ord(rom[address+2]) << 8) + ord(rom[address+1])
-    address = (bank * 0x4000) + (address & 0x3fff)
-    # decompress
-    unown = Decompressed(rom, 'vert', size, address)
+        if mon + 1 == unown_dex:
+            rip_compressed_unown_pics(
+                rom=rom,
+                dest=dest,
+                face=face,
+                num_letters=num_unowns,
+                mon_name=mon_name,
+                size=size,
+                crystal=crystal,
+            )
+
+        if face in ['front', 'both']:
+            monster  = decompress_monster_by_id(rom, mon, 'front', crystal)
+            filename = 'front.{0}x{0}.2bpp.lz'.format(size)
+            path     = os.path.join(dest, mon_name, filename)
+            to_file(path, monster.compressed_data)
+
+        if face in ['back', 'both']:
+            monster  = decompress_monster_by_id(rom, mon, 'back', crystal)
+            filename = 'back.6x6.2bpp.lz'
+            path     = os.path.join(dest, mon_name, filename)
+            to_file(path, monster.compressed_data)
+
+def decompress_unown_by_id(rom, letter, face='front', crystal=True):
+    if crystal:
+        bank_offset = 0x36
+    else:
+        bank_offset = 0
+
+    address = unowns + (letter * 2 + {'front': 0, 'back': 1}.get(face, 0)) * 3
+    bank    = rom[address] + bank_offset
+    address = rom[address+2] * 0x100 + rom[address+1]
+    address = (bank * 0x4000) + (address - (0x4000 * bool(bank)))
+    unown   = Decompressed(rom, start=address)
     return unown
 
-def decompress_unowns(type=front):
-    for letter in range(num_unowns):
-        # decompress
-        unown = decompress_unown_by_id(letter, type)
+def rip_compressed_unown_pics(rom, dest='gfx/pics/', face='both', num_letters=num_unowns, mon_name='unown', size=sizes[201], crystal=True):
+    """
+    Extract <num_letters> compressed Unown pics from <rom> to directory <dest>.
+    """
+    for letter in range(num_letters):
+        name = mon_name + '_{}'.format(chr(ord('A') + letter))
 
-        if not type: # front
-            filename = 'front.2bpp'
-            folder = './gfx/pics/' + str(unown_dex).zfill(3) + chr(ord('a') + letter) + '/'
-            to_file(folder+filename, unown.pic)
-            filename = 'tiles.2bpp'
-            folder = './gfx/anim/'
-            to_file(folder+filename, unown.animtiles)
-        else: # back
-            filename = 'back.2bpp'
-            folder = './gfx/pics/' + str(unown_dex).zfill(3) + chr(ord('a') + letter) + '/'
-            to_file(folder+filename, unown.pic)
+        if face in ['front', 'both']:
+            unown    = decompress_unown_by_id(rom, letter, 'front', crystal)
+            filename = 'front.{0}x{0}.2bpp.lz'.format(size)
+            path     = os.path.join(dest, name, filename)
+            to_file(path, unown.compressed_data)
+
+        if face in ['back', 'both']:
+            unown    = decompress_unown_by_id(rom, letter, 'back', crystal)
+            filename = 'back.6x6.2bpp.lz'
+            path     = os.path.join(dest, name, filename)
+            to_file(path, unown.compressed_data)
 
 
-trainers = 0x128000
+trainers_offset = 0x128000
 num_trainers = 67
+trainer_names = [t['constant'] for i, t in trainers.trainer_group_names.items()]
 
-def decompress_trainer_by_id(id):
+def decompress_trainer_by_id(rom, i, crystal=True):
     rom = load_rom()
-    # get pointer
-    address = trainers + id*3 # bank, address
-    bank = ord(rom[address]) + 0x36 # crystal
-    address = (ord(rom[address+2]) << 8) + ord(rom[address+1])
-    address = (bank * 0x4000) + (address & 0x3fff)
-    # decompress
-    trainer = Decompressed(rom, 'vert', None, address)
+    if crystal:
+        bank_offset = 0x36
+    else:
+        bank_offset = 0
+
+    address = trainers_offset + i * 3
+    bank    = rom[address] + bank_offset
+    address = rom[address+2] * 0x100 + rom[address+1]
+    address = rom_offset(bank, address)
+    trainer = Decompressed(rom, start=address)
     return trainer
 
-def decompress_trainers():
-    for id in range(num_trainers):
-        # decompress
-        trainer = decompress_trainer_by_id(id)
-        filename = './gfx/trainers/' + str(id).zfill(3) + '.2bpp' # ./gfx/trainers/066.2bpp
-        to_file(filename, trainer.pic)
+def rip_compressed_trainer_pics(rom):
+    for t in xrange(num_trainers):
+        trainer_name = trainer_names[t].lower().replace('_','')
+        trainer  = decompress_trainer_by_id(t)
+        filename = os.path.join('gfx/trainers/', trainer_name + '.6x6.2bpp.lz')
+        to_file(filename, trainer.compressed_data)
 
 
-# in order of use (sans repeats)
+# in order of use (besides repeats)
 intro_gfx = [
-    ('logo', 0x109407),
-    ('001', 0xE641D), # tilemap
-    ('unowns', 0xE5F5D),
-    ('pulse', 0xE634D),
-    ('002', 0xE63DD), # tilemap
-    ('003', 0xE5ECD), # tilemap
-    ('background', 0xE5C7D),
-    ('004', 0xE5E6D), # tilemap
-    ('005', 0xE647D), # tilemap
-    ('006', 0xE642D), # tilemap
-    ('pichu_wooper', 0xE592D),
-    ('suicune_run', 0xE555D),
-    ('007', 0xE655D), # tilemap
-    ('008', 0xE649D), # tilemap
-    ('009', 0xE76AD), # tilemap
-    ('suicune_jump', 0xE6DED),
-    ('unown_back', 0xE785D),
-    ('010', 0xE764D), # tilemap
-    ('011', 0xE6D0D), # tilemap
-    ('suicune_close', 0xE681D),
-    ('012', 0xE6C3D), # tilemap
-    ('013', 0xE778D), # tilemap
-    ('suicune_back', 0xE72AD),
-    ('014', 0xE76BD), # tilemap
-    ('015', 0xE676D), # tilemap
+    ('logo',          0x109407),
+    ('unowns',         0xE5F5D),
+    ('pulse',          0xE634D),
+    ('background',     0xE5C7D),
+    ('pichu_wooper',   0xE592D),
+    ('suicune_run',    0xE555D),
+    ('suicune_jump',   0xE6DED),
+    ('unown_back',     0xE785D),
+    ('suicune_close',  0xE681D),
+    ('suicune_back',   0xE72AD),
     ('crystal_unowns', 0xE662D),
-    ('017', 0xE672D), # tilemap
 ]
 
-def decompress_intro():
-    rom = load_rom()
+intro_tilemaps = [
+    ('001', 0xE641D),
+    ('002', 0xE63DD),
+    ('003', 0xE5ECD),
+    ('004', 0xE5E6D),
+    ('005', 0xE647D),
+    ('006', 0xE642D),
+    ('007', 0xE655D),
+    ('008', 0xE649D),
+    ('009', 0xE76AD),
+    ('010', 0xE764D),
+    ('011', 0xE6D0D),
+    ('012', 0xE6C3D),
+    ('013', 0xE778D),
+    ('014', 0xE76BD),
+    ('015', 0xE676D),
+    ('017', 0xE672D),
+]
+
+def rip_compressed_intro(rom, dest='gfx/intro'):
+
     for name, address in intro_gfx:
-        filename = './gfx/intro/' + name + '.2bpp'
-        gfx = Decompressed( rom, 'horiz', None, address )
-        to_file(filename, gfx.output)
+        filename = os.path.join(dest, name + '.2bpp.lz')
+        rip_compressed_gfx(rom, address, filename)
+
+    for name, address in intro_tilemaps:
+        filename = os.path.join(dest, name + '.tilemap.lz')
+        rip_compressed_gfx(rom, address, filename)
 
 
 title_gfx = [
     ('suicune', 0x10EF46),
-    ('logo', 0x10F326),
+    ('logo',    0x10F326),
     ('crystal', 0x10FCEE),
 ]
 
-def decompress_title():
-    rom = load_rom()
+def rip_compressed_title(rom, dest='gfx/title'):
     for name, address in title_gfx:
-        filename = './gfx/title/' + name + '.2bpp'
-        gfx = Decompressed( rom, 'horiz', None, address )
-        to_file(filename, gfx.output)
+        filename = os.path.join(dest, name + '.2bpp.lz')
+        rip_compressed_gfx(rom, address, filename)
 
-def decompress_tilesets():
-    rom = load_rom()
+
+def rip_compressed_tilesets(rom, dest='gfx/tilesets'):
     tileset_headers = 0x4d596
-    len_tileset = 15
-    num_tilesets = 0x25
-    for tileset in range(num_tilesets):
-        ptr = tileset*len_tileset + tileset_headers
-        address = (ord(rom[ptr])*0x4000) + (((ord(rom[ptr+1]))+ord(rom[ptr+2])*0x100)&0x3fff)
-        tiles = Decompressed( rom, 'horiz', None, address )
-        filename = './gfx/tilesets/'+str(tileset).zfill(2)+'.2bpp'
-        to_file( filename, tiles.output )
-        #print '(' + hex(address) + ', '+ hex(address+tiles.address+1) + '),'
+    len_tileset     = 15
+    num_tilesets    = 0x25
+
+    for tileset in xrange(num_tilesets):
+        addr = tileset * len_tileset + tileset_headers
+
+        bank     = rom[addr]
+        address  = rom[addr + 2] * 0x100 + rom[addr + 1]
+        offset   = rom_offset(bank, address)
+
+        filename = os.path.join(dest, tileset_name + '.2bpp.lz')
+        rip_compressed_gfx(rom, address, filename)
+
+
+misc_pics = [
+    ('player', 0x2BA1A, '6x6'),
+    ('dude',   0x2BBAA, '6x6'),
+]
 
 misc = [
-    ('player', 0x2BA1A, 'vert'),
-    ('dude', 0x2BBAA, 'vert'),
-    ('town_map', 0xF8BA0, 'horiz'),
-    ('pokegear', 0x1DE2E4, 'horiz'),
-    ('pokegear_sprites', 0x914DD, 'horiz'),
+    ('town_map',         0xF8BA0),
+    ('pokegear',         0x1DE2E4),
+    ('pokegear_sprites', 0x914DD),
 ]
-def decompress_misc():
-    rom = load_rom()
-    for name, address, mode in misc:
-        filename = './gfx/misc/' + name + '.2bpp'
-        gfx = Decompressed( rom, mode, None, address )
-        to_file(filename, gfx.output)
 
-def decompress_all(debug=False):
-    """
-    Decompress all known compressed data in baserom.
-    """
-
-    if debug: print 'fronts'
-    decompress_monsters(front)
-    if debug: print 'backs'
-    decompress_monsters(back)
-    if debug: print 'unown fronts'
-    decompress_unowns(front)
-    if debug: print 'unown backs'
-    decompress_unowns(back)
-
-    if debug: print 'trainers'
-    decompress_trainers()
-
-    if debug: print 'fx'
-    decompress_fx()
-
-    if debug: print 'intro'
-    decompress_intro()
-
-    if debug: print 'title'
-    decompress_title()
-
-    if debug: print 'tilesets'
-    decompress_tilesets()
-
-    if debug: print 'misc'
-    decompress_misc()
-
-    return
+def rip_compressed_misc(rom, dest='gfx/misc'):
+    for name, address in misc:
+        filename = os.path.join(dest, name+ '.2bpp.lz')
+        rip_compressed_gfx(rom, address, filename)
+    for name, address, dimensions in misc_pics:
+        filename = os.path.join(dest, name + '.' + dimensions + '.2bpp.lz')
+        rip_compressed_gfx(rom, address, filename)
 
 
-def decompress_from_address(address, mode='horiz', filename='de.2bpp', size=None):
+def rip_compressed_gfx(rom, address, filename):
+    gfx = Decompressed(rom, start=address)
+    to_file(filename, gfx.compressed_data)
+
+
+def rip_bulk_gfx(rom, dest='gfx', crystal=True):
+    rip_compressed_monster_pics(rom, dest=os.path.join(dest, 'pics'),     crystal=crystal)
+    rip_compressed_trainer_pics(rom, dest=os.path.join(dest, 'trainers'), crystal=crystal)
+    rip_compressed_fx          (rom, dest=os.path.join(dest, 'fx'))
+    rip_compressed_intro       (rom, dest=os.path.join(dest, 'intro'))
+    rip_compressed_title       (rom, dest=os.path.join(dest, 'title'))
+    rip_compressed_tilesets    (rom, dest=os.path.join(dest, 'tilesets'))
+    rip_compressed_misc        (rom, dest=os.path.join(dest, 'misc'))
+
+
+def decompress_from_address(address, filename='de.2bpp'):
     """
     Write decompressed data from an address to a 2bpp file.
     """
     rom = load_rom()
-    image = Decompressed(rom, mode, size, address)
-    to_file(filename, image.pic)
+    image = Decompressed(rom, start=address)
+    to_file(filename, image.output)
 
 
-def decompress_file(filein, fileout, mode='horiz', size=None):
-    f = open(filein, 'rb')
-    image = f.read()
-    f.close()
+def decompress_file(filein, fileout=None):
+    image = bytearray(open(filein).read())
+    de = Decompressed(image)
 
-    de = Decompressed(image, mode, size)
+    if fileout == None:
+        fileout = os.path.splitext(filein)[0]
+    to_file(fileout, de.output)
 
-    to_file(fileout, de.pic)
 
+def compress_file(filein, fileout=None):
+    image = bytearray(open(filein).read())
+    lz = Compressed(image)
 
-def compress_file(filein, fileout, mode='horiz'):
-    f = open(filein, 'rb')
-    image = f.read()
-    f.close()
-
-    lz = Compressed(image, mode)
-
+    if fileout == None:
+        fileout = filein + '.lz'
     to_file(fileout, lz.output)
-
-
-
-
-def compress_monster_frontpic(id, fileout):
-    mode = 'vert'
-
-    fpic = './gfx/pics/' + str(id).zfill(3) + '/front.2bpp'
-    fanim = './gfx/pics/' + str(id).zfill(3) + '/tiles.2bpp'
-
-    pic = open(fpic, 'rb').read()
-    anim = open(fanim, 'rb').read()
-    image = pic + anim
-
-    lz = Compressed(image, mode, sizes[id-1])
-
-    out = './gfx/pics/' + str(id).zfill(3) + '/front.lz'
-
-    to_file(out, lz.output)
 
 
 
@@ -1070,21 +1018,19 @@ def get_uncompressed_gfx(start, num_tiles, filename):
     """
     rom = load_rom()
     bytes_per_tile = 0x10
-    length = num_tiles*bytes_per_tile
-    end = start + length
-    image = []
-    for address in range(start,end):
-        image.append(ord(rom[address]))
+    length = num_tiles * bytes_per_tile
+    end    = start + length
+    image  = rom[start:end]
     to_file(filename, image)
 
 
 
 def bin_to_rgb(word):
-    red = word & 0b11111
+    red   = word & 0b11111
     word >>= 5
     green = word & 0b11111
     word >>= 5
-    blue = word & 0b11111
+    blue  = word & 0b11111
     return (red, green, blue)
 
 def rgb_from_rom(address, length=0x80):
@@ -1092,8 +1038,7 @@ def rgb_from_rom(address, length=0x80):
     return convert_binary_pal_to_text(rom[address:address+length])
 
 def convert_binary_pal_to_text_by_filename(filename):
-    with open(filename) as f:
-        pal = bytearray(f.read())
+    pal = bytearray(open(filename).read())
     return convert_binary_pal_to_text(pal)
 
 def convert_binary_pal_to_text(pal):
@@ -1139,7 +1084,7 @@ def dump_monster_pals():
 
         pal_data = []
         for byte in range(pal_length):
-            pal_data.append(ord(rom[address]))
+            pal_data.append(rom[address])
             address += 1
 
         filename = 'normal.pal'
@@ -1151,7 +1096,7 @@ def dump_monster_pals():
 
         pal_data = []
         for byte in range(pal_length):
-            pal_data.append(ord(rom[address]))
+            pal_data.append(rom[address])
             address += 1
 
         filename = 'shiny.pal'
@@ -1176,7 +1121,7 @@ def dump_trainer_pals():
 
         pal_data = []
         for byte in range(pal_length):
-            pal_data.append(ord(rom[address]))
+            pal_data.append(rom[address])
             address += 1
 
         filename = num+'.pal'
@@ -1193,8 +1138,8 @@ def flatten(planar):
     """
     strips = []
     for bottom, top in split(planar, 2):
-        bottom = ord(bottom)
-        top = ord(top)
+        bottom = bottom
+        top = top
         strip = []
         for i in xrange(7,-1,-1):
             color = (
@@ -1357,6 +1302,10 @@ def convert_2bpp_to_png(image, **kwargs):
     Convert a planar 2bpp graphic to png.
     """
 
+    image = bytearray(image)
+
+    pad_color = bytearray([0])
+
     width          = kwargs.get('width', 0)
     height         = kwargs.get('height', 0)
     tile_padding   = kwargs.get('tile_padding', 0)
@@ -1366,10 +1315,10 @@ def convert_2bpp_to_png(image, **kwargs):
 
     # Width must be specified to interleave.
     if interleave and width:
-        image = ''.join(interleave_tiles(image, width / 8))
+        image = interleave_tiles(image, width / 8)
 
     # Pad the image by a given number of tiles if asked.
-    image += chr(0) * 0x10 * tile_padding
+    image += pad_color * 0x10 * tile_padding
 
     # Some images are transposed in blocks.
     if pic_dimensions:
@@ -1383,10 +1332,10 @@ def convert_2bpp_to_png(image, **kwargs):
         pic = []
         for i in xrange(0, len(image) - trailing, pic_length):
             pic += transpose_tiles(image[i:i+pic_length], h)
-        image = ''.join(pic) + image[len(image) - trailing:]
+        image = bytearray(pic) + image[len(image) - trailing:]
 
         # Pad out trailing lines.
-        image += chr(0) * 0x10 * ((w - (len(image) / 0x10) % h) % w)
+        image += pad_color * 0x10 * ((w - (len(image) / 0x10) % h) % w)
 
     def px_length(img):
         return len(img) * 4
@@ -1396,18 +1345,18 @@ def convert_2bpp_to_png(image, **kwargs):
     if width and height:
         tile_width = width / 8
         more_tile_padding = (tile_width - (tile_length(image) % tile_width or tile_width))
-        image += chr(0) * 0x10 * more_tile_padding
+        image += pad_color * 0x10 * more_tile_padding
 
     elif width and not height:
         tile_width = width / 8
         more_tile_padding = (tile_width - (tile_length(image) % tile_width or tile_width))
-        image += chr(0) * 0x10 * more_tile_padding
+        image += pad_color * 0x10 * more_tile_padding
         height = px_length(image) / width
 
     elif height and not width:
         tile_height = height / 8
         more_tile_padding = (tile_height - (tile_length(image) % tile_height or tile_height))
-        image += chr(0) * 0x10 * more_tile_padding
+        image += pad_color * 0x10 * more_tile_padding
         width = px_length(image) / height
 
     # at least one dimension should be given
@@ -1551,7 +1500,7 @@ def png_to_2bpp(filein, **kwargs):
     padding = get_image_padding(width, height)
     width += padding['left'] + padding['right']
     height += padding['top'] + padding['bottom']
-    pad = [0]
+    pad = bytearray([0])
 
     qmap = []
     qmap += pad * width * padding['top']
@@ -1709,123 +1658,52 @@ def png_to_1bpp(filename, **kwargs):
     return convert_2bpp_to_1bpp(image)
 
 
-def mass_to_png(debug=False):
+def mass_to_png(directory='gfx'):
     # greyscale
     for root, dirs, files in os.walk('./gfx/'):
-        for name in files:
-            if debug: print os.path.splitext(name), os.path.join(root, name)
-            if os.path.splitext(name)[1] == '.2bpp':
-                export_2bpp_to_png(os.path.join(root, name))
+        convert_to_png(map(lambda x: os.path.join(root, x), files))
 
-def mass_to_colored_png(debug=False):
+def mass_to_colored_png(directory='gfx'):
     # greyscale, unless a palette is detected
-    for root, dirs, files in os.walk('./gfx/'):
-        if 'pics' not in root and 'trainers' not in root:
-            for name in files:
-                if debug: print os.path.splitext(name), os.path.join(root, name)
-                if os.path.splitext(name)[1] == '.2bpp':
-                    export_2bpp_to_png(os.path.join(root, name))
-                    os.utime(os.path.join(root, name), None)
-                elif os.path.splitext(name)[1] == '.1bpp':
-                    export_1bpp_to_png(os.path.join(root, name))
-                    os.utime(os.path.join(root, name), None)
-
-    # only monster and trainer pics for now
-    for root, dirs, files in os.walk('./gfx/pics/'):
-        for name in files:
-            if debug: print os.path.splitext(name), os.path.join(root, name)
-            if os.path.splitext(name)[1] == '.2bpp':
-                if 'normal.pal' in files:
-                    export_2bpp_to_png(os.path.join(root, name), None, os.path.join(root, 'normal.pal'))
-                else:
-                    export_2bpp_to_png(os.path.join(root, name))
-                os.utime(os.path.join(root, name), None)
-
-    for root, dirs, files in os.walk('./gfx/trainers/'):
-        for name in files:
-            if debug: print os.path.splitext(name), os.path.join(root, name)
-            if os.path.splitext(name)[1] == '.2bpp':
-                export_2bpp_to_png(os.path.join(root, name))
-                os.utime(os.path.join(root, name), None)
-
-
-def mass_decompress(debug=False):
-    for root, dirs, files in os.walk('./gfx/'):
-        for name in files:
-            if 'lz' in name:
-                if '/pics' in root:
-                    if 'front' in name:
-                        id = root.split('pics/')[1][:3]
-                        if id != 'egg':
-                            with open(os.path.join(root, name), 'rb') as lz: de = Decompressed(lz.read(), 'vert', sizes[int(id)-1])
-                        else:
-                            with open(os.path.join(root, name), 'rb') as lz: de = Decompressed(lz.read(), 'vert', 4)
-                        to_file(os.path.join(root, 'front.2bpp'), de.pic)
-                        to_file(os.path.join(root, 'tiles.2bpp'), de.animtiles)
-                    elif 'back' in name:
-                        with open(os.path.join(root, name), 'rb') as lz: de = Decompressed(lz.read(), 'vert')
-                        to_file(os.path.join(root, 'back.2bpp'), de.output)
-                elif '/trainers' in root or '/fx' in root:
-                    with open(os.path.join(root, name), 'rb') as lz: de = Decompressed(lz.read(), 'vert')
-                    to_file(os.path.join(root, os.path.splitext(name)[0]+'.2bpp'), de.output)
-                else:
-                    with open(os.path.join(root, name), 'rb') as lz: de = Decompressed(lz.read())
-                    to_file(os.path.join(root, os.path.splitext(name)[0]+'.2bpp'), de.output)
-                os.utime(os.path.join(root, name), None)
-
-def append_terminator_to_lzs(directory):
-    # fix lzs that were extracted with a missing terminator
     for root, dirs, files in os.walk(directory):
-        for file in files:
-            if '.lz' in file:
-                data = open(root+file,'rb').read()
-                if data[-1] != chr(0xff):
-                    data += chr(0xff)
-                    new = open(root+file,'wb')
-                    new.write(data)
-                    new.close()
+        for name in files:
 
-def export_lz_to_png(filename):
+            if os.path.splitext(name)[1] == '.2bpp':
+                pal = None
+                if 'pics' in root:
+                   pal = 'normal.pal'
+                elif 'trainers' in root:
+                   pal = os.path.splitext(name)[0] + '.pal'
+                if pal != None:
+                    pal = os.path.join(root, pal)
+                export_2bpp_to_png(os.path.join(root, name), pal_file=pal)
+
+            elif os.path.splitext(name)[1] == '.1bpp':
+                export_1bpp_to_png(os.path.join(root, name))
+
+
+def append_terminator_to_lzs(directory='gfx'):
     """
-    Convert a lz file to png. Dump a 2bpp file too.
+    Add a terminator to any lz files that were extracted without one.
     """
-    assert filename[-3:] == ".lz"
-    lz_data = open(filename, "rb").read()
+    for root, dirs, files in os.walk(directory):
+        for filename in files:
+            path = os.path.join(root, filename)
+            if os.path.splitext(path)[1] == '.lz':
+                data = bytearray(open(path,'rb').read())
 
-    bpp = Decompressed(lz_data).output
-    bpp_filename = os.path.splitext(filename)[0]
-    to_file(bpp_filename, bpp)
+                # don't mistake padding for a missing terminator
+                i = 1
+                while data[-i] == 0:
+                    i += 1
 
-    export_2bpp_to_png(bpp_filename)
+                if data[-i] != 0xff:
+                    data += [0xff]
+                    with open(path, 'wb') as out:
+                        out.write(data)
 
-    # touch the lz file so it doesn't get remade
-    os.utime(filename, None)
 
-def dump_tileset_pngs():
-    """
-    Convert .lz format tilesets into .png format tilesets.
-
-    Also, leaves a bunch of wonderful .2bpp files everywhere for your amusement.
-    """
-    for tileset_id in range(37):
-        tileset_filename = "./gfx/tilesets/" + str(tileset_id).zfill(2) + ".lz"
-        export_lz_to_png(tileset_filename)
-
-def decompress_frontpic(lz_file):
-    """
-    Convert the pic portion of front.lz to front.2bpp
-    """
-    lz = open(lz_file, 'rb').read()
-    to_file(Decompressed(lz).pic, os.path.splitext(filein)[0] + '.2bpp')
-
-def decompress_frontpic_anim(lz_file):
-    """
-    Convert the animation tile portion of front.lz to tiles.2bpp
-    """
-    lz = open(lz_file, 'rb').read()
-    to_file(Decompressed(lz).animtiles, 'tiles.2bpp')
-
-def expand_pic_palettes():
+def expand_binary_pic_palettes(directory):
     """
     Add white and black to palette files with fewer than 4 colors.
 
@@ -1834,8 +1712,8 @@ def expand_pic_palettes():
     Instead of managing palette files of varying length, black
     and white are added to pic palettes and excluded from incbins.
     """
-    for root, dirs, files in os.walk('./gfx/'):
-        if 'gfx/pics' in root or 'gfx/trainers' in root:
+    for root, dirs, files in os.walk(directory):
+        if os.path.join(directory, 'pics') in root or os.path.join(directory, '/trainers') in root:
             for name in files:
                 if os.path.splitext(name)[1] == '.pal':
                     filename = os.path.join(root, name)
