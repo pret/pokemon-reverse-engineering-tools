@@ -18,6 +18,11 @@ def load_rom():
     rom = romstr.RomStr.load(filename=config.rom_path)
     return bytearray(rom)
 
+def rom_offset(bank, address):
+    if address < 0x4000 or address >= 0x8000:
+        return address
+    return bank * 0x4000 + address - 0x4000 * bool(bank)
+
 
 def split(list_, interval):
     """
