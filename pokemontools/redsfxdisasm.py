@@ -11,11 +11,11 @@ banks = {
 music_commands = {
 	0xd0: ["notetype", {"type": "nibble"}, 2],
 	0xe0: ["octave", 1],
-	0xe8: ["togglecall", 1],
+	0xe8: ["toggleperfectpitch", 1],
 	0xea: ["vibrato", {"type": "byte"}, {"type": "nibble"}, 3],
 	0xec: ["duty", {"type": "byte"}, 2],
-	0xed: ["tempo", {"type": "byte"}, {"type": "byte"}, 3],
-	0xf0: ["stereopanning", {"type": "byte"}, 2],
+	0xed: ["tempo", {"type": "word"}, 3],
+	0xf0: ["volume", {"type": "nibble"}, 2],
 	0xf8: ["executemusic", 1],
 	0xfc: ["dutycycle", {"type": "byte"}, 2],
 	0xfe: ["loopchannel", {"type": "byte"}, {"type": "label"}, 4],
@@ -25,6 +25,7 @@ music_commands = {
 param_lengths = {
 	"nibble": 1,
 	"byte": 1,
+	"word": 2,
 	"label": 2,
 	}
 
@@ -76,7 +77,7 @@ for bank in banks:
 						output += "\tunknownsfx0x20 {}, {}, {}, {}".format(byte % 0x10, rom[address + 1], rom[address + 2], rom[address + 3])
 						command_length = 4
 				elif byte < 0xc0:
-					output += "\tnote {}, {}".format(music_notes[byte >> 4], byte % 0x10 + 1)
+					output += "\t{} {}".format(music_notes[byte >> 4], byte % 0x10 + 1)
 					command_length = 1
 				elif byte < 0xd0:
 					output += "\trest {}".format(byte % 0x10 + 1)
@@ -105,6 +106,8 @@ for bank in banks:
 							output += " {}, {}".format(param >> 4, param % 0x10)
 						elif param_type == "byte":
 							output += " {}".format(param)
+						elif param_type == "word":
+							output += " {}".format(param * 0x100 + rom[address + 1])
 						else:
 							param += rom[address + 1] * 0x100 - 0x4000 + (bank * 0x4000)
 							if param == startingaddress: output += " {}_Ch{}".format(sfxname, curchannel)
