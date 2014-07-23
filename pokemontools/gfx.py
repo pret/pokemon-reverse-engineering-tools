@@ -1103,10 +1103,6 @@ def read_filename_arguments(filename):
             arg = int_args.get(arg, False)
             if arg:
                 parsed_arguments[arg] = int(param)
-        elif len(argument) == 3:
-            w, x, h = argument[:3]
-            if w.isdigit() and h.isdigit() and x == 'x':
-                parsed_arguments['pic_dimensions'] = (int(w), int(h))
         elif argument == 'interleave':
             parsed_arguments['interleave'] = True
         elif argument == 'norepeat':
@@ -1114,6 +1110,11 @@ def read_filename_arguments(filename):
         elif argument == 'arrange':
             parsed_arguments['norepeat'] = True
             parsed_arguments['tilemap']  = True
+        elif 'x' in argument:
+            w, h = argument.split('x')
+            if w.isdigit() and h.isdigit():
+                parsed_arguments['pic_dimensions'] = (int(w), int(h))
+
     return parsed_arguments
 
 

@@ -1454,14 +1454,15 @@ class DataByteWordMacro(Command):
 
 
 event_flags = wram.read_constants(os.path.join(conf.path, 'constants/event_flags.asm'))
+engine_flags = wram.read_constants(os.path.join(conf.path, 'constants/engine_flags.asm'))
 
 class EventFlagParam(MultiByteParam):
-
     def to_asm(self):
-        if self.parsed_number in event_flags.keys():
-            return event_flags[self.parsed_number]
-        return MultiByteParam.to_asm(self)
+	return event_flags.get(self.parsed_number) or MultiByteParam.to_asm(self)
 
+class EngineFlagParam(MultiByteParam):
+    def to_asm(self):
+        return engine_flags.get(self.parsed_number) or MultiByteParam.to_asm(self)
 
 
 class MovementCommand(Command):
@@ -2276,9 +2277,9 @@ pksv_crystal_more = {
     0x31: ["checkevent", ["event_flag", EventFlagParam]],
     0x32: ["clearevent", ["event_flag", EventFlagParam]],
     0x33: ["setevent", ["event_flag", EventFlagParam]],
-    0x34: ["checkflag", ["event_flag", EventFlagParam]],
-    0x35: ["clearflag", ["event_flag", EventFlagParam]],
-    0x36: ["setflag", ["event_flag", EventFlagParam]],
+    0x34: ["checkflag", ["engine_flag", EngineFlagParam]],
+    0x35: ["clearflag", ["engine_flag", EngineFlagParam]],
+    0x36: ["setflag", ["engine_flag", EngineFlagParam]],
     0x37: ["wildon"],
     0x38: ["wildoff"],
     0x39: ["xycompare", ["pointer", MultiByteParam]],
@@ -2388,7 +2389,7 @@ pksv_crystal_more = {
     0x9D: ["checkphonecall"],
     0x9E: ["verbosegiveitem", ["item", ItemLabelByte], ["quantity", DecimalParam]],
     0x9F: ["verbosegiveitem2", ["item", ItemLabelByte], ["var", SingleByteParam]],
-    0xA0: ["loadwilddata", ["map_group", MapGroupParam], ["map_id", MapIdParam]],
+    0xA0: ["loadwilddata", ["flag", SingleByteParam], ["map_group", MapGroupParam], ["map_id", MapIdParam]],
     0xA1: ["halloffame"],
     0xA2: ["credits"],
     0xA3: ["warpfacing", ["facing", SingleByteParam], ["map_group", MapGroupParam], ["map_id", MapIdParam], ["x", SingleByteParam], ["y", SingleByteParam]],
