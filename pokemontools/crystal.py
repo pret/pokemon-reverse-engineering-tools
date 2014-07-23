@@ -2395,8 +2395,8 @@ pksv_crystal_more = {
     0xA3: ["warpfacing", ["facing", SingleByteParam], ["map_group", MapGroupParam], ["map_id", MapIdParam], ["x", SingleByteParam], ["y", SingleByteParam]],
     0xA4: ["storetext", ["memory", SingleByteParam]],
     0xA5: ["displaylocation", ["id", SingleByteParam], ["memory", SingleByteParam]],
-    0xA6: ["trainerclassname", ["id", SingleByteParam]],
-    0xA7: ["name", ["type", SingleByteParam], ["id", SingleByteParam]],
+    0xA6: ["trainerclassname", ["id", SingleByteParam], ["memory", SingleByteParam]],
+    0xA7: ["name", ["type", SingleByteParam], ["id", SingleByteParam], ["mempry", SingleByteParam]],
     0xA8: ["wait", ["duration", DecimalParam]],
     0xA9: ["unknown0xa9"],
 }
