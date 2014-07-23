@@ -61,13 +61,13 @@ songs = [
 music_commands = {
 	0xd0: ["notetype", {"type": "nibble"}, 2],
 	0xe0: ["octave", 1],
-	0xe8: ["togglecall", 1],
+	0xe8: ["toggleperfectpitch", 1],
 	0xea: ["vibrato", {"type": "byte"}, {"type": "nibble"}, 3],
 	0xeb: ["pitchbend", {"type": "byte"}, {"type": "byte"}, 3],
 	0xec: ["duty", {"type": "byte"}, 2],
-	0xed: ["tempo", {"type": "byte"}, {"type": "byte"}, 3],
-	0xee: ["unknownmusic0xee", {"type": "byte"}, 2],
-	0xf0: ["stereopanning", {"type": "byte"}, 2],
+	0xed: ["tempo", {"type": "word"}, 3],
+	0xee: ["stereopanning", {"type": "byte"}, 2],
+	0xf0: ["volume", {"type": "nibble"}, 2],
 	0xf8: ["executemusic", 1],
 	0xfc: ["dutycycle", {"type": "byte"}, 2],
 	0xfd: ["callchannel", {"type": "label"}, 3],
@@ -78,6 +78,7 @@ music_commands = {
 param_lengths = {
 	"nibble": 1,
 	"byte": 1,
+	"word": 2,
 	"label": 2,
 	}
 
@@ -149,13 +150,13 @@ def printnoisechannel(songname, songfile, startingaddress, bank, output):
 	end = address
 	address = startingaddress
 	byte = rom[address]
-	output += "Music_{}_Ch4: ; {:02x} ({:0x}:{:02x})\n".format(songname, address, bank, address % 0x4000 + 0x4000)
+	output += "Music_{}_Ch4:: ; {:02x} ({:0x}:{:02x})\n".format(songname, address, bank, address % 0x4000 + 0x4000)
 	# pass 2, print commands and labels for addresses that are in labels
 	while address != end:
 		if address % 0x4000 + 0x4000 in labels and address != startingaddress:
-			output += "\nMusic_{}_branch_{:02x}:\n".format(songname, address)
+			output += "\nMusic_{}_branch_{:02x}::\n".format(songname, address)
 		if byte < 0xc0:
-			output += "\tdnote {}, {}".format(byte % 0x10 + 1, noise_instruments[rom[address + 1]])
+			output += "\t{} {}".format(noise_instruments[rom[address + 1]], byte % 0x10 + 1)
 			command_length = 2
 		elif byte < 0xd0:
 			output += "\trest {}".format(byte % 0x10 + 1)
@@ -185,7 +186,7 @@ def printnoisechannel(songname, songfile, startingaddress, bank, output):
 		output += "\n"
 		address += command_length
 		byte = rom[address]
-	output += "; {}".format(hex(address))
+	output += "; {}\n".format(hex(address))
 	songfile.write(output)
 
 for i, songname in enumerate(songs):
@@ -250,17 +251,17 @@ for i, songname in enumerate(songs):
 		byte = rom[address]
 		# if song has an alternate start to channel 1, print a label and set startingaddress to true channel start
 		if exception:
-			output += "Music_{}_branch_{:02x}:\n".format(songname, address)
+			output += "Music_{}_branch_{:02x}::\n".format(songname, address)
 			startingaddress += 7
 		# pass 2, print commands and labels for addresses that are in labels
 		while address != end:
 			if address == startingaddress:
 				if exception: output += "\n"
-				output += "Music_{}_Ch{}: ; {:02x} ({:0x}:{:02x})\n".format(songname, curchannel, address, bank, address % 0x4000 + 0x4000)
+				output += "Music_{}_Ch{}:: ; {:02x} ({:0x}:{:02x})\n".format(songname, curchannel, address, bank, address % 0x4000 + 0x4000)
 			elif address % 0x4000 + 0x4000 in labels:
-				output += "\nMusic_{}_branch_{:02x}:\n".format(songname, address)
+				output += "\nMusic_{}_branch_{:02x}::\n".format(songname, address)
 			if byte < 0xc0:
-				output += "\tnote {}, {}".format(music_notes[byte >> 4], byte % 0x10 + 1)
+				output += "\t{} {}".format(music_notes[byte >> 4], byte % 0x10 + 1)
 				command_length = 1
 			elif byte < 0xd0:
 				output += "\trest {}".format(byte % 0x10 + 1)
@@ -289,6 +290,8 @@ for i, songname in enumerate(songs):
 						output += " {}, {}".format(param >> 4, param % 0x10)
 					elif param_type == "byte":
 						output += " {}".format(param)
+					elif param_type == "word":
+						output += " {}".format(param * 0x100 + rom[address + 1])
 					else:
 						param += rom[address + 1] * 0x100 - 0x4000 + (bank * 0x4000)
 						if param == startingaddress: output += " Music_{}_Ch{}".format(songname, curchannel)
@@ -300,7 +303,7 @@ for i, songname in enumerate(songs):
 			byte = rom[address]
 		header += 3
 		if curchannel == lastchannel:
-			output += "; {}".format(hex(address))
+			output += "; {}\n".format(hex(address))
 			songfile.write(output)
 			break
 		curchannel += 1
