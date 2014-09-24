@@ -28,6 +28,9 @@ class IncludeReader:
 		self.__dict__.update(kwargs)
 
 	def read(self, filename=None):
+		"""
+		Recursively look for includes in <filename> and add them to self.includes.
+		"""
 		if filename is None:
 			if hasattr(self, 'filename'):
 				filename = os.path.join(self.path, self.filename)
@@ -38,6 +41,9 @@ class IncludeReader:
 				self.read_line(line)
 
 	def read_line(self, line):
+		"""
+		Add any includes in <line> to self.includes, and look for includes in those.
+		"""
 		parts = line[:line.find(';')].split()
 		for directive in self.directives:
 			if directive in map(str.upper, parts):
