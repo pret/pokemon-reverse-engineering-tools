@@ -30,16 +30,15 @@ def bracket_value(string, i=0):
     return string.split('[')[1 + i*2].split(']')[0]
 
 class BSSReader:
-    """Really?"""
+    """
+    Read rgbasm BSS/WRAM sections and associate labels with addresses.
+    Also reads constants/variables, even in macros.
+    """
     sections  = []
     section   = None
     address   = None
     macros    = {}
-    constants = {
-        # TODO: parse these constants from constants.asm
-        'NUM_OBJECTS': 0x10,
-        'OBJECT_LENGTH': 0x10,
-    }
+    constants = {}
 
     section_types = {
         'VRAM':  0x8000,
@@ -83,7 +82,8 @@ class BSSReader:
             )
             macro_sections = macro_reader.read_bss_sections(macro_text)
             self.section = macro_sections[-1]
-            self.address = self.section['labels'][-1]['address'] + self.section['labels'][-1]['length']
+            if self.section['labels']:
+                self.address = self.section['labels'][-1]['address'] + self.section['labels'][-1]['length']
 
 
     def read_bss_sections(self, bss):
@@ -102,8 +102,13 @@ class BSSReader:
             line = line.lstrip()
             line, comment = separate_comment(line)
             line = line.strip()
+            split_line = line.split()
+            split_line_upper = map(str.upper, split_line)
 
-            if line[-4:].upper() == 'ENDM':
+            if not line:
+                pass
+
+            elif line[-4:].upper() == 'ENDM':
                 macro = False
                 macro_name = None
 
@@ -115,7 +120,11 @@ class BSSReader:
                 macro = True
                 self.macros[macro_name] = []
 
-            elif 'SECTION' == line[:7]:
+            elif 'INCLUDE' == line[:7].upper():
+                filename = line.split('"')[1]
+                self.read_bss_sections(open(filename).readlines())
+
+            elif 'SECTION' == line[:7].upper():
                 if self.section: # previous
                     self.sections += [self.section]
 
@@ -156,13 +165,16 @@ class BSSReader:
                     self.section['labels'] += [section_label]
                     self.read_bss_line(line.split(':')[-1])
 
-            elif 'EQU' in line.split():
-                # some space is defined using constants
-                name, value = line.split('EQU')
-                name, value = name.strip(), value.strip().replace('$','0x').replace('%','0b')
-                self.constants[name] = eval(value, self.constants)
+            elif any(x in split_line_upper for x in ['EQU', '=', 'SET']): # TODO: refactor
+                for x in ['EQU', '=', 'SET']:
+                    if x in split_line_upper:
+                        index = split_line_upper.index(x)
+                        real = split_line[index]
+                        name, value = map(' '.join, [split_line[:index], split_line[index+1:]])
+                        value = rgbasm_to_py(value)
+                        self.constants[name] = eval(value, self.constants)
 
-            elif line:
+            else:
                 self.read_bss_line(line)
 
         self.sections += [self.section]
@@ -174,24 +186,26 @@ def read_bss_sections(bss):
 
 
 def constants_to_dict(constants):
+    """Deprecated. Use BSSReader."""
     return dict((eval(rgbasm_to_py(constant[constant.find('EQU')+3:constant.find(';')])), constant[:constant.find('EQU')].strip()) for constant in constants)
 
 def scrape_constants(text):
     if type(text) is not list:
         text = text.split('\n')
-    return constants_to_dict([line for line in text if 'EQU' in line[:line.find(';')]])
+    bss = BSSReader()
+    bss.read_bss_sections(text)
+    constants = bss.constants
+    return constants
 
 def read_constants(filepath):
     """
-    Load lines from a file and call scrape_constants.
+    Load lines from a file and grab any constants using BSSReader.
     """
     lines = []
     if os.path.exists(filepath):
         with open(filepath, "r") as file_handler:
             lines = file_handler.readlines()
-
-    constants = scrape_constants(lines)
-    return constants
+    return scrape_constants(lines)
 
 class WRAMProcessor(object):
     """
