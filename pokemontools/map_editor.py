@@ -1,6 +1,7 @@
 import os
 import sys
 import logging
+import argparse
 
 from Tkinter import (
     Tk,
@@ -11,9 +12,14 @@ from Tkinter import (
     HORIZONTAL,
     RIGHT,
     LEFT,
+    TOP,
+    BOTTOM,
+    BOTH,
     Y,
     X,
+    N, S, E, W,
     TclError,
+    Menu,
 )
 import tkFileDialog
 
@@ -31,9 +37,17 @@ from PIL import (
 )
 
 import gfx
+import wram
 import preprocessor
 import configuration
 config = configuration.Config()
+
+
+def config_open(self, filename):
+    return open(os.path.join(self.path, filename))
+
+configuration.Config.open = config_open
+
 
 def setup_logging():
     """
@@ -47,6 +61,54 @@ def setup_logging():
     root.addHandler(console)
     root.setLevel(logging.DEBUG)
 
+
+def read_incbin_in_file(label, filename='main.asm', config=config):
+    asm = config.open(filename).read()
+    return read_incbin(asm, label)
+
+def read_incbin(asm, label):
+    incbin = asm_at_label(asm, label)
+    filename = read_header_macros_2(
+        incbin,
+        [('filename', 'INCBIN')]
+    )[0]['filename']
+    filename = filename.split('"')[1]
+    return filename
+
+
+def red_gfx_name(tset):
+    if type(tset) is int:
+        return [
+            'overworld',
+            'redshouse1',
+            'mart',
+	    'forest',
+            'redshouse2',
+            'dojo',
+            'pokecenter',
+            'gym',
+            'house',
+            'forestgate',
+            'museum',
+            'underground',
+            'gate',
+            'ship',
+            'shipport',
+            'cemetery',
+            'interior',
+            'cavern',
+            'lobby',
+            'mansion',
+            'lab',
+            'club',
+            'facility',
+            'plateau',
+        ][tset]
+
+    elif type(tset) is str:
+        return tset.lower().replace('_', '')
+
+
 def configure_for_pokered(config=config):
     """
     Sets default configuration values for pokered. These should eventually be
@@ -57,17 +119,13 @@ def configure_for_pokered(config=config):
 
         "map_dir": os.path.join(config.path, 'maps/'),
         "gfx_dir": os.path.join(config.path, 'gfx/tilesets/'),
-        "to_gfx_name": lambda x : '%.2x' % x,
-        "block_dir": os.path.join(config.path, 'gfx/blocksets/'),
-        "block_ext": '.bst',
+        "to_gfx_name": red_gfx_name,
+        "block_dir": os.path.join(config.path, 'gfx/blocksets/'), # not used
+        "block_ext": '.bst', # not used
 
         "palettes_on": False,
 
-        "asm_path": os.path.join(config.path, 'main.asm'),
-
         "constants_filename": os.path.join(config.path, 'constants.asm'),
-
-        "header_path": os.path.join(config.path, 'main.asm'),
 
         "time_of_day": 1,
     }
@@ -93,7 +151,7 @@ def configure_for_pokecrystal(config=config):
 
         "asm_dir": os.path.join(config.path, 'maps/'),
 
-        "constants_filename": os.path.join(os.path.join(config.path, "constants/"), 'map_constants.asm'),
+        "constants_filename": os.path.join(config.path, 'constants.asm'),
 
         "header_dir": os.path.join(config.path, 'maps/'),
 
@@ -122,23 +180,22 @@ def configure_for_version(version, config=config):
     return config
 
 def get_constants(config=config):
-    constants = {}
-    lines = open(config.constants_filename, 'r').readlines()
-    for line in lines:
-        if ' EQU ' in line:
-            name, value = [s.strip() for s in line.split(' EQU ')]
-            constants[name] = eval(value.split(';')[0].replace('$','0x').replace('%','0b'))
-    config.constants = constants
-    return constants
+    bss = wram.BSSReader()
+    bss.read_bss_sections(open(config.constants_filename).readlines())
+    config.constants = bss.constants
+    return config.constants
+
 
 class Application(Frame):
     def __init__(self, master=None, config=config):
         self.config = config
         self.log = logging.getLogger("{0}.{1}".format(self.__class__.__name__, id(self)))
-        self.display_connections = False
+        self.display_connections = True
+
         Frame.__init__(self, master)
-        self.grid()
+        self.pack(fill=BOTH, expand=True)
         Style().configure("TFrame", background="#444")
+
         self.paint_tile = 1
         self.init_ui()
 
@@ -147,7 +204,7 @@ class Application(Frame):
         self.button_frame = Frame(self)
         self.button_frame.grid(row=0, column=0, columnspan=2)
         self.map_frame = Frame(self)
-        self.map_frame.grid(row=1, column=0, padx=5, pady=5)
+        self.map_frame.grid(row=1, column=0, padx=5, pady=5, sticky=N+S+E+W)
         self.picker_frame = Frame(self)
         self.picker_frame.grid(row=1, column=1)
 
@@ -155,6 +212,14 @@ class Application(Frame):
         self.button_new["text"] = "New"
         self.button_new["command"] = self.new_map
         self.button_new.grid(row=0, column=0, padx=2)
+
+        self.menubar = Menu(self)
+
+        menu = Menu(self.menubar, tearoff=0)
+        self.menubar.add_cascade(label="File", menu=menu)
+        menu.add_command(label="New")
+        menu.add_command(label="Open")
+        menu.add_command(label="Save")
 
         self.open = Button(self.button_frame)
         self.open["text"] = "Open"
@@ -179,10 +244,9 @@ class Application(Frame):
     def new_map(self):
         self.map_name = None
         self.init_map()
-        self.map.blockdata_filename = os.path.join(self.config.map_dir, 'newmap.blk')
-        self.map.blockdata = bytearray([self.paint_tile] * 20 * 20)
-        self.map.width = 20
-        self.map.height = 20
+        self.map.map.blockdata = bytearray([self.paint_tile] * 20 * 20)
+        self.map.map.width = 20
+        self.map.map.height = 20
         self.draw_map()
         self.init_picker()
 
@@ -194,20 +258,22 @@ class Application(Frame):
 
     def save_map(self):
         if hasattr(self, 'map'):
-            if self.map.blockdata_filename:
-                filename = tkFileDialog.asksaveasfilename(initialfile=self.map.blockdata_filename)
-                with open(filename, 'wb') as save:
-                    save.write(self.map.blockdata)
-                self.log.info('blockdata saved as {}'.format(self.map.blockdata_filename))
+            if self.map.map.blk_path:
+                initial = self.map.map.blk_path
             else:
-                self.log.info('dunno how to save this')
+                initial = self.config.path
+            filename = tkFileDialog.asksaveasfilename(initialfile=initial)
+            if filename:
+                with open(filename, 'wb') as save:
+                    save.write(self.map.map.blockdata)
+                self.log.info('blockdata saved as {}'.format(filename))
         else:
             self.log.info('nothing to save')
 
     def init_map(self):
         if hasattr(self, 'map'):
             self.map.kill_canvas()
-        self.map = Map(self.map_frame, self.map_name, config=self.config)
+        self.map = MapRenderer(self.config, parent=self.map_frame, name=self.map_name)
         self.init_map_connections()
 
     def draw_map(self):
@@ -218,20 +284,21 @@ class Application(Frame):
         self.map.canvas.bind('<B1-Motion>', self.paint)
 
     def init_picker(self):
-        self.current_tile = Map(self.button_frame, tileset_id=self.map.tileset_id, config=self.config)
-        self.current_tile.blockdata = [self.paint_tile]
-        self.current_tile.width = 1
-        self.current_tile.height = 1
+        """This should really be its own class."""
+        self.current_tile = MapRenderer(self.config, parent=self.button_frame, tileset=Tileset(id=self.map.map.tileset.id))
+        self.current_tile.map.blockdata = [self.paint_tile]
+        self.current_tile.map.width = 1
+        self.current_tile.map.height = 1
         self.current_tile.init_canvas()
         self.current_tile.draw()
         self.current_tile.canvas.grid(row=0, column=4, padx=4)
 
         if hasattr(self, 'picker'):
             self.picker.kill_canvas()
-        self.picker = Map(self, tileset_id=self.map.tileset_id, config=self.config)
-        self.picker.blockdata = range(len(self.picker.tileset.blocks))
-        self.picker.width = 4
-        self.picker.height = len(self.picker.blockdata) / self.picker.width
+        self.picker = MapRenderer(self.config, parent=self, tileset=Tileset(id=self.map.map.tileset.id))
+        self.picker.map.blockdata = range(len(self.picker.map.tileset.blocks))
+        self.picker.map.width = 4
+        self.picker.map.height = len(self.picker.map.blockdata) / self.picker.map.width
         self.picker.init_canvas(self.picker_frame)
 
         if hasattr(self.picker_frame, 'vbar'):
@@ -242,7 +309,10 @@ class Application(Frame):
 
         self.picker.canvas.config(scrollregion=(0,0,self.picker.canvas_width, self.picker.canvas_height))
         self.map_frame.update()
-        self.picker.canvas.config(height=self.map_frame.winfo_height())
+
+        # overwriting a property is probably a bad idea
+        self.picker.canvas_height = self.map_frame.winfo_height()
+
         self.picker.canvas.config(yscrollcommand=self.picker_frame.vbar.set)
         self.picker.canvas.pack(side=LEFT, expand=True)
 
@@ -262,128 +332,100 @@ class Application(Frame):
 
 
     def pick_block(self, event):
-        block_x = int(self.picker.canvas.canvasx(event.x)) / (self.picker.tileset.block_width * self.picker.tileset.tile_width)
-        block_y = int(self.picker.canvas.canvasy(event.y)) / (self.picker.tileset.block_height * self.picker.tileset.tile_height)
-        i = block_y * self.picker.width + block_x
-        self.paint_tile = self.picker.blockdata[i]
+        block_x = int(self.picker.canvas.canvasx(event.x)) / (self.picker.map.tileset.block_width * self.picker.map.tileset.tile_width)
+        block_y = int(self.picker.canvas.canvasy(event.y)) / (self.picker.map.tileset.block_height * self.picker.map.tileset.tile_height)
+        i = block_y * self.picker.map.width + block_x
+        self.paint_tile = self.picker.map.blockdata[i]
 
-        self.current_tile.blockdata = [self.paint_tile]
+        self.current_tile.map.blockdata = [self.paint_tile]
         self.current_tile.draw()
 
     def paint(self, event):
-        block_x = event.x / (self.map.tileset.block_width * self.map.tileset.tile_width)
-        block_y = event.y / (self.map.tileset.block_height * self.map.tileset.tile_height)
-        i = block_y * self.map.width + block_x
-        if 0 <= i < len(self.map.blockdata):
-            self.map.blockdata[i] = self.paint_tile
+        block_x = event.x / (self.map.map.tileset.block_width * self.map.map.tileset.tile_width)
+        block_y = event.y / (self.map.map.tileset.block_height * self.map.map.tileset.tile_height)
+        i = block_y * self.map.map.width + block_x
+        if 0 <= i < len(self.map.map.blockdata):
+            self.map.map.blockdata[i] = self.paint_tile
             self.map.draw_block(block_x, block_y)
 
     def init_map_connections(self):
         if not self.display_connections:
             return
-        for direction in self.map.connections.keys():
+
+        for direction in self.map.map.connections.keys():
+
             if direction in self.connections.keys():
                 if hasattr(self.connections[direction], 'canvas'):
                     self.connections[direction].kill_canvas()
-            if self.map.connections[direction] == {}:
+
+            if self.map.map.connections[direction] == {}:
                 self.connections[direction] = {}
                 continue
-            self.connections[direction] = Map(self, self.map.connections[direction]['map_name'], config=self.config)
 
+            self.connections[direction] = MapRenderer(self.config, parent=self, name=self.map.map.connections[direction]['map_name'])
+
+            attrs = self.map.map.connections[direction]
             if direction in ['north', 'south']:
-                x1 = 0
-                y1 = 0
-                x2 = x1 + eval(self.map.connections[direction]['strip_length'], self.config.constants)
+                if direction == 'north':
+                    x1 = 0
+                    if self.config.version == 'red':
+                        y1 = eval(attrs['other_height'], self.config.constants) - 3
+                    elif self.config.version == 'crystal':
+                        y1 = eval(attrs['map'] + '_HEIGHT', self.config.constants) - 3
+                else: # south
+                    x1 = 0
+                    y1 = 0
+                x2 = x1 + eval(attrs['strip_length'], self.config.constants)
                 y2 = y1 + 3
-            else: # east, west
-                x1 = 0
-                y1 = 0
+            else:
+                if direction == 'east':
+                    x1 = 0
+                    y1 = 0
+                else: # west
+                    x1 = -3
+                    y1 = 1
                 x2 = x1 + 3
-                y2 = y1 + eval(self.map.connections[direction]['strip_length'], self.config.constants)
+                y2 = y1 + eval(attrs['strip_length'], self.config.constants)
 
-            self.connections[direction].crop(x1, y1, x2, y2)
             self.connections[direction].init_canvas(self.map_frame)
-            self.connections[direction].canvas.pack(side={'west':LEFT,'east':RIGHT}[direction])
+            self.connections[direction].canvas.pack(side={'north':TOP, 'south':BOTTOM, 'west':LEFT,'east':RIGHT}[direction])
+            self.connections[direction].map.crop(x1, y1, x2, y2)
             self.connections[direction].draw()
 
 
-class Map:
-    def __init__(self, parent, name=None, width=20, height=20, tileset_id=2, blockdata_filename=None, config=config):
-        self.parent = parent
-
-        self.name = name
-
+class MapRenderer:
+    def __init__(self, config=config, **kwargs):
         self.config = config
-        self.log = logging.getLogger("{0}.{1}".format(self.__class__.__name__, id(self)))
+        self.__dict__.update(kwargs)
+        self.map = Map(**kwargs)
 
-        self.blockdata_filename = blockdata_filename
-        if not self.blockdata_filename and self.name:
-            self.blockdata_filename = os.path.join(self.config.map_dir, self.name + '.blk')
-        elif not self.blockdata_filename:
-            self.blockdata_filename = ''
+    @property
+    def canvas_width(self):
+        return self.map.width * self.map.block_width
 
-        asm_filename = ''
-        if self.name:
-            if self.config.asm_dir is not None:
-                asm_filename = os.path.join(self.config.asm_dir, self.name + '.asm')
-            elif self.config.asm_path is not None:
-                asm_filename = self.config.asm_path
-
-        if os.path.exists(asm_filename):
-            for props in [map_header(self.name, config=self.config), second_map_header(self.name, config=self.config)]:
-                self.__dict__.update(props)
-            self.asm = open(asm_filename, 'r').read()
-            self.events = event_header(self.asm, self.name)
-            self.scripts = script_header(self.asm, self.name)
-
-            self.tileset_id = eval(self.tileset_id, self.config.constants)
-
-            self.width = eval(self.width, self.config.constants)
-            self.height = eval(self.height, self.config.constants)
-
-        else:
-            self.width = width
-            self.height = height
-            self.tileset_id = tileset_id
-
-        if self.blockdata_filename:
-            self.blockdata = bytearray(open(self.blockdata_filename, 'rb').read())
-        else:
-            self.blockdata = []
-
-        self.tileset = Tileset(self.tileset_id, config=self.config)
+    @property
+    def canvas_height(self):
+        return self.map.height * self.map.block_height
 
     def init_canvas(self, parent=None):
         if parent == None:
             parent = self.parent
-        if not hasattr(self, 'canvas'):
-            self.canvas_width = self.width * 32
-            self.canvas_height = self.height * 32
-            self.canvas = Canvas(parent, width=self.canvas_width, height=self.canvas_height)
-            self.canvas.xview_moveto(0)
-            self.canvas.yview_moveto(0)
+        if hasattr(self, 'canvas'):
+            pass
+        else:
+            self.canvas = Canvas(parent)
+        self.canvas.xview_moveto(0)
+        self.canvas.yview_moveto(0)
 
     def kill_canvas(self):
         if hasattr(self, 'canvas'):
             self.canvas.destroy()
 
-    def crop(self, x1, y1, x2, y2):
-        blockdata = self.blockdata
-        start = y1 * self.width + x1
-        width = x2 - x1
-        height = y2 - y1
-        self.blockdata = []
-        for y in xrange(height):
-            for x in xrange(width):
-                self.blockdata += [blockdata[start + y * self.width + x]]
-        self.blockdata = bytearray(self.blockdata)
-        self.width = width
-        self.height = height
-
     def draw(self):
-        for i in xrange(len(self.blockdata)):
-            block_x = i % self.width
-            block_y = i / self.width
+        self.canvas.configure(width=self.canvas_width, height=self.canvas_height)
+        for i in xrange(len(self.map.blockdata)):
+            block_x = i % self.map.width
+            block_y = i / self.map.width
             self.draw_block(block_x, block_y)
 
     def draw_block(self, block_x, block_y):
@@ -392,25 +434,102 @@ class Map:
         index, indey = 4, 4
 
         # Draw one block (4x4 tiles)
-        block = self.blockdata[block_y * self.width + block_x]
-        for j, tile in enumerate(self.tileset.blocks[block]):
+        block = self.map.blockdata[block_y * self.map.width + block_x]
+
+        # Ignore nonexistent blocks.
+        if block >= len(self.map.tileset.blocks): return
+
+        for j, tile in enumerate(self.map.tileset.blocks[block]):
             try:
                 # Tile gfx are split in half to make vram mapping easier
                 if tile >= 0x80:
                     tile -= 0x20
-                tile_x = block_x * 32 + (j % 4) * 8
-                tile_y = block_y * 32 + (j / 4) * 8
-                self.canvas.create_image(index + tile_x, indey + tile_y, image=self.tileset.tiles[tile])
+                tile_x = block_x * self.map.block_width + (j % 4) * 8
+                tile_y = block_y * self.map.block_height + (j / 4) * 8
+                self.canvas.create_image(index + tile_x, indey + tile_y, image=self.map.tileset.tiles[tile])
             except:
                 pass
 
+    def crop(self, *args, **kwargs):
+        self.map.crop(*args, **kwargs)
+        self.draw()
 
-class Tileset:
-    def __init__(self, tileset_id=0, config=config):
+
+class Map:
+    width = 20
+    height = 20
+    block_width = 32
+    block_height = 32
+
+    def __init__(self, config=config, **kwargs):
+        self.parent = None
+        self.name = ''
+        self.blk_path = ''
+        self.tileset = Tileset(config=config)
+        self.blockdata = []
+        self.connections = {'north': {}, 'south': {}, 'west': {}, 'east': {}}
+
+        self.__dict__.update(kwargs)
         self.config = config
+
         self.log = logging.getLogger("{0}.{1}".format(self.__class__.__name__, id(self)))
 
-        self.id = tileset_id
+        if not self.blk_path and self.name:
+            self.blk_path = os.path.join(self.config.map_dir, self.name + '.blk')
+        if os.path.exists(self.blk_path) and self.blockdata == []:
+            self.blockdata = bytearray(open(self.blk_path).read())
+
+        if self.config.version == 'red':
+            if self.name:
+                attrs = map_header(self.name, config=self.config)
+                self.tileset = Tileset(id=attrs['tileset_id'], config=self.config)
+                self.height = eval(attrs['height'], self.config.constants)
+                self.width = eval(attrs['width'], self.config.constants)
+                self.connections = attrs['connections']
+
+        elif self.config.version == 'crystal':
+
+            asm_filename = ''
+            if self.name:
+                asm_filename = os.path.join(self.config.asm_dir, self.name + '.asm')
+
+            if os.path.exists(asm_filename):
+                for props in [
+                    map_header(self.name, config=self.config),
+                    second_map_header(self.name, config=self.config)
+                ]:
+                    self.__dict__.update(props)
+
+                self.asm = open(asm_filename, 'r').read()
+                self.events = event_header(self.asm, self.name)
+                self.scripts = script_header(self.asm, self.name)
+
+                self.tileset = Tileset(id=self.tileset_id, config=self.config)
+
+                self.width = eval(self.width, self.config.constants)
+                self.height = eval(self.height, self.config.constants)
+
+    def crop(self, x1=0, y1=0, x2=None, y2=None):
+        if x2 is None: x2 = self.width
+        if y2 is None: y2 = self.height
+        start = y1 * self.width + x1
+        width = x2 - x1
+        height = y2 - y1
+        blockdata = []
+        for y in xrange(height):
+            index = start + y * self.width
+            blockdata.extend( self.blockdata[index : index + width] )
+        self.blockdata = bytearray(blockdata)
+        self.width = width
+        self.height = height
+
+
+class Tileset:
+    def __init__(self, config=config, **kwargs):
+        if config.version == 'red':
+            self.id = 0
+        elif config.version == 'crystal':
+            self.id = 2
 
         self.tile_width   = 8
         self.tile_height  = 8
@@ -419,6 +538,12 @@ class Tileset:
 
         self.alpha = 255
 
+        self.__dict__.update(kwargs)
+        self.id = eval(str(self.id), config.constants)
+
+        self.config = config
+        self.log = logging.getLogger("{0}.{1}".format(self.__class__.__name__, id(self)))
+
         if self.config.palettes_on:
             self.get_palettes()
             self.get_palette_map()
@@ -426,18 +551,22 @@ class Tileset:
         self.get_blocks()
         self.get_tiles()
 
+    def read_header(self):
+        if self.config.version == 'red':
+            tileset_headers = self.config.open('data/tileset_headers.asm').readlines()
+            tileset_header = map(str.strip, tileset_headers[self.id + 1].split('\ttileset')[1].split(','))
+            return tileset_header
+
     def get_tileset_gfx_filename(self):
         filename = None
 
         if self.config.version == 'red':
-            tileset_defs = open(os.path.join(self.config.path, 'main.asm'), 'r').read()
-            incbin = asm_at_label(tileset_defs, 'Tset%.2X_GFX' % self.id)
-            self.log.debug(incbin)
-            filename = read_header_macros(incbin, ['filename'], ['INCBIN'])[0][0].replace('"','').replace('.2bpp','.png')
+            gfx_label = self.read_header()[1]
+            filename = read_incbin_in_file(gfx_label, filename='main.asm', config=self.config)
+            filename = filename.replace('.2bpp','.png')
             filename = os.path.join(self.config.path, filename)
-            self.log.debug(filename)
 
-        if not filename:
+        if not filename: # last resort
             filename = os.path.join(
                 self.config.gfx_dir,
                 self.config.to_gfx_name(self.id) + '.png'
@@ -448,7 +577,9 @@ class Tileset:
     def get_tiles(self):
         filename = self.get_tileset_gfx_filename()
         if not os.path.exists(filename):
-            gfx.export_2bpp_to_png(filename.replace('.png','.2bpp'))
+            # Crystal still isn't ready for pngs.
+            if self.config.version == 'crystal':
+                gfx.convert_to_png([filename.replace('.png', '.2bpp.lz')])
         self.img = Image.open(filename)
         self.img.width, self.img.height = self.img.size
         self.tiles = []
@@ -478,10 +609,16 @@ class Tileset:
         return tile
 
     def get_blocks(self):
-        filename = os.path.join(
-            self.config.block_dir,
-            self.config.to_gfx_name(self.id) + self.config.block_ext
-        )
+        if self.config.version == 'crystal':
+            filename = os.path.join(
+                self.config.block_dir,
+                self.config.to_gfx_name(self.id) + self.config.block_ext
+            )
+
+        elif self.config.version == 'red':
+            block_label = self.read_header()[0]
+            filename = read_incbin_in_file(block_label, 'main.asm', config=self.config)
+
         self.blocks = []
         block_length = self.block_width * self.block_height
         blocks = bytearray(open(filename, 'rb').read())
@@ -523,55 +660,40 @@ def get_available_maps(config=config):
 def map_header(name, config=config):
     if config.version == 'crystal':
         headers = open(os.path.join(config.header_dir, 'map_headers.asm'), 'r').read()
-        label = name + '_MapHeader'
-        header = asm_at_label(headers, label)
-        macros = [ 'db', 'db', 'db', 'dw', 'db', 'db', 'db', 'db' ]
+        label = name
+        header = asm_at_label(headers, '\tmap_header ' + label, colon=',')
         attributes = [
-            'bank',
-            'tileset_id',
-            'permission',
-            'second_map_header',
-            'world_map_location',
-            'music',
-            'time_of_day',
-            'fishing_group',
+            ('label',              'map_header'),
+            ('tileset_id',         'db'),
+            ('permission',         'db'),
+            ('world_map_location', 'db'),
+            ('music',              'db'),
+            ('time_of_day',        'db'),
+            ('fishing_group',      'db'),
         ]
-        values, l = read_header_macros(header, attributes, macros)
-        attrs = dict(zip(attributes, values))
+        attrs, l = read_header_macros_2(header, attributes)
         return attrs
 
     elif config.version == 'red':
-        headers = open(config.header_path, 'r').read()
-
-        # there has to be a better way to do this
-        lower_label = name + '_h'
-        i = headers.lower().find(lower_label)
-        if i == -1:
-            return {}
-        label = headers[i:i+len(lower_label)]
-
-        header = asm_at_label(headers, label)
-        macros = [ 'db', 'db', 'db', 'dw', 'dw', 'dw', 'db' ]
+        header = config.open('data/mapHeaders/{0}.asm'.format(name)).read()
+        header = split_comments(header.split('\n'))
         attributes = [
-            'tileset_id',
-            'height',
-            'width',
-            'blockdata_label',
-            'text_label',
-            'script_label',
-            'which_connections',
+            ('tileset_id',        'db'),
+            ('height',            'db'),
+            ('width',             'db'),
+            ('blockdata_label',   'dw'),
+            ('text_label',        'dw'),
+            ('script_label',      'dw'),
+            ('which_connections', 'db'),
         ]
-        values, l = read_header_macros(header, attributes, macros)
 
-        attrs = dict(zip(attributes, values))
+        attrs, l = read_header_macros_2(header, attributes)
+
         attrs['connections'], l = connections(attrs['which_connections'], header, l, config=config)
 
-        macros = [ 'dw' ]
-        attributes = [
-            'object_label',
-        ]
-        values, l = read_header_macros(header[l:], attributes, macros)
-        attrs.update(dict(zip(attributes, values)))
+        attributes = [('object_label', 'dw')]
+        more_attrs, l = read_header_macros_2(header[l:], attributes)
+        attrs.update(more_attrs)
 
         return attrs
 
@@ -580,24 +702,23 @@ def map_header(name, config=config):
 def second_map_header(name, config=config):
     if config.version == 'crystal':
         headers = open(os.path.join(config.header_dir, 'second_map_headers.asm'), 'r').read()
-        label = name + '_SecondMapHeader'
-        header = asm_at_label(headers, label)
-        macros = [ 'db', 'db', 'db', 'db', 'dw', 'db', 'dw', 'dw', 'db' ]
+        label = '\tmap_header_2 ' + name
+        header = asm_at_label(headers, label, colon=',')
+
         attributes = [
-            'border_block',
-            'height',
-            'width',
-            'blockdata_bank',
-            'blockdata_label',
-            'script_header_bank',
-            'script_header_label',
-            'map_event_header_label',
-            'which_connections',
+            ('second_label',           'map_header_2'),
+            ('dimension_base',         'db'),
+            ('border_block',           'db'),
+            ('which_connections',      'db'),
         ]
 
-        values, l = read_header_macros(header, attributes, macros)
-        attrs = dict(zip(attributes, values))
-        attrs['connections'], l = connections(attrs['which_connections'], header, l)
+        attrs, l = read_header_macros_2(header, attributes)
+
+        # hack to use dimension constants, eventually dimensions will be here for real
+        attrs['height'] = attrs['dimension_base'] + '_HEIGHT'
+        attrs['width']  = attrs['dimension_base'] + '_WIDTH'
+
+        attrs['connections'], l = connections(attrs['which_connections'], header, l, config=config)
         return attrs
 
     return {}
@@ -606,38 +727,45 @@ def connections(which_connections, header, l=0, config=config):
     directions = { 'north': {}, 'south': {}, 'west': {}, 'east': {} }
 
     if config.version == 'crystal':
-        macros = [ 'db', 'db' ] 
         attributes = [
-            'map_group',
-            'map_no',
+            ('map',               'map'),
+            ('strip_pointer',     'dw'),
+            ('strip_destination', 'dw'),
+            ('strip_length',      'db'),
+            ('map_width',         'db'),
+            ('y_offset',          'db'),
+            ('x_offset',          'db'),
+            ('window',            'dw'),
         ]
 
     elif config.version == 'red':
-        macros = [ 'db' ]
-        attributes = [
-            'map_id',
-        ]
+        conn_attrs = {
+            'north': ['map_id', 'other_width', 'other_height', 'x_offset', 'strip_offset', 'strip_length', 'other_blocks'],
+            'south': ['map_id', 'other_width', 'x_offset', 'strip_offset', 'strip_length', 'other_blocks', 'width', 'height'],
+            'east':  ['map_id', 'other_width', 'y_offset', 'strip_offset', 'strip_length', 'other_blocks', 'width'],
+            'west':  ['map_id', 'other_width', 'y_offset', 'strip_offset', 'strip_length', 'other_blocks', 'width'],
+        }
 
-    macros += [ 'dw', 'dw', 'db', 'db', 'db', 'db', 'dw' ]
-    attributes += [
-        'strip_pointer',
-        'strip_destination',
-        'strip_length',
-        'map_width',
-        'y_offset',
-        'x_offset',
-        'window',
-    ]
-    for d in directions.keys():
+    for d in ['north', 'south', 'west', 'east']:
         if d.upper() in which_connections:
-            values, l = read_header_macros(header, attributes, macros)
-            header = header[l:]
-            directions[d] = dict(zip(attributes, values))
+
             if config.version == 'crystal':
-                directions[d]['map_name'] = directions[d]['map_group'].replace('GROUP_', '').title().replace('_','')
+                attrs, l2 = read_header_macros_2(header[l:], attributes)
+                l += l2
+                directions[d] = attrs
+                directions[d]['map_name'] = directions[d]['map'].title().replace('_','')
+
             elif config.version == 'red':
-                directions[d]['map_name'] = directions[d]['map_id'].title().replace('_','')
+                attrs, l2 = read_header_macros_2(header[l:], zip(conn_attrs[d], [d.upper() + '_MAP_CONNECTION'] * len(conn_attrs[d])))
+                l += l2
+                directions[d] = attrs
+                directions[d]['map_name'] = directions[d]['map_id'].lower().replace('_','')
+
     return directions, l
+
+def read_header_macros_2(header, attributes):
+    values, l = read_header_macros(header, [x[0] for x in attributes], [x[1] for x in attributes])
+    return dict(zip([x[0] for x in attributes], values)), l
 
 def read_header_macros(header, attributes, macros):
     values = []
@@ -660,49 +788,55 @@ def script_header(asm, name):
     return {}
 
 def macro_values(line, macro):
-    values = line[line.find(macro) + len(macro):].split(',')
+    values = macro.join(line.split(macro)[1:]).split(',')
+    #values = line[line.find(macro) + len(macro):].split(',')
     values = [v.replace('$','0x').strip() for v in values]
     if values[0] == 'w': # dbw
         values = values[1:]
     return values
 
-def asm_at_label(asm, label):
-    label_def = label + ':'
+def asm_at_label(asm, label, colon=':'):
+    label_def = label + colon
     lines = asm.split('\n')
-    for line in lines:
-        if line.startswith(label_def):
-            lines = lines[lines.index(line):]
-            lines[0] = lines[0][len(label_def):]
+    for i, line in enumerate(lines):
+        if label_def in line:
+            lines = lines[i:]
             break
-    # go until the next label
+    return split_comments(lines)
+
+def split_comments(lines):
     content = []
     for line in lines:
         l, comment = preprocessor.separate_comment(line + '\n')
-        if ':' in l:
-            break
+        # skip over labels? this should be in macro_values
+        while ':' in l:
+            l = l[l.index(':') + 1:]
         content += [[l, comment]]
     return content
 
+
 def main(config=config):
     """
-    Launches the map editor.
+    Creates an application instance.
     """
     root = Tk()
-    root.wm_title("MAP EDITOR")
+    root.columnconfigure(0, weight=1)
+    root.wm_title("ayy lmap")
     app = Application(master=root, config=config)
+    return app
 
-    try:
-        app.mainloop()
-    except KeyboardInterrupt:
-        pass
-
-    try:
-        root.destroy()
-    except TclError:
-        pass
+def init(config=config, version='crystal'):
+    """
+    Launches a map editor instance.
+    """
+    setup_logging()
+    configure_for_version(version, config)
+    get_constants(config=config)
+    return main(config=config)
 
 if __name__ == "__main__":
-    setup_logging()
-    config = configure_for_version("crystal", config)
-    get_constants(config=config)
-    main(config=config)
+    ap = argparse.ArgumentParser()
+    ap.add_argument('version', nargs='?', default='crystal')
+    args = ap.parse_args()
+    app = init(config=config, version=args.version)
+    app.mainloop()
