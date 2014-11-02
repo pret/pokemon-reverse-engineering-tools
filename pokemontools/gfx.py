@@ -616,7 +616,6 @@ class Decompressed:
             byte = self.output[ self.offset + i ]
             flipped = sum( 1 << (7 - j) for j in xrange(8) if (byte >> j) & 1)
             self.output.append(flipped)
-            self.output.append( self.bit_flip( self.output[ self.offset + i ] ) )
 
     def doReverse(self):
         """
