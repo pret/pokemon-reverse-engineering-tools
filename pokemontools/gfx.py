@@ -1394,33 +1394,34 @@ def png_to_2bpp(filein, **kwargs):
                       'g': line[px+1],
                       'b': line[px+2],
                       'a': line[px+3], }
-            newline += [color]
             if color not in palette:
-                palette += [color]
+                if len(palette) < 4:
+                    palette += [color]
+                else:
+                    # TODO Find the nearest match
+                    print 'WARNING: %s: Color %s truncated to' % (filein, color),
+                    color = sorted(palette, key=lambda x: sum(x.values()))[0]
+                    print color
+            newline += [color]
         image += [newline]
 
-    assert len(palette) <= 4, 'Palette should be 4 colors, is really %d' % len(palette)
+    assert len(palette) <= 4, '%s: palette should be 4 colors, is really %d: %s' % (filein, len(palette), palette)
 
     # Pad out smaller palettes with greyscale colors
     hues = {
-        'white': { 'r': 0xff, 'g': 0xff, 'b': 0xff, 'a': 0xff },
         'black': { 'r': 0x00, 'g': 0x00, 'b': 0x00, 'a': 0xff },
         'grey':  { 'r': 0x55, 'g': 0x55, 'b': 0x55, 'a': 0xff },
         'gray':  { 'r': 0xaa, 'g': 0xaa, 'b': 0xaa, 'a': 0xff },
+        'white': { 'r': 0xff, 'g': 0xff, 'b': 0xff, 'a': 0xff },
     }
-    for hue in hues.values():
+    preference = 'white', 'black', 'grey', 'gray'
+    for hue in map(hues.get, preference):
         if len(palette) >= 4:
             break
         if hue not in palette:
             palette += [hue]
 
-    # Sort palettes by luminance
-    def luminance(color):
-        rough = { 'r':  4.7,
-                  'g':  1.4,
-                  'b': 13.8, }
-        return sum(color[key] * rough[key] for key in rough.keys())
-    palette.sort(key=luminance)
+    palette.sort(key=lambda x: sum(x.values()))
 
     # Game Boy palette order
     palette.reverse()
