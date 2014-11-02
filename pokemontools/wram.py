@@ -58,7 +58,7 @@ class BSSReader:
 
         if token in ['ds', 'db', 'dw']:
             if any(params):
-                length = eval(rgbasm_to_py(params[0]), self.constants)
+                length = eval(rgbasm_to_py(params[0]), self.constants.copy())
             else:
                 length = {'ds': 1, 'db': 1, 'dw': 2}[token]
             self.address += length
@@ -172,7 +172,7 @@ class BSSReader:
                         real = split_line[index]
                         name, value = map(' '.join, [split_line[:index], split_line[index+1:]])
                         value = rgbasm_to_py(value)
-                        self.constants[name] = eval(value, self.constants)
+                        self.constants[name] = eval(value, self.constants.copy())
 
             else:
                 self.read_bss_line(line)
@@ -195,7 +195,7 @@ def scrape_constants(text):
     bss = BSSReader()
     bss.read_bss_sections(text)
     constants = bss.constants
-    return constants
+    return {v: k for k, v in constants.items()}
 
 def read_constants(filepath):
     """
