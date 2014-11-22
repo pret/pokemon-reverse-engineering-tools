@@ -5,6 +5,7 @@ import sys
 import png
 from math import sqrt, floor, ceil
 import argparse
+import yaml
 import operator
 
 import configuration
@@ -1174,32 +1175,79 @@ def png_to_rgb(palette):
     return output
 
 
-def read_filename_arguments(filename):
-    int_args = {
+def read_yaml_arguments(filename, yaml_filename = os.path.join(config.path, 'gfx.yaml'), path_arguments = ['pal_file']):
+
+    parsed_arguments = {}
+
+    # Read arguments from gfx.yaml if it exists.
+    if os.path.exists(yaml_filename):
+        yargs = yaml.load(open(yaml_filename))
+        dirs = os.path.splitext(filename)[0].split('/')
+        current_path = os.path.dirname(filename)
+        path = []
+        while yargs:
+            for key, value in yargs.items():
+                # Follow directories to the bottom while picking up keys.
+                # Try not to mistake other files for keys.
+                parsed_path = os.path.join( * (path + [key]) )
+                for guessed_path in map(parsed_path.__add__, ['', '.png']):
+                    if os.path.exists(guessed_path) or '.' in key:
+                        if guessed_path != filename:
+                            continue
+                if key in path_arguments:
+                    value = os.path.join(current_path, value)
+                parsed_arguments[key] = value
+            if not dirs:
+                break
+            yargs = yargs.get(dirs[0], {})
+            path.append(dirs.pop(0))
+
+    return parsed_arguments
+
+def read_filename_arguments(filename, yaml_filename = os.path.join(config.path, 'gfx.yaml'), path_arguments = ['pal_file']):
+    """
+    Infer graphics conversion arguments given a filename.
+
+    If it exists, ./gfx.yaml is traversed for arguments.
+    Then additional arguments within the filename (separated with ".") are grabbed.
+    """
+    parsed_arguments = {}
+
+    parsed_arguments.update(read_yaml_arguments(
+        filename,
+        yaml_filename  = yaml_filename,
+        path_arguments = path_arguments
+    ))
+
+    int_arguments = {
         'w': 'width',
         'h': 'height',
         't': 'tile_padding',
     }
-    parsed_arguments = {}
+    # Filename arguments override yaml.
     arguments = os.path.splitext(filename)[0].split('.')[1:]
     for argument in arguments:
+
+        # Check for integer arguments first (i.e. "w128").
         arg   = argument[0]
         param = argument[1:]
         if param.isdigit():
-            arg = int_args.get(arg, False)
+            arg = int_arguments.get(arg, False)
             if arg:
                 parsed_arguments[arg] = int(param)
-        elif argument == 'interleave':
-            parsed_arguments['interleave'] = True
-        elif argument == 'norepeat':
-            parsed_arguments['norepeat'] = True
+
         elif argument == 'arrange':
             parsed_arguments['norepeat'] = True
             parsed_arguments['tilemap']  = True
-        elif 'x' in argument:
+
+        # Pic dimensions (i.e. "6x6").
+        elif 'x' in argument and any(map(str.isdigit, argument)):
             w, h = argument.split('x')
             if w.isdigit() and h.isdigit():
                 parsed_arguments['pic_dimensions'] = (int(w), int(h))
+
+        else:
+            parsed_arguments[argument] = True
 
     return parsed_arguments
 
