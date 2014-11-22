@@ -5,17 +5,25 @@ import sys
 import png
 from math import sqrt, floor, ceil
 import argparse
+import operator
 
 import configuration
 config = configuration.Config()
 
-import pokemon_constants
+from pokemon_constants import pokemon_constants
 import trainers
 import romstr
 
 
-def load_rom():
-    rom = romstr.RomStr.load(filename=config.rom_path)
+
+bit_flipped = [
+    sum(((byte >> i) & 1) << (7 - i) for i in xrange(8))
+    for byte in xrange(0x100)
+]
+
+
+def load_rom(filename=config.rom_path):
+    rom = romstr.RomStr.load(filename=filename)
     return bytearray(rom)
 
 def rom_offset(bank, address):
@@ -124,19 +132,31 @@ def deinterleave_tiles(image, width):
     return connect(deinterleave(get_tiles(image), width))
 
 
-def condense_tiles_to_map(image):
+def condense_tiles_to_map(image, pic=0):
     tiles = get_tiles(image)
-    new_tiles = []
-    tilemap = []
-    for tile in tiles:
+
+    # Leave the first frame intact for pics.
+    new_tiles = tiles[:pic]
+    tilemap   = range(pic)
+
+    for i, tile in enumerate(tiles[pic:]):
         if tile not in new_tiles:
             new_tiles += [tile]
-        tilemap += [new_tiles.index(tile)]
+
+        # Match the first frame where possible.
+        if tile == new_tiles[i % pic]:
+            tilemap += [i % pic]
+        else:
+            tilemap += [new_tiles.index(tile)]
+
     new_image = connect(new_tiles)
     return new_image, tilemap
 
 
 def to_file(filename, data):
+    """
+    Apparently open(filename, 'wb').write(bytearray(data)) won't work.
+    """
     file = open(filename, 'wb')
     for byte in data:
         file.write('%c' % byte)
@@ -202,6 +222,7 @@ class Compressed:
     small = False
 
     # BUG: literal [00] is a byte longer than blank 1.
+    # In other words, blank's real minimum score is 1.
     # This bug exists in the target compressor as well,
     # so don't fix until we've given up on replicating it.
     min_scores = {
@@ -223,10 +244,16 @@ class Compressed:
         #'literal',
     ]
 
-    def __init__(self, data=None, commands=lz_commands, debug=False):
-        self.data = list(bytearray(data))
-        self.commands = commands
-        self.debug = debug
+    data = None
+    commands = lz_commands
+    debug = False
+    literal_only = False
+
+    arg_names = 'data', 'commands', 'debug', 'literal_only'
+
+    def __init__(self, *args, **kwargs):
+        self.__dict__.update(dict(zip(self.arg_names, args)))
+        self.__dict__.update(kwargs)
 
         if self.data is not None:
             self.compress()
@@ -259,7 +286,9 @@ class Compressed:
         return compare
 
     def precompute_repeat_matches(self):
-        """This is faster than redundantly searching each time repeats are scored."""
+        """
+        This is faster than redundantly searching each time repeats are scored.
+        """
         self.indexes = {}
         for byte in xrange(0x100):
             self.indexes[byte] = []
@@ -310,6 +339,8 @@ class Compressed:
         if data is not None:
             self.data = data
 
+        self.data = list(bytearray(self.data))
+
         self.address = 0
         self.end     = len(self.data)
         self.output  = []
@@ -338,8 +369,11 @@ class Compressed:
                 self.score_repeats(*args)
 
             # If the scores are too low, try again from the next byte.
-            if not any(
-                self.min_scores.get(name, score) + int(self.scores[name] > lowmax) < score
+
+            if self.literal_only or not any(
+                self.min_scores.get(name, score)
+                + int(self.scores[name] > lowmax)
+                < score
                 for name, score in self.scores.items()
             ):
                 self.literal += [self.read_byte()]
@@ -357,7 +391,7 @@ class Compressed:
         return self.output
 
     def bit_flip(self, byte):
-        return sum(((byte >> i) & 1) << (7 - i) for i in xrange(8))
+        return bit_flipped[byte]
 
     def do_literal(self):
         if self.literal:
@@ -366,7 +400,7 @@ class Compressed:
             self.literal = []
 
     def do_scored(self):
-        # Which command did the best?
+        # Which command will compress the longest chunk?
         winner, score = sorted(
             self.scores.items(),
             key = lambda (name, score): (
@@ -420,24 +454,41 @@ class Compressed:
 
 class Decompressed:
     """
-    Parse compressed data, usually 2bpp.
-
-    To decompress from an offset (i.e. in a rom), pass in <start>.
+    Interpret and decompress lz-compressed data, usually 2bpp.
     """
 
-    def __init__(self, lz=None, start=0, commands=lz_commands, debug=False):
+    """
+    Usage:
+        data = Decompressed(lz).output
+    or
+        data = Decompressed().decompress(lz)
+    or
+        d = Decompressed()
+        d.lz = lz
+        data = d.decompress()
 
-        self.lz = bytearray(lz)
-        self.commands = commands
+    To decompress from offset 0x80000 in a rom:
+        data = Decompressed(rom, start=0x80000).output
+    """
+
+    lz = None
+    start = 0
+    commands = lz_commands
+    debug = False
+
+    arg_names = 'lz', 'start', 'commands', 'debug'
+
+    def __init__(self, *args, **kwargs):
+        self.__dict__.update(dict(zip(self.arg_names, args)))
+        self.__dict__.update(kwargs)
+
         self.command_names = dict(map(reversed, self.commands.items()))
+        self.address = self.start
 
-        self.address = start
-        self.start   = start
+        if self.lz is not None:
+            self.decompress()
 
-        self.decompress()
-        self.compressed_data = self.lz[self.start : self.address]
-
-        if debug: print '({:x), {:x})'.format(self.start, self.address)
+        if self.debug: print self.command_list()
 
 
     def command_list(self):
@@ -445,78 +496,44 @@ class Decompressed:
         Print a list of commands that were used. Useful for debugging.
         """
 
-        data = bytearray(self.compressed_data)
-        data_list = list(data)
-
         text = ''
-        address = 0
-        head = 0
 
-        while 1:
-            offset = 0
-
-            cmd_addr = address
-            byte = data[address]
-            address += 1
-
-            if byte == lz_end:
-                break
-
-            cmd = (byte >> 5) & 0b111
-
-            if cmd == self.commands['long']:
-                cmd = (byte >> 2) & 0b111
-                length = (byte & 0b11) * 0x100
-                length += data[address]
-                address += 1
-            else:
-                length = byte & 0b11111
-
-            length += 1
-
-            name = self.command_names[cmd]
-
-            if name == 'iterate':
-                address += 1
-
-            elif name == 'alternate':
-                address += 2
-
-            elif name in ['repeat', 'reverse', 'flip']:
-                if data[address] < 0x80:
-                    offset = data[address] * 0x100 + data[address + 1]
-                    address += 2
-                else:
-                    offset = head - (data[address] & 0x7f) - 1
-                    address += 1
-
-            elif name == 'literal':
-                address += length
+        for name, attrs in self.used_commands:
+            length     = attrs['length']
+            address    = attrs['address']
+            offset     = attrs['offset']
+            direction  = attrs['direction']
 
             text += '{0}: {1}'.format(name, length)
-            text += '\t' + ' '.join(map('{:02x}'.format, data_list[cmd_addr:address]))
+            text += '\t' + ' '.join(
+                '{:02x}'.format(int(byte))
+                for byte in self.lz[ address : address + attrs['cmd_length'] ]
+            )
 
-            if name in ['repeat', 'reverse', 'flip']:
-
-                bites = self.output[ offset : offset + length ]
-                if name == 'reverse':
-                    bites = self.output[ offset : offset - length : -1 ]
-
-                text += ' [' + ' '.join(map('{:02x}'.format, bites)) + ']'
+            if offset is not None:
+                repeated_data = self.output[ offset : offset + length * direction : direction ]
+                text += ' [' + ' '.join(map('{:02x}'.format, repeated_data)) + ']'
 
             text += '\n'
-
-            head += length
-
 
         return text
 
 
-    def decompress(self):
+    def decompress(self, lz=None):
 
+        if lz is not None:
+            self.lz = lz
+
+        self.lz = bytearray(self.lz)
+
+        self.used_commands = []
         self.output = []
 
         while 1:
+
+            cmd_address = self.address
+            self.offset = None
+            self.direction = None
 
             if (self.byte == lz_end):
                 self.next()
@@ -533,17 +550,21 @@ class Decompressed:
                 # 5-bit length
                 self.length = (self.next() & 0b00011111) + 1
 
-            do = {
-                'literal':   self.doLiteral,
-                'iterate':   self.doIter,
-                'alternate': self.doAlt,
-                'blank':     self.doZeros,
-                'flip':      self.doFlip,
-                'reverse':   self.doReverse,
-                'repeat':    self.doRepeat,
-            }[ self.cmd_name ]
+            self.__class__.__dict__[self.cmd_name](self)
 
-            do()
+            self.used_commands += [(
+                self.cmd_name,
+                {
+                    'length':     self.length,
+                    'address':    cmd_address,
+                    'offset':     self.offset,
+                    'cmd_length': self.address - cmd_address,
+                    'direction':  self.direction,
+                }
+            )]
+
+        # Keep track of the data we just decompressed.
+        self.compressed_data = self.lz[self.start : self.address]
 
 
     @property
@@ -574,66 +595,59 @@ class Decompressed:
         self.offset = offset
 
 
-    def doLiteral(self):
+    def literal(self):
         """
         Copy data directly.
         """
         self.output  += self.lz[ self.address : self.address + self.length ]
         self.address += self.length
 
-    def doIter(self):
+    def iterate(self):
         """
         Write one byte repeatedly.
         """
         self.output += [self.next()] * self.length
 
-    def doAlt(self):
+    def alternate(self):
         """
         Write alternating bytes.
         """
         alts = [self.next(), self.next()]
         self.output += [ alts[x & 1] for x in xrange(self.length) ]
 
-        #alts = [self.next(), self.next()] * (self.length / 2 + 1)
-        #self.output += alts[:self.length]
-
-    def doZeros(self):
+    def blank(self):
         """
         Write zeros.
         """
         self.output += [0] * self.length
 
-    def doFlip(self):
+    def flip(self):
         """
         Repeat flipped bytes from output.
 
-        eg  11100100 -> 00100111
-        quat 3 2 1 0 ->  0 2 1 3
+        Example: 11100100 -> 00100111
         """
-        self.get_offset()
-        # Note: appends must be one at a time (this way, repeats can draw from themselves if required)
-        for i in xrange(self.length):
-            byte = self.output[ self.offset + i ]
-            flipped = sum( 1 << (7 - j) for j in xrange(8) if (byte >> j) & 1)
-            self.output.append(flipped)
+        self._repeat(table=bit_flipped)
 
-    def doReverse(self):
+    def reverse(self):
         """
         Repeat reversed bytes from output.
         """
-        self.get_offset()
-        # Note: appends must be one at a time (this way, repeats can draw from themselves if required)
-        for i in xrange(self.length):
-            self.output.append( self.output[ self.offset - i ] )
+        self._repeat(direction=-1)
 
-    def doRepeat(self):
+    def repeat(self):
         """
         Repeat bytes from output.
         """
+        self._repeat()
+
+    def _repeat(self, direction=1, table=None):
         self.get_offset()
+        self.direction = direction
         # Note: appends must be one at a time (this way, repeats can draw from themselves if required)
         for i in xrange(self.length):
-            self.output.append( self.output[ self.offset + i ] )
+            byte = self.output[ self.offset + i * direction ]
+            self.output.append( table[byte] if table else byte )
 
 
 
@@ -1002,7 +1016,7 @@ def dump_monster_pals():
     pal_length = 0x4
     for mon in range(251):
 
-        name     = pokemon_constants.pokemon_constants[mon+1].title().replace('_','')
+        name     = pokemon_constants[mon+1].title().replace('_','')
         num      = str(mon+1).zfill(3)
         dir      = 'gfx/pics/'+num+'/'
 
@@ -1321,24 +1335,171 @@ def convert_2bpp_to_png(image, **kwargs):
     return width, height, palette, greyscale, bitdepth, px_map
 
 
-def export_png_to_2bpp(filein, fileout=None, palout=None, tile_padding=0, pic_dimensions=None):
+def get_pic_animation(tmap, w, h):
+    """
+    Generate pic animation data from a combined tilemap of each frame.
+    """
+
+    frame_text = ''
+    bitmask_text = ''
+
+    frames = list(split(tmap, w * h))
+    bitmasks = []
+
+    frame_text += ''.join(
+        '\tdw .frame{0}\n'.format(i + 1) for i, frame in enumerate(frames[1:])
+    )
+
+    for i, frame in enumerate(frames[1:]):
+        bitmask = map(
+            lambda (i, x):
+                int(x != frames[0][i]),
+            enumerate(frame)
+        )
+        if bitmask not in bitmasks:
+            bitmasks.append(bitmask)
+        which_bitmask = bitmasks.index(bitmask)
+
+        frame_ = [x for _, x in filter(lambda (i, x): bitmask[i], enumerate(frame))]
+        frame_text += '\n'.join([
+            '.frame{0}'.format(i + 1),
+            '\tdb ${0:02x} ; bitmask'.format(which_bitmask),
+            ('\tdb ' + ', '.join(map('${0:02x}'.format, frame_))) if frame_ else '',
+        ]) + '\n'
+
+    for i, bitmask in enumerate(bitmasks):
+        bitmask_text += '; {0}\n'.format(i)
+        for byte in split(bitmask, 8):
+            byte.reverse()
+            byte = int(''.join(map(str, byte)), 2)
+            bitmask_text += '\tdb %{0:08b}\n'.format(byte)
+
+    return frame_text, bitmask_text
+
+
+def dump_pic_animations(addresses={'bitmasks': 'BitmasksPointers', 'frames': 'FramesPointers'}, pokemon=pokemon_constants, rom=load_rom()):
+    """
+    The code to dump pic animations from rom is mysteriously absent.
+    Here it is again, but now it dumps images instead of text.
+    Said text can then be derived from the images.
+    """
+    # Labels can be passed in instead of raw addresses.
+    for which, offset in addresses.items():
+        if type(offset) is str:
+            for line in open('pokecrystal.sym').readlines():
+                if offset in line.split():
+                    addresses[which] = rom_offset(*map(lambda x: int(x, 16), line[:7].split(':')))
+                    break
+
+    for i, name in pokemon.items():
+        if name.lower() == 'unown': continue
+
+        i -= 1
+
+        directory = os.path.join('gfx', 'pics', name.lower())
+        size = sizes[i]
+
+        if i > 151 - 1:
+            bank = 0x36
+        else:
+            bank = 0x35
+        address = addresses['frames'] + i * 2
+        address = rom_offset(bank, rom[address] + rom[address + 1] * 0x100)
+        addrs = []
+        while address not in addrs:
+            addr = rom[address] + rom[address + 1] * 0x100
+            addrs.append(rom_offset(bank, addr))
+            address += 2
+        num_frames = len(addrs)
+
+        # To go any further, we need bitmasks.
+        # Bitmasks need the number of frames, which we now have.
+
+        bank = 0x34
+        address = addresses['bitmasks'] + i * 2
+        address = rom_offset(bank, rom[address] + rom[address + 1] * 0x100)
+        length = size ** 2
+        num_bytes = (length + 7) / 8
+        bitmasks = []
+        for _ in xrange(num_frames):
+            bitmask = []
+            bytes_ = rom[ address : address + num_bytes ]
+            for byte in bytes_:
+                bits = map(int, bin(byte)[2:].zfill(8))
+                bits.reverse()
+                bitmask += bits
+            bitmasks.append(bitmask)
+            address += num_bytes
+
+        # Back to frames:
+        frames = []
+        for addr in addrs:
+            bitmask = bitmasks[rom[addr]]
+            num_tiles = len(filter(int, bitmask))
+            frame = (rom[addr], rom[addr + 1 : addr + 1 + num_tiles])
+            frames.append(frame)
+
+        tmap = range(length) * (len(frames) + 1)
+        for i, frame in enumerate(frames):
+            bitmask = bitmasks[frame[0]]
+            tiles = (x for x in frame[1])
+            for j, bit in enumerate(bitmask):
+                if bit:
+                    tmap[(i + 1) * length + j] = tiles.next()
+
+        filename = os.path.join(directory, 'front.{0}x{0}.2bpp.lz'.format(size))
+        tiles = get_tiles(Decompressed(open(filename).read()).output)
+        new_tiles = map(tiles.__getitem__, tmap)
+        new_image = connect(new_tiles)
+        filename = os.path.splitext(filename)[0]
+        to_file(filename, new_image)
+        export_2bpp_to_png(filename)
+
+
+def export_png_to_2bpp(filein, fileout=None, palout=None, **kwargs):
 
     arguments = {
-        'tile_padding': tile_padding,
-        'pic_dimensions': pic_dimensions,
+        'tile_padding': 0,
+        'pic_dimensions': None,
+        'animate': False,
+        'stupid_bitmask_hack': [],
     }
+    arguments.update(kwargs)
     arguments.update(read_filename_arguments(filein))
 
-    image, palette, tmap = png_to_2bpp(filein, **arguments)
+    image, arguments = png_to_2bpp(filein, **arguments)
 
     if fileout == None:
         fileout = os.path.splitext(filein)[0] + '.2bpp'
     to_file(fileout, image)
 
-    if tmap != None:
-        mapout = os.path.splitext(fileout)[0] + '.tilemap'
-        to_file(mapout, tmap)
+    tmap = arguments.get('tmap')
 
+    if tmap != None and arguments['animate'] and arguments['pic_dimensions']:
+        # Generate pic animation data.
+        frame_text, bitmask_text = get_pic_animation(tmap, *arguments['pic_dimensions'])
+
+        frames_path = os.path.join(os.path.split(fileout)[0], 'frames.asm')
+        with open(frames_path, 'w') as out:
+            out.write(frame_text)
+
+        bitmask_path = os.path.join(os.path.split(fileout)[0], 'bitmask.asm')
+
+        # The following Pokemon have a bitmask dummied out.
+        for exception in arguments['stupid_bitmask_hack']:
+           if exception in bitmask_path:
+                bitmasks = bitmask_text.split(';')
+                bitmasks[-1] = bitmasks[-1].replace('1', '0')
+                bitmask_text = ';'.join(bitmasks)
+
+        with open(bitmask_path, 'w') as out:
+            out.write(bitmask_text)
+
+    elif tmap != None and arguments.get('tilemap', False):
+        tilemap_path = os.path.splitext(fileout)[0] + '.tilemap'
+        to_file(tilemap_path, tmap)
+
+    palette = arguments.get('palette')
     if palout == None:
         palout = os.path.splitext(fileout)[0] + '.pal'
     export_palette(palette, palout)
@@ -1371,28 +1532,30 @@ def png_to_2bpp(filein, **kwargs):
     Convert a png image to planar 2bpp.
     """
 
-    tile_padding   = kwargs.get('tile_padding', 0)
-    pic_dimensions = kwargs.get('pic_dimensions', None)
-    interleave     = kwargs.get('interleave', False)
-    norepeat       = kwargs.get('norepeat', False)
-    tilemap        = kwargs.get('tilemap', False)
+    arguments = {
+        'tile_padding': 0,
+        'pic_dimensions': False,
+        'interleave': False,
+        'norepeat': False,
+        'tilemap': False,
+    }
+    arguments.update(kwargs)
 
-    with open(filein, 'rb') as data:
-        width, height, rgba, info = png.Reader(data).asRGBA8()
-        rgba = list(rgba)
-        greyscale = info['greyscale']
+    if type(filein) is str:
+        filein = open(filein)
+
+    assert type(filein) is file
+
+    width, height, rgba, info = png.Reader(filein).asRGBA8()
 
     # png.Reader returns flat pixel data. Nested is easier to work with
-    len_px  = 4 # rgba
+    len_px  = len('rgba')
     image   = []
     palette = []
     for line in rgba:
         newline = []
         for px in xrange(0, len(line), len_px):
-            color = { 'r': line[px  ],
-                      'g': line[px+1],
-                      'b': line[px+2],
-                      'a': line[px+3], }
+            color = dict(zip('rgba', line[px:px+len_px]))
             if color not in palette:
                 if len(palette) < 4:
                     palette += [color]
@@ -1404,17 +1567,17 @@ def png_to_2bpp(filein, **kwargs):
             newline += [color]
         image += [newline]
 
-    assert len(palette) <= 4, '%s: palette should be 4 colors, is really %d: %s' % (filein, len(palette), palette)
+    assert len(palette) <= 4, '%s: palette should be 4 colors, is really %d (%s)' % (filein, len(palette), palette)
 
     # Pad out smaller palettes with greyscale colors
-    hues = {
+    greyscale = {
         'black': { 'r': 0x00, 'g': 0x00, 'b': 0x00, 'a': 0xff },
         'grey':  { 'r': 0x55, 'g': 0x55, 'b': 0x55, 'a': 0xff },
         'gray':  { 'r': 0xaa, 'g': 0xaa, 'b': 0xaa, 'a': 0xff },
         'white': { 'r': 0xff, 'g': 0xff, 'b': 0xff, 'a': 0xff },
     }
     preference = 'white', 'black', 'grey', 'gray'
-    for hue in map(hues.get, preference):
+    for hue in map(greyscale.get, preference):
         if len(palette) >= 4:
             break
         if hue not in palette:
@@ -1464,8 +1627,16 @@ def png_to_2bpp(filein, **kwargs):
                     top += (quad /2 & 1) << (7 - bit)
                 image += [bottom, top]
 
-    if pic_dimensions:
-        w, h = pic_dimensions
+    dim = arguments['pic_dimensions']
+    if dim:
+        if type(dim) in (tuple, list):
+            w, h = dim
+        else:
+            # infer dimensions based on width.
+            w = width / tile_width
+            h = height / tile_height
+            if h % w == 0:
+                h = w
 
         tiles = get_tiles(image)
         pic_length = w * h
@@ -1483,17 +1654,23 @@ def png_to_2bpp(filein, **kwargs):
         image = connect(new_image)
 
     # Remove any tile padding used to make the png rectangular.
-    image = image[:len(image) - tile_padding * 0x10]
+    image = image[:len(image) - arguments['tile_padding'] * 0x10]
 
-    if interleave:
+    tmap = None
+
+    if arguments['interleave']:
         image = deinterleave_tiles(image, num_columns)
 
-    if norepeat:
+    if arguments['pic_dimensions']:
+        image, tmap = condense_tiles_to_map(image, w * h)
+    elif arguments['norepeat']:
         image, tmap = condense_tiles_to_map(image)
-    if not tilemap:
-        tmap = None
+        if not arguments['tilemap']:
+            tmap = None
 
-    return image, palette, tmap
+    arguments.update({ 'palette': palette, 'tmap': tmap, })
+
+    return image, arguments
 
 
 def export_palette(palette, filename):
@@ -1583,7 +1760,7 @@ def export_png_to_1bpp(filename, fileout=None):
     to_file(fileout, image)
 
 def png_to_1bpp(filename, **kwargs):
-    image, palette, tmap = png_to_2bpp(filename, **kwargs)
+    image, kwargs = png_to_2bpp(filename, **kwargs)
     return convert_2bpp_to_1bpp(image)
 
 
