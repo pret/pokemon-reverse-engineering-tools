@@ -1,5 +1,5 @@
 /*
- * Copyright © 2011 IIMarckus <iimarckus@gmail.com>
+ * Copyright © 2011, 2014 IIMarckus <iimarckus@gmail.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -23,11 +23,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 void
 usage()
 {
-	fprintf(stderr, "Usage: redrle [-d] infile outfile\n");
+	fprintf(stderr, "Usage: redrle [-dr] infile outfile\n");
 	exit(1);
 }
 
@@ -35,15 +36,28 @@ int
 main(int argc, char *argv[])
 {
 	FILE *infile, *outfile;
+	int ch;
 	bool d = false; /* compress or decompress flag */
+	bool rows = false; /* compress individual rows or entire file */
 
-	if (argc < 3 || argc > 4)
-		usage();
-
-	if (strcmp(argv[1], "-d") == 0) {
-		if (argc != 4)
+	while ((ch = getopt(argc, argv, "dr")) != -1) {
+		switch(ch) {
+		case 'd':
+			d = true;
+			break;
+		case 'r':
+			rows = true;
+			break;
+		default:
 			usage();
-		d = true;
+			/* NOTREACHED */
+		}
+	}
+	argc -= optind;
+	argv += optind;
+
+	if (argc < 2) {
+		usage();
 	}
 
 	infile = fopen(argv[argc - 2], "rb");
@@ -80,17 +94,37 @@ main(int argc, char *argv[])
 				fputc(byte, outfile);
 		}
 	} else { /* compress */
-		int byte, count = 0, lastbyte = 0;
+		int byte, count = 0, lastbyte = 0, xpos = 0;
 		for (;;) {
 			byte = fgetc(infile);
 
 			if (feof(infile)) {
 				while (count > 0xF) {
+					if (rows && 20 - xpos <= 0xF) {
+						count -= (20 - xpos);
+						fputc(lastbyte << 4 |
+						    (20 - xpos), outfile);
+						xpos = 0;
+						continue;
+					}
 					count -= 0xF;
 					fputc(lastbyte << 4 | 0xF, outfile);
+					xpos += 0xF;
+					if (xpos == 20)
+						xpos = 0;
 				}
 				if (count != 0) {
+					if (rows && 20 - xpos < count) {
+						count -= (20 - xpos);
+						fputc(lastbyte << 4 |
+						    (20 - xpos), outfile);
+						xpos = 0;
+					}
 					fputc(lastbyte << 4 | count, outfile);
+					xpos += count;
+					if (xpos == 20)
+						xpos = 0;
+					count = 0;
 				}
 				break;
 			}
@@ -105,11 +139,30 @@ main(int argc, char *argv[])
 				++count;
 			else {
 				while (count > 0xF) {
+					if (rows && 20 - xpos <= 0xF) {
+						count -= (20 - xpos);
+						fputc(lastbyte << 4 |
+						    (20 - xpos), outfile);
+						xpos = 0;
+						continue;
+					}
 					count -= 0xF;
 					fputc(lastbyte << 4 | 0xF, outfile);
+					xpos += 0xF;
+					if (xpos == 20)
+						xpos = 0;
 				}
 				if (count != 0) {
+					if (rows && 20 - xpos < count) {
+						count -= (20 - xpos);
+						fputc(lastbyte << 4 |
+						    (20 - xpos), outfile);
+						xpos = 0;
+					}
 					fputc(lastbyte << 4 | count, outfile);
+					xpos += count;
+					if (xpos == 20)
+						xpos = 0;
 					count = 0;
 				}
 
