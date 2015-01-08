@@ -32,6 +32,15 @@ usage()
 	exit(1);
 }
 
+void
+squash(int threshold, FILE *f, int lastbyte, int *count, int *xpos)
+{
+	fputc(lastbyte << 4 | threshold, f);
+	*xpos += threshold;
+	*xpos %= 20;
+	*count -= threshold;
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -101,30 +110,20 @@ main(int argc, char *argv[])
 			if (feof(infile)) {
 				while (count > 0xF) {
 					if (rows && 20 - xpos <= 0xF) {
-						count -= (20 - xpos);
-						fputc(lastbyte << 4 |
-						    (20 - xpos), outfile);
-						xpos = 0;
+						squash(20 - xpos, outfile,
+						    lastbyte, &count, &xpos);
 						continue;
 					}
-					count -= 0xF;
-					fputc(lastbyte << 4 | 0xF, outfile);
-					xpos += 0xF;
-					if (xpos == 20)
-						xpos = 0;
+					squash(0xF, outfile, lastbyte, &count,
+					    &xpos);
 				}
 				if (count != 0) {
 					if (rows && 20 - xpos < count) {
-						count -= (20 - xpos);
-						fputc(lastbyte << 4 |
-						    (20 - xpos), outfile);
-						xpos = 0;
+						squash(20 - xpos, outfile,
+						    lastbyte, &count, &xpos);
 					}
-					fputc(lastbyte << 4 | count, outfile);
-					xpos += count;
-					if (xpos == 20)
-						xpos = 0;
-					count = 0;
+					squash(count, outfile, lastbyte,
+					    &count, &xpos);
 				}
 				break;
 			}
@@ -140,30 +139,20 @@ main(int argc, char *argv[])
 			else {
 				while (count > 0xF) {
 					if (rows && 20 - xpos <= 0xF) {
-						count -= (20 - xpos);
-						fputc(lastbyte << 4 |
-						    (20 - xpos), outfile);
-						xpos = 0;
+						squash(20 - xpos, outfile,
+						    lastbyte, &count, &xpos);
 						continue;
 					}
-					count -= 0xF;
-					fputc(lastbyte << 4 | 0xF, outfile);
-					xpos += 0xF;
-					if (xpos == 20)
-						xpos = 0;
+					squash(0xF, outfile, lastbyte, &count,
+					    &xpos);
 				}
 				if (count != 0) {
 					if (rows && 20 - xpos < count) {
-						count -= (20 - xpos);
-						fputc(lastbyte << 4 |
-						    (20 - xpos), outfile);
-						xpos = 0;
+						squash(20 - xpos, outfile,
+						    lastbyte, &count, &xpos);
 					}
-					fputc(lastbyte << 4 | count, outfile);
-					xpos += count;
-					if (xpos == 20)
-						xpos = 0;
-					count = 0;
+					squash(count, outfile, lastbyte,
+					    &count, &xpos);
 				}
 
 				lastbyte = byte;
