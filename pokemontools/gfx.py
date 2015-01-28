@@ -1095,7 +1095,7 @@ def read_filename_arguments(filename):
         't': 'tile_padding',
     }
     parsed_arguments = {}
-    arguments = os.path.splitext(filename)[0].split('.')[1:]
+    arguments = os.path.splitext(filename)[0].lstrip('.').split('.')[1:]
     for argument in arguments:
         arg   = argument[0]
         param = argument[1:]
