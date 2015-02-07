@@ -197,7 +197,7 @@ lz_commands.update({
     'long':      7, # n is now 10 bits for a new control code
 })
 max_length = 1 << 10 # can't go higher than 10 bits
-lowmax = 1 << 5 # standard 5-bit param
+lowmax     = 1 <<  5 # standard 5-bit param
 
 """
 If 0xff is encountered instead of a command, decompression ends.
@@ -373,7 +373,7 @@ class Compressed:
 
             if self.literal_only or not any(
                 self.min_scores.get(name, score)
-                + int(self.scores[name] > lowmax)
+                + int(score > lowmax)
                 < score
                 for name, score in self.scores.items()
             ):
