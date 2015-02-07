@@ -1387,40 +1387,38 @@ def get_pic_animation(tmap, w, h):
     """
     Generate pic animation data from a combined tilemap of each frame.
     """
-
     frame_text = ''
     bitmask_text = ''
 
     frames = list(split(tmap, w * h))
+    base = frames.pop(0)
     bitmasks = []
 
-    frame_text += ''.join(
-        '\tdw .frame{0}\n'.format(i + 1) for i, frame in enumerate(frames[1:])
-    )
+    for i in xrange(len(frames)):
+        frame_text += '\tdw .frame{}\n'.format(i + 1)
 
-    for i, frame in enumerate(frames[1:]):
-        bitmask = map(
-            lambda (i, x):
-                int(x != frames[0][i]),
-            enumerate(frame)
-        )
+    for i, frame in enumerate(frames):
+        bitmask = map(operator.eq, frame, base)
         if bitmask not in bitmasks:
             bitmasks.append(bitmask)
         which_bitmask = bitmasks.index(bitmask)
 
-        frame_ = [x for _, x in filter(lambda (i, x): bitmask[i], enumerate(frame))]
-        frame_text += '\n'.join([
-            '.frame{0}'.format(i + 1),
-            '\tdb ${0:02x} ; bitmask'.format(which_bitmask),
-            ('\tdb ' + ', '.join(map('${0:02x}'.format, frame_))) if frame_ else '',
-        ]) + '\n'
+        mask = iter(bitmask)
+        masked_frame = filter(mask.next, frame)
+
+        frame_text += '.frame{}\n'.format(i + 1)
+        frame_text += '\tdb ${:02x} ; bitmask\n'.format(which_bitmask)
+        if masked_frame:
+            frame_text += '\tdb {}\n'.format(', '.join(
+                map('${:02x}'.format, masked_frame)
+            ))
+        frame_text += '\n'
 
     for i, bitmask in enumerate(bitmasks):
-        bitmask_text += '; {0}\n'.format(i)
+        bitmask_text += '; {}\n'.format(i)
         for byte in split(bitmask, 8):
-            byte.reverse()
-            byte = int(''.join(map(str, byte)), 2)
-            bitmask_text += '\tdb %{0:08b}\n'.format(byte)
+            byte = int(''.join(map(int.__repr__, reversed(byte))), 2)
+            bitmask_text += '\tdb %{:08b}\n'.format(byte)
 
     return frame_text, bitmask_text
 
