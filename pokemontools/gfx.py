@@ -736,7 +736,7 @@ def read_filename_arguments(filename, yaml_filename = os.path.join(config.path, 
         't': 'tile_padding',
     }
     # Filename arguments override yaml.
-    arguments = os.path.splitext(filename)[0].split('.')[1:]
+    arguments = os.path.splitext(filename)[0].lstrip('.').split('.')[1:]
     for argument in arguments:
 
         # Check for integer arguments first (i.e. "w128").
