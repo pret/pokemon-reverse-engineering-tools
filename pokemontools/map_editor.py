@@ -520,23 +520,31 @@ def get_available_maps(config=config):
             if ext == '.blk':
                 yield base_name
 
+def get_macro_text(asm, macro_name, name=''):
+    lines = asm.split('\n')
+    index = None
+    for i, line in enumerate(lines):
+        if macro_name in line and name in line:
+            line, comment = preprocessor.separate_comment(line + '\n')
+            return line
+
 def map_header(name, config=config):
     if config.version == 'crystal':
         headers = open(os.path.join(config.header_dir, 'map_headers.asm'), 'r').read()
-        label = name + '_MapHeader'
-        header = asm_at_label(headers, label)
-        macros = [ 'db', 'db', 'db', 'dw', 'db', 'db', 'db', 'db' ]
+
+        line = get_macro_text(headers, 'map_header', name)
+        values = macro_values(line, 'map_header')
+
         attributes = [
-            'bank',
+            'label',
             'tileset_id',
             'permission',
-            'second_map_header',
             'world_map_location',
             'music',
             'time_of_day',
             'fishing_group',
         ]
-        values, l = read_header_macros(header, attributes, macros)
+
         attrs = dict(zip(attributes, values))
         return attrs
 
@@ -580,24 +588,25 @@ def map_header(name, config=config):
 def second_map_header(name, config=config):
     if config.version == 'crystal':
         headers = open(os.path.join(config.header_dir, 'second_map_headers.asm'), 'r').read()
-        label = name + '_SecondMapHeader'
-        header = asm_at_label(headers, label)
-        macros = [ 'db', 'db', 'db', 'db', 'dw', 'db', 'dw', 'dw', 'db' ]
+
+        line = get_macro_text(headers, 'map_header_2', name)
+        values = macro_values(line, 'map_header_2')
+
         attributes = [
+            'label_2',
+            'map_constant',
             'border_block',
-            'height',
-            'width',
-            'blockdata_bank',
-            'blockdata_label',
-            'script_header_bank',
-            'script_header_label',
-            'map_event_header_label',
             'which_connections',
         ]
 
-        values, l = read_header_macros(header, attributes, macros)
+        #values, l = read_header_macros(header, attributes, macros)
+
         attrs = dict(zip(attributes, values))
-        attrs['connections'], l = connections(attrs['which_connections'], header, l)
+        #attrs['connections'], l = connections(attrs['which_connections'], header, l)
+
+        attrs['height'] = attrs['map_constant'] + '_HEIGHT'
+        attrs['width'] = attrs['map_constant'] + '_WIDTH'
+
         return attrs
 
     return {}
@@ -666,8 +675,8 @@ def macro_values(line, macro):
         values = values[1:]
     return values
 
-def asm_at_label(asm, label):
-    label_def = label + ':'
+def asm_at_label(asm, label, delimiter=':'):
+    label_def = label + delimiter
     lines = asm.split('\n')
     for line in lines:
         if line.startswith(label_def):
