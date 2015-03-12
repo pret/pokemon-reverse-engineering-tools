@@ -370,7 +370,8 @@ class Sound:
 		self.asms = []
 		self.parse()
 
-	def parse(self):
+
+	def parse_header(self):
 		self.num_channels = (rom[self.address] >> 6) + 1
 		self.channels = []
 		for ch in xrange(self.num_channels):
@@ -383,9 +384,9 @@ class Sound:
 			self.channels += [(current_channel, channel)]
 			self.labels += channel.labels
 
-		asms = []
 
-		asms += [generate_label_asm(self.base_label, self.start_address)]
+	def make_header(self):
+		asms = []
 
 		for i, (num, channel) in enumerate(self.channels):
 			channel_id = num - 1
@@ -397,15 +398,26 @@ class Sound:
 
 		comment_text = '; %x\n' % self.address
 		asms += [(self.address, comment_text, self.address)]
+		return asms
+
+
+	def parse(self):
+		self.parse_header()
+
+		asms = []
+
+		asms += [generate_label_asm(self.base_label, self.start_address)]
+		asms += self.make_header()
 
 		for num, channel in self.channels:
 			asms += channel.output
 
 		asms = sort_asms(asms)
-		self.last_address = asms[-1][2]
+		_, _, self.last_address = asms[-1]
 		asms += [(self.last_address,'; %x\n' % self.last_address, self.last_address)]
 
 		self.asms += asms
+
 
 	def to_asm(self, labels=[]):
 		"""insert outside labels here"""

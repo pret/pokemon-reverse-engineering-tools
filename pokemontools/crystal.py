@@ -913,7 +913,7 @@ class PointerLabelParam(MultiByteParam):
                 lo, hi = self.bytes[1:3]
             else:
                 lo, hi = self.bytes[0:2]
-            pointer_part = "{0}{1:2x}{2:2x}".format(self.prefix, hi, lo)
+            pointer_part = "{0}{1:02x}{2:02x}".format(self.prefix, hi, lo)
 
         # bank positioning matters!
         if bank == True or bank == "reverse": # bank, pointer
