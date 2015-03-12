@@ -934,12 +934,15 @@ def get_pic_animation(tmap, w, h):
     return frame_text, bitmask_text
 
 
-def dump_pic_animations(addresses={'bitmasks': 'BitmasksPointers', 'frames': 'FramesPointers'}, pokemon=pokemon_constants, rom=load_rom()):
+def dump_pic_animations(addresses={'bitmasks': 'BitmasksPointers', 'frames': 'FramesPointers'}, pokemon=pokemon_constants, rom=None):
     """
     The code to dump pic animations from rom is mysteriously absent.
     Here it is again, but now it dumps images instead of text.
     Said text can then be derived from the images.
     """
+
+    if rom is None: rom = load_rom()
+
     # Labels can be passed in instead of raw addresses.
     for which, offset in addresses.items():
         if type(offset) is str:
