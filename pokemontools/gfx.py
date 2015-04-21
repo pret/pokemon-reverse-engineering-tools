@@ -141,8 +141,9 @@ def condense_tiles_to_map(image, pic=0):
             new_tiles += [tile]
 
         # Match the first frame where possible.
-        if tile == new_tiles[i % pic]:
-            tilemap += [i % pic]
+	this_i = i % pic if pic else i
+        if tile == new_tiles[this_i]:
+            tilemap += [this_i]
         else:
             tilemap += [new_tiles.index(tile)]
 
