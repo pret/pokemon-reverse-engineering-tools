@@ -699,7 +699,6 @@ def read_filename_arguments(filename):
         'h': 'height',
         't': 'tile_padding',
     }
-    # Filename arguments override yaml.
     arguments = os.path.splitext(filename)[0].lstrip('.').split('.')[1:]
     for argument in arguments:
 
@@ -873,13 +872,13 @@ def get_pic_animation(tmap, w, h):
         frame_text += '\tdw .frame{}\n'.format(i + 1)
 
     for i, frame in enumerate(frames):
-        bitmask = map(operator.eq, frame, base)
+        bitmask = map(operator.ne, frame, base)
         if bitmask not in bitmasks:
             bitmasks.append(bitmask)
         which_bitmask = bitmasks.index(bitmask)
 
         mask = iter(bitmask)
-        masked_frame = filter(mask.next, frame)
+        masked_frame = filter(lambda _: mask.next(), frame)
 
         frame_text += '.frame{}\n'.format(i + 1)
         frame_text += '\tdb ${:02x} ; bitmask\n'.format(which_bitmask)
@@ -887,7 +886,6 @@ def get_pic_animation(tmap, w, h):
             frame_text += '\tdb {}\n'.format(', '.join(
                 map('${:02x}'.format, masked_frame)
             ))
-        frame_text += '\n'
 
     for i, bitmask in enumerate(bitmasks):
         bitmask_text += '; {}\n'.format(i)
