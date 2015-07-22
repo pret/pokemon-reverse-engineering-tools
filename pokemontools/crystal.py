@@ -1453,15 +1453,26 @@ class DataByteWordMacro(Command):
     def to_asm(self): pass
 
 
-event_flags = wram.read_constants(os.path.join(conf.path, 'constants/event_flags.asm'))
-engine_flags = wram.read_constants(os.path.join(conf.path, 'constants/engine_flags.asm'))
+event_flags = None
+def read_event_flags():
+    global event_flags
+    constants = wram.read_constants(os.path.join(conf.path, 'constants.asm'))
+    event_flags = dict(filter(lambda (key, value): value.startswith('EVENT_'), constants.items()))
+
+engine_flags = None
+def read_engine_flags():
+    global engine_flags
+    constants = wram.read_constants(os.path.join(conf.path, 'constants.asm'))
+    engine_flags = dict(filter(lambda (key, value): value.startswith('ENGINE_'), constants.items()))
 
 class EventFlagParam(MultiByteParam):
     def to_asm(self):
-	return event_flags.get(self.parsed_number) or MultiByteParam.to_asm(self)
+        if event_flags is None: read_event_flags()
+        return event_flags.get(self.parsed_number) or MultiByteParam.to_asm(self)
 
 class EngineFlagParam(MultiByteParam):
     def to_asm(self):
+        if engine_flags is None: read_engine_flags()
         return engine_flags.get(self.parsed_number) or MultiByteParam.to_asm(self)
 
 
