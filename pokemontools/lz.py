@@ -420,13 +420,14 @@ class Decompressed:
 
         text = ''
 
+        output_address = 0
         for name, attrs in self.used_commands:
             length     = attrs['length']
             address    = attrs['address']
             offset     = attrs['offset']
             direction  = attrs['direction']
 
-            text += '{0}: {1}'.format(name, length)
+            text += '{2:03x} {0}: {1}'.format(name, length, output_address)
             text += '\t' + ' '.join(
                 '{:02x}'.format(int(byte))
                 for byte in self.lz[ address : address + attrs['cmd_length'] ]
@@ -434,9 +435,12 @@ class Decompressed:
 
             if offset is not None:
                 repeated_data = self.output[ offset : offset + length * direction : direction ]
+                if name == 'flip':
+                    repeated_data = map(bit_flipped.__getitem__, repeated_data)
                 text += ' [' + ' '.join(map('{:02x}'.format, repeated_data)) + ']'
 
             text += '\n'
+            output_address += length
 
         return text
 
