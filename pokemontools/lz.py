@@ -168,8 +168,18 @@ class Compressed:
         for method in self.lookback_methods:
             self.scores[method], self.offsets[method] = self.find_lookback(method, self.address)
 
-        # Compatibility:
-        # If a lookback is close, reduce the scores of other commands
+        self.stop_short()
+
+        return any(
+            score
+          > self.min_scores[method] + int(score > lowmax)
+            for method, score in self.scores.iteritems()
+        )
+
+    def stop_short(self):
+        """
+        If a lookback is close, reduce the scores of other commands.
+        """
         best_method, best_score = max(
             self.scores.items(),
             key = lambda x: (
@@ -178,17 +188,14 @@ class Compressed:
             )
         )
         for method in self.lookback_methods:
-            for address in xrange(self.address+1, self.address+min(best_score, 6)):
-                if self.find_lookback(method, address)[0] > max(self.min_scores[method], best_score):
+            min_score = self.min_scores[method]
+            for address in xrange(self.address+1, self.address+best_score):
+                length, index = self.find_lookback(method, address)
+                if length > max(min_score, best_score):
                     # BUG: lookbacks can reduce themselves. This appears to be a bug in the target also.
                     for m, score in self.scores.items():
                         self.scores[m] = min(score, address - self.address)
 
-        return any(
-            score
-          > self.min_scores[method] + int(score > lowmax)
-            for method, score in self.scores.iteritems()
-        )
 
     def read(self, address=None):
         if address is None:
@@ -259,13 +266,13 @@ class Compressed:
                 if that_byte == None or this_byte != mutate(that_byte):
                     break
                 length += 1
-            """
-            if direction == 1:
-                if not any(self.data[address+2:address+length]): continue
-            """
-            if length - is_two_byte_index(index) >= old_length - is_two_byte_index(old_index): # XXX >?
+
+            score = length - is_two_byte_index(index)
+            old_score = old_length - is_two_byte_index(old_index)
+            if score >= old_score or (score == old_score and length > old_length):
                 # XXX maybe avoid two-byte indexes when possible
-                lookback = length, index
+                if score >= lookback[0] - is_two_byte_index(lookback[1]):
+                    lookback = length, index
 
         self.lookbacks[method][address] = lookback
         return lookback
@@ -350,9 +357,8 @@ class Compressed:
             offset = self.offsets[cmd]
             # Negative offsets are one byte.
             # Positive offsets are two.
-            if start_address - offset <= 0x7f:
-                offset = start_address - offset + 0x80
-                offset -= 1 # this seems to work
+            if 0 < start_address - offset - 1 <= 0x7f:
+                offset = (start_address - offset - 1) | 0x80
                 output += [offset]
             else:
                 output += [offset / 0x100, offset % 0x100] # big endian
@@ -414,13 +420,14 @@ class Decompressed:
 
         text = ''
 
+        output_address = 0
         for name, attrs in self.used_commands:
             length     = attrs['length']
             address    = attrs['address']
             offset     = attrs['offset']
             direction  = attrs['direction']
 
-            text += '{0}: {1}'.format(name, length)
+            text += '{2:03x} {0}: {1}'.format(name, length, output_address)
             text += '\t' + ' '.join(
                 '{:02x}'.format(int(byte))
                 for byte in self.lz[ address : address + attrs['cmd_length'] ]
@@ -428,9 +435,12 @@ class Decompressed:
 
             if offset is not None:
                 repeated_data = self.output[ offset : offset + length * direction : direction ]
+                if name == 'flip':
+                    repeated_data = map(bit_flipped.__getitem__, repeated_data)
                 text += ' [' + ' '.join(map('{:02x}'.format, repeated_data)) + ']'
 
             text += '\n'
+            output_address += length
 
         return text
 
