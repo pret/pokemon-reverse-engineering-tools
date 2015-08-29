@@ -726,7 +726,7 @@ def read_filename_arguments(filename):
     return parsed_arguments
 
 
-def export_2bpp_to_png(filein, fileout=None, pal_file=None, height=0, width=0, tile_padding=0, pic_dimensions=None):
+def export_2bpp_to_png(filein, fileout=None, pal_file=None, height=0, width=0, tile_padding=0, pic_dimensions=None, **kwargs):
 
     if fileout == None:
         fileout = os.path.splitext(filein)[0] + '.png'
