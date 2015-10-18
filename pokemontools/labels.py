@@ -15,7 +15,7 @@ class Labels(object):
     Store all labels.
     """
 
-    def __init__(self, config, filename="pokecrystal.map"):
+    def __init__(self, config, filename="pokecrystal.sym"):
         """
         Setup the instance.
         """
@@ -27,18 +27,18 @@ class Labels(object):
         """
         Handle anything requiring file-loading and such.
         """
-        # Look for a mapfile if it's not given
+        # Look for a symfile if it's not given
         if not os.path.exists(self.path):
-            self.filename = find_mapfile_in_dir(self.config.path)
+            self.filename = find_symfile_in_dir(self.config.path)
             if self.filename == None:
-                raise Exception, "Couldn't find any mapfiles. Run rgblink -m to create a mapfile."
+                raise Exception, "Couldn't find any .sym files. Run rgblink -n to create a .sym file."
             self.path = os.path.join(self.config.path, self.filename)
 
-        self.labels = sym.read_mapfile(self.path)
+        self.labels = sym.read_symfile(self.path)
 
-def find_mapfile_in_dir(path):
+def find_symfile_in_dir(path):
     for filename in os.listdir(path):
-        if os.path.splitext(filename)[1] == '.map':
+        if os.path.splitext(filename)[1] == '.sym':
             return filename
     return None
 
