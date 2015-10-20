@@ -1,6 +1,7 @@
 ﻿# coding: utf-8
 
 import os
+import re
 import sys
 import json
 
@@ -80,6 +81,40 @@ def make_sym_from_mapfile(filename = '../pokecrystal.sym', mapfile = '../mapfile
     # dump contents to symfile
     with open(filename, 'w') as sym:
         sym.write(output)
+
+def read_symfile(filename='pokecrystal.sym'):
+    """
+    Scrape label addresses from an rgbds .sym file.
+    """
+    labels = []
+
+    with open(filename, 'r') as symfile:
+        lines = symfile.readlines()
+
+    # Example line from sym file:  "06:5531 Func_19531"
+    label_regex = re.compile('([0-9A-Fa-f]+):([0-9A-Fa-f]+) (\S+)')
+
+    for line in lines:
+        match = label_regex.match(line)
+        if match:
+            bank = int(match.group(1), 16)
+            local_address = int(match.group(2), 16)
+            label = match.group(3)
+            absolute_address = local_address
+
+            if local_address < 0x8000 and bank > 0:
+                absolute_address += (bank - 1) * 0x4000
+
+            labels += [{
+                'label': label,
+                'bank': bank,
+                'address': absolute_address,
+                'offset': absolute_address,
+                'local_address': local_address,
+            }]
+
+    return labels
+
 
 if __name__ == "__main__":
     #if os.path.exists('../pokecrystal.sym'):
