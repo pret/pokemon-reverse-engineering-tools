@@ -7,6 +7,8 @@ import struct
 import wave
 
 
+BASE_SAMPLE_RATE = 22050
+
 def convert_to_wav(filenames=[]):
     """
     Converts a file containing 1-bit pcm data into a .wav file.
@@ -28,7 +30,7 @@ def convert_to_wav(filenames=[]):
         name, extension = os.path.splitext(filename)
         wav_filename = name + '.wav'
         wave_file = wave.open(wav_filename, 'w')
-        wave_file.setframerate(22050)
+        wave_file.setframerate(BASE_SAMPLE_RATE)
         wave_file.setnchannels(1)
         wave_file.setsampwidth(1)
 
@@ -48,20 +50,18 @@ def convert_to_pcm(filenames=[]):
     Samples in the .wav file are simply clamped to on/off.
 
     TODO: This currently only works correctly on .wav files with the following attributes:
-            1. Sample Rate = 22050
-            2. Sample Width = 1 byte
-            3. 1 Channel
+            1. Sample Width = 1 or 2 bytes (Some wave files use 3 bytes per sample...)
+            2. 1 Channel
         It can be improved to account for these factors.
     """
     for filename in filenames:
-        samples, sample_width = get_wav_samples(filename)
-        sample_middle = (sample_width * 0xff) / 2
+        samples, average_sample = get_wav_samples(filename)
 
         # Generate a list of clamped samples
         clamped_samples = []
         for sample in samples:
             # Clamp the raw sample to on/off
-            if sample < sample_middle:
+            if sample < average_sample:
                 clamped_samples.append(0)
             else:
                 clamped_samples.append(1)
@@ -89,16 +89,47 @@ def convert_to_pcm(filenames=[]):
 
 def get_wav_samples(filename):
     """
-    Reads the given .wav file and returns a list of its raw samples.
-    Also returns the byte width of the samples.
+    Reads the given .wav file and returns a list of its samples after re-sampling
+    to BASE_SAMPLE_RATE.
+    Also returns the average sample amplitude.
     """
     wav_file = wave.open(filename, 'r')
     sample_width = wav_file.getsampwidth()
     sample_count = wav_file.getnframes()
+    sample_rate = wav_file.getframerate()
 
     samples = bytearray(wav_file.readframes(sample_count))
 
-    return samples, sample_width
+    # Unpack the values based on the sample byte width.
+    unpacked_samples = []
+    for i in xrange(0, len(samples), sample_width):
+        if sample_width == 1:
+            fmt = 'B'
+        elif sample_width == 2:
+            fmt = 'h'
+        else:
+            # todo: support 3-byte sample width
+            raise Exception, "Unsupported sample width: " + str(sample_width)
+
+        value = struct.unpack(fmt, samples[i:i + sample_width])[0]
+        unpacked_samples.append(value)
+
+    # Approximate the BASE_SAMPLE_RATE.
+    # Also find the average amplitude of the samples.
+    resampled_samples = []
+    total_value = 0
+    interval = float(sample_rate) / BASE_SAMPLE_RATE
+    index = 0
+    while index < sample_count:
+        sample = unpacked_samples[int(index)]
+        total_value += sample
+
+        resampled_samples.append(sample)
+        index += interval
+
+    average_sample = float(total_value) / sample_count
+
+    return resampled_samples, average_sample
 
 
 def main():
