@@ -128,8 +128,25 @@ def deinterleave_tiles(image, width):
     return connect(deinterleave(get_tiles(image), width))
 
 
-def condense_tiles_to_map(image, pic=0):
+def condense_image_to_map(image, pic=0):
+    """
+    Reduce an image of adjacent frames to an image containing a base frame and any unrepeated tiles.
+    Returns the new image and the corresponding tilemap used to reconstruct the input image.
+
+    If <pic> is 0, ignore the concept of frames. This behavior might be better off as another function.
+    """
     tiles = get_tiles(image)
+    new_tiles, tilemap = condense_tiles_to_map(tiles, pic)
+    new_image = connect(new_tiles)
+    return new_image, tilemap
+
+def condense_tiles_to_map(tiles, pic=0):
+    """
+    Reduce a sequence of tiles representing adjacent frames to a base frame and any unrepeated tiles.
+    Returns the new tiles and the corresponding tilemap used to reconstruct the input tile sequence.
+
+    If <pic> is 0, ignore the concept of frames. This behavior might be better off as another function.
+    """
 
     # Leave the first frame intact for pics.
     new_tiles = tiles[:pic]
@@ -137,17 +154,36 @@ def condense_tiles_to_map(image, pic=0):
 
     for i, tile in enumerate(tiles[pic:]):
         if tile not in new_tiles:
-            new_tiles += [tile]
+            new_tiles.append(tile)
 
-        # Match the first frame where possible.
-	this_i = i % pic if pic else i
-        if tile == new_tiles[this_i]:
-            tilemap += [this_i]
+        if pic:
+            # Match the first frame exactly where possible.
+            # This reduces the space needed to replace tiles in pic animations.
+            # For example, if a tile is repeated twice in the first frame,
+            # but at the same relative index as the second tile, use the second index.
+            # When creating a bitmask later, the second index would not require a replacement, but the first index would have.
+            pic_i = i % pic
+            if tile == new_tiles[pic_i]:
+                tilemap.append(pic_i)
+            else:
+                tilemap.append(new_tiles.index(tile))
         else:
-            tilemap += [new_tiles.index(tile)]
+            tilemap.append(new_tiles.index(tile))
+    return new_tiles, tilemap
 
-    new_image = connect(new_tiles)
-    return new_image, tilemap
+def test_condense_tiles_to_map():
+    test = condense_tiles_to_map(list('abcadbae'))
+    if test != (list('abcde'), [0, 1, 2, 0, 3, 1, 0, 4]):
+        raise Exception(test)
+    test = condense_tiles_to_map(list('abcadbae'), 2)
+    if test != (list('abcde'), [0, 1, 2, 0, 3, 1, 0, 4]):
+        raise Exception(test)
+    test = condense_tiles_to_map(list('abcadbae'), 4)
+    if test != (list('abcade'), [0, 1, 2, 3, 4, 1, 0, 5]):
+        raise Exception(test)
+    test = condense_tiles_to_map(list('abcadbea'), 4)
+    if test != (list('abcade'), [0, 1, 2, 3, 4, 1, 5, 3]):
+        raise Exception(test)
 
 
 def to_file(filename, data):
@@ -1184,9 +1220,9 @@ def png_to_2bpp(filein, **kwargs):
         image = deinterleave_tiles(image, num_columns)
 
     if arguments['pic_dimensions']:
-        image, tmap = condense_tiles_to_map(image, w * h)
+        image, tmap = condense_image_to_map(image, w * h)
     elif arguments['norepeat']:
-        image, tmap = condense_tiles_to_map(image)
+        image, tmap = condense_image_to_map(image)
         if not arguments['tilemap']:
             tmap = None
 
