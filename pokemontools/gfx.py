@@ -1220,9 +1220,9 @@ def png_to_2bpp(filein, **kwargs):
         image = deinterleave_tiles(image, num_columns)
 
     if arguments['pic_dimensions']:
-        image, tmap = condense_tiles_to_map(image, w * h)
+        image, tmap = condense_image_to_map(image, w * h)
     elif arguments['norepeat']:
-        image, tmap = condense_tiles_to_map(image)
+        image, tmap = condense_image_to_map(image)
         if not arguments['tilemap']:
             tmap = None
 
