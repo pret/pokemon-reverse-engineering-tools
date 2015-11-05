@@ -127,7 +127,7 @@ def get_wav_samples(filename):
         resampled_samples.append(sample)
         index += interval
 
-    average_sample = float(total_value) / sample_count
+    average_sample = float(total_value) / len(resampled_samples)
 
     return resampled_samples, average_sample
 
