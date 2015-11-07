@@ -49,10 +49,10 @@ def convert_to_pcm(filenames=[]):
     Converts a .wav file into 1-bit pcm data.
     Samples in the .wav file are simply clamped to on/off.
 
-    TODO: This currently only works correctly on .wav files with the following attributes:
+    This currently works correctly on .wav files with the following attributes:
             1. Sample Width = 1 or 2 bytes (Some wave files use 3 bytes per sample...)
-            2. 1 Channel
-        It can be improved to account for these factors.
+            2. Arbitrary sample sample_rate
+            3. Mono or Stereo (1 or 2 channels)
     """
     for filename in filenames:
         samples, average_sample = get_wav_samples(filename)
@@ -97,6 +97,7 @@ def get_wav_samples(filename):
     sample_width = wav_file.getsampwidth()
     sample_count = wav_file.getnframes()
     sample_rate = wav_file.getframerate()
+    num_channels = wav_file.getnchannels()
 
     samples = bytearray(wav_file.readframes(sample_count))
 
@@ -113,6 +114,9 @@ def get_wav_samples(filename):
 
         value = struct.unpack(fmt, samples[i:i + sample_width])[0]
         unpacked_samples.append(value)
+
+    # Only keep the samples from the first audio channel.
+    unpacked_samples = unpacked_samples[::num_channels]
 
     # Approximate the BASE_SAMPLE_RATE.
     # Also find the average amplitude of the samples.
