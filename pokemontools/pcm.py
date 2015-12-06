@@ -14,9 +14,9 @@ def convert_to_wav(filenames=[]):
     Converts a file containing 1-bit pcm data into a .wav file.
     """
     for filename in filenames:
+        samples = []
         with open(filename, 'rb') as pcm_file:
             # Generate array of on/off pcm values.
-            samples = []
             byte = pcm_file.read(1)
             while byte != "":
                 byte = struct.unpack('B', byte)[0]
@@ -57,30 +57,14 @@ def convert_to_pcm(filenames=[]):
     for filename in filenames:
         samples, average_sample = get_wav_samples(filename)
 
-        # Generate a list of clamped samples
-        clamped_samples = []
-        for sample in samples:
-            # Clamp the raw sample to on/off
-            if sample < average_sample:
-                clamped_samples.append(0)
-            else:
-                clamped_samples.append(1)
-
-        # The pcm data must be a multiple of 8, so pad the clamped samples with 0.
-        while len(clamped_samples) % 8 != 0:
-            clamped_samples.append(0)
+        # Generate a list of 1-bit pcm samples
+        pcm_samples = clamp_samples(samples, average_sample)
+        pcm_samples = add_pcm_padding(pcm_samples)
 
         # Pack the 1-bit samples together.
-        packed_samples = bytearray()
-        for i in xrange(0, len(clamped_samples), 8):
-            # Read 8 pcm values to pack one byte.
-            packed_value = 0
-            for j in range(8):
-                packed_value <<= 1
-                packed_value += clamped_samples[i + j]
-            packed_samples.append(packed_value)
+        packed_samples = pack_pcm_samples(pcm_samples)
 
-        # Open the output .pcm file, and write all 1-bit samples.
+        # Write the pcm data to a file.
         name, extension = os.path.splitext(filename)
         pcm_filename = name + '.pcm'
         with open(pcm_filename, 'wb') as out_file:
@@ -99,41 +83,105 @@ def get_wav_samples(filename):
     sample_rate = wav_file.getframerate()
     num_channels = wav_file.getnchannels()
 
-    samples = bytearray(wav_file.readframes(sample_count))
+    raw_frames = bytearray(wav_file.readframes(sample_count))
 
-    # Unpack the values based on the sample byte width.
-    unpacked_samples = []
-    for i in xrange(0, len(samples), sample_width):
-        if sample_width == 1:
-            fmt = 'B'
-        elif sample_width == 2:
-            fmt = 'h'
-        else:
-            # todo: support 3-byte sample width
-            raise Exception, "Unsupported sample width: " + str(sample_width)
-
-        value = struct.unpack(fmt, samples[i:i + sample_width])[0]
-        unpacked_samples.append(value)
+    # Unpack the samples from the raw frame data based on the file's sample width.
+    samples = []
+    for i in xrange(0, len(raw_frames), sample_width):
+        value_to_unpack = raw_frames[i:i + sample_width]
+        sample = unpack_sample(value_to_unpack, sample_width)
+        samples.append(sample)
 
     # Only keep the samples from the first audio channel.
-    unpacked_samples = unpacked_samples[::num_channels]
+    samples = samples[::num_channels]
 
-    # Approximate the BASE_SAMPLE_RATE.
-    # Also find the average amplitude of the samples.
+    # Resample the raw samples to approximate BASE_SAMPLE_RATE.
+    resampled_samples = resample(samples, sample_rate, BASE_SAMPLE_RATE)
+    average_sample = float(sum(resampled_samples)) / len(resampled_samples)
+
+    return resampled_samples, average_sample
+
+
+def unpack_sample(value, sample_width):
+    '''
+    Unpack the value based on the given sample width.
+    '''
+    if len(value) != sample_width:
+        raise Exception, "Can't unpack sample; Sample width does not match size of raw value: size of value=%d, sample_width=%d" % (len(value), sample_width)
+
+    if sample_width == 1:
+        fmt = 'B'
+    elif sample_width == 2:
+        fmt = 'h'
+    else:
+        # todo: support 3-byte sample width
+        raise Exception, "Unsupported sample width: " + str(sample_width)
+
+    unpacked_sample = struct.unpack(fmt, value)[0]
+    return unpacked_sample
+
+
+def resample(samples, sample_rate, base_sample_rate):
+    '''
+    Resamples the raw sample list to approximate the given base sample rate.
+    This could be improved with a re-sampling heuristic, such as linear 
+    interpolation between samples.
+    '''
+    interval = float(sample_rate) / base_sample_rate
     resampled_samples = []
-    total_value = 0
-    interval = float(sample_rate) / BASE_SAMPLE_RATE
-    index = 0
-    while index < sample_count:
-        sample = unpacked_samples[int(index)]
-        total_value += sample
-
+    index = 0.0
+    while index < len(samples):
+        sample = samples[int(index)]
         resampled_samples.append(sample)
         index += interval
 
-    average_sample = float(total_value) / len(resampled_samples)
+    return resampled_samples
 
-    return resampled_samples, average_sample
+
+def clamp_samples(samples, average_sample):
+    '''
+    Clamps each sample to 0 or 1 base on the given average sample.
+    '''
+    clamped_samples = []
+    for sample in samples:
+        # Clamp the raw sample to on/off
+        if sample < average_sample:
+            clamped_samples.append(0)
+        else:
+            clamped_samples.append(1)
+
+    return clamped_samples
+
+
+def add_pcm_padding(pcm_samples):
+    '''
+    Pads the given pcm samples with 0 so that the number of samples
+    is a multiple of 8. This is required, since the pcm samples will
+    be packed into bytes, which are defined by 8 bits.
+    '''
+    while len(pcm_samples) % 8 != 0:
+            pcm_samples.append(0)
+    return pcm_samples
+
+
+def pack_pcm_samples(pcm_samples):
+    '''
+    Packs each chunk of 8 pcm samples into a byte array.
+    Samples are interpreted in most-significant order, meaning
+    the first sample is the most-significant bit in the first byte.
+    '''
+    packed_samples = bytearray()
+    for i in xrange(0, len(pcm_samples), 8):
+        # Read 8 pcm values to pack one byte.
+        packed_value = 0
+        for j in range(8):
+            packed_value <<= 1
+            if i + j < len(pcm_samples):            
+                packed_value += pcm_samples[i + j]
+
+        packed_samples.append(packed_value)
+
+    return packed_samples
 
 
 def main():
