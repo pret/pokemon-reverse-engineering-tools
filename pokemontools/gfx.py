@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+import re
 import sys
 import png
 from math import sqrt, floor, ceil
@@ -735,7 +736,10 @@ def read_filename_arguments(filename):
         'h': 'height',
         't': 'tile_padding',
     }
-    arguments = os.path.splitext(filename)[0].lstrip('.').split('.')[1:]
+
+    # Parse non-empty args out of filename.
+    arguments = filter(None, os.path.splitext(filename)[0].lstrip('.').split('.')[1:])
+
     for argument in arguments:
 
         # Check for integer arguments first (i.e. "w128").
@@ -751,10 +755,11 @@ def read_filename_arguments(filename):
             parsed_arguments['tilemap']  = True
 
         # Pic dimensions (i.e. "6x6").
-        elif 'x' in argument and any(map(str.isdigit, argument)):
-            w, h = argument.split('x')
-            if w.isdigit() and h.isdigit():
-                parsed_arguments['pic_dimensions'] = (int(w), int(h))
+        elif re.match('^\d+x\d+$', argument):
+            result = re.match('^(\d+)x(\d+)$', argument)
+            w = result.group(1)
+            h = result.group(2)
+            parsed_arguments['pic_dimensions'] = (int(w), int(h))
 
         else:
             parsed_arguments[argument] = True
@@ -1426,17 +1431,17 @@ def convert_to_png(filenames=[]):
             raise Exception, "Don't know how to convert {} to png!".format(filename)
 
 def compress(filenames=[]):
+    """
+    Performs lz compression on the given file, and writes the
+    compressed file to disk.
+    Returns the compressed file's name.
+    """
     for filename in filenames:
         data = open(filename, 'rb').read()
         lz_data = Compressed(data).output
+        compressed_filename = filename + '.lz'
         to_file(filename + '.lz', lz_data)
-
-def decompress(filenames=[]):
-    for filename in filenames:
-        name, extension = os.path.splitext(filename)
-        lz_data = open(filename, 'rb').read()
-        data = Decompressed(lz_data).output
-        to_file(name, data)
+        return compressed_filename
 
 def try_decompress(filename):
     """
@@ -1446,10 +1451,38 @@ def try_decompress(filename):
     """
     name, extension = os.path.splitext(filename)
     if extension == '.lz':
-        decompress([filename])
-        filename = name
+        decompressed_filename = decompress([filename])
+        filename = decompressed_filename
         name, extension = os.path.splitext(filename)
+
     return filename, name, extension
+
+def decompress(filenames=[]):
+    """
+    Performs lz decompression on each given file, and writes the
+    decompressed files to disk.
+    Returns the decompressed file's name.
+    """
+    for filename in filenames:
+        lz_data = open(filename, 'rb').read()
+        data = Decompressed(lz_data).output
+        decompressed_filename = get_decompressed_filename(filename)
+        to_file(decompressed_filename, data)
+        return decompressed_filename
+
+def get_decompressed_filename(filename):
+    """
+    Returns the filename of an .lz-decompressed file based on
+    the original compressed filename.
+    """
+    name, extension = os.path.splitext(filename)
+    if extension == '.lz':
+        decompressed_filename = name
+    else:
+        # Original filename didn't have .lz extension, so prepend "decompressed" to the filename.
+        decompressed_filename = 'decompressed_' + filename
+
+    return decompressed_filename
 
 
 def main():
