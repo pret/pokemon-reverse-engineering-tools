@@ -12,6 +12,9 @@ includes = set()
 
 def scan_file(filename):
 	for line in open(filename):
+		if 'INC' not in line:
+			continue
+		line = line.split(';')[0]
 		if 'INCLUDE' in line:
 			include = line.split('"')[1]
 			includes.add(include)
