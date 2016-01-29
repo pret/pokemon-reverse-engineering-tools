@@ -27,7 +27,7 @@ def main():
 	ap = argparse.ArgumentParser()
 	ap.add_argument('filenames', nargs='*')
 	args = ap.parse_args()
-	for filename in args.filenames:
+	for filename in set(args.filenames):
 		scan_file(filename)
 	sys.stdout.write(' '.join(includes))
 
