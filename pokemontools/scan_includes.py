@@ -7,6 +7,7 @@ Recursively scan an asm file for dependencies.
 
 import sys
 import argparse
+import os.path
 
 includes = set()
 
@@ -17,11 +18,18 @@ def scan_file(filename):
 		line = line.split(';')[0]
 		if 'INCLUDE' in line:
 			include = line.split('"')[1]
-			includes.add(include)
-			scan_file(include)
+			if os.path.exists("src/"):
+				includes.add("src/" + include)
+				scan_file("src/" + include)
+			else:
+				includes.add(include)
+				scan_file(include)
 		elif 'INCBIN' in line:
 			include = line.split('"')[1]
-			includes.add(include)
+			if 'baserom.gbc' not in line and os.path.exists("src/"):
+				includes.add("src/" + include)
+			else:
+				includes.add(include)
 
 def main():
 	ap = argparse.ArgumentParser()

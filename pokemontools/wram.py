@@ -4,6 +4,7 @@ RGBDS BSS section and constant parsing.
 """
 
 import os
+import os.path
 
 
 def separate_comment(line):
@@ -122,7 +123,10 @@ class BSSReader:
 
             elif 'INCLUDE' == line[:7].upper():
                 filename = line.split('"')[1]
-                self.read_bss_sections(open(filename).readlines())
+                if os.path.exists("src/"):
+                    self.read_bss_sections(open("src/" + filename).readlines())
+                else:
+                    self.read_bss_sections(open(filename).readlines())
 
             elif 'SECTION' == line[:7].upper():
                 if self.section: # previous
@@ -220,20 +224,25 @@ class WRAMProcessor(object):
 
         self.paths = {}
 
+        if os.path.exists("src/"):
+            path = "src/"
+        else:
+            path = ""
+
         if hasattr(self.config, "wram"):
             self.paths["wram"] = self.config.wram
         else:
-            self.paths["wram"] = os.path.join(self.config.path, "wram.asm")
+            self.paths["wram"] = os.path.join(self.config.path, path + "wram.asm")
 
         if hasattr(self.config, "hram"):
             self.paths["hram"] = self.config.hram
         else:
-            self.paths["hram"] = os.path.join(self.config.path, "hram.asm")
+            self.paths["hram"] = os.path.join(self.config.path, path + "hram.asm")
 
         if hasattr(self.config, "gbhw"):
             self.paths["gbhw"] = self.config.gbhw
         else:
-            self.paths["gbhw"] = os.path.join(self.config.path, "gbhw.asm")
+            self.paths["gbhw"] = os.path.join(self.config.path, path + "gbhw.asm")
 
     def initialize(self):
         """
