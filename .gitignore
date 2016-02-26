@@ -30,9 +30,6 @@ labels.json
 # url: http://www.vim.org/scripts/script.php?script_id=441
 .lvimrc
 
-# some users are dumping png.py into extras/
-png.py
-
 # python packaging
 pokemontools.egg-info/
 dist/
