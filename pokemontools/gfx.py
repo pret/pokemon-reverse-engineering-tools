@@ -634,7 +634,7 @@ def png_to_2bpp(filein, **kwargs):
     arguments.update(kwargs)
 
     if type(filein) is str:
-        filein = open(filein)
+        filein = open(filein, 'rb')
 
     assert type(filein) is file
 
