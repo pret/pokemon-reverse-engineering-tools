@@ -508,6 +508,45 @@ def convert_2bpp_to_png(image, **kwargs):
     return width, height, palette, greyscale, bitdepth, px_map
 
 
+def get_pic_animation(tmap, w, h):
+    """
+    Generate pic animation data from a combined tilemap of each frame.
+    """
+    frame_text = ''
+    bitmask_text = ''
+
+    frames = list(split(tmap, w * h))
+    base = frames.pop(0)
+    bitmasks = []
+
+    for i in xrange(len(frames)):
+        frame_text += '\tdw .frame{}\n'.format(i + 1)
+
+    for i, frame in enumerate(frames):
+        bitmask = map(operator.ne, frame, base)
+        if bitmask not in bitmasks:
+            bitmasks.append(bitmask)
+        which_bitmask = bitmasks.index(bitmask)
+
+        mask = iter(bitmask)
+        masked_frame = filter(lambda _: mask.next(), frame)
+
+        frame_text += '.frame{}\n'.format(i + 1)
+        frame_text += '\tdb ${:02x} ; bitmask\n'.format(which_bitmask)
+        if masked_frame:
+            frame_text += '\tdb {}\n'.format(', '.join(
+                map('${:02x}'.format, masked_frame)
+            ))
+
+    for i, bitmask in enumerate(bitmasks):
+        bitmask_text += '; {}\n'.format(i)
+        for byte in split(bitmask, 8):
+            byte = int(''.join(map(int.__repr__, reversed(byte))), 2)
+            bitmask_text += '\tdb %{:08b}\n'.format(byte)
+
+    return frame_text, bitmask_text
+
+
 def export_png_to_2bpp(filein, fileout=None, palout=None, **kwargs):
 
     arguments = {
