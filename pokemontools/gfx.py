@@ -5,6 +5,7 @@ import sys
 import png
 from math import sqrt, floor, ceil
 import argparse
+import operator
 
 import configuration
 config = configuration.Config()

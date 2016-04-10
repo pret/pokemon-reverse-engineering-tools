@@ -1,5 +1,3 @@
-import operator
-
 from gfx import *
 from pokemon_constants import pokemon_constants
 import trainers
