@@ -7,19 +7,9 @@ import os
 import sys
 from copy import copy, deepcopy
 from ctypes import c_int8
-import random
-import json
 
 import configuration
-import crystal
-import labels
-import wram
-
-# New versions of json don't have read anymore.
-if not hasattr(json, "read"):
-    json.read = json.loads
-
-spacing = "\t"
+from wram import read_constants
 
 temp_opt_table = [
   [ "ADC A", 0x8f, 0 ],
@@ -561,24 +551,37 @@ call_commands = [0xdc, 0xd4, 0xc4, 0xcc, 0xcd]
 
 def asm_label(address):
     """
-    Return the ASM label using the address.
+    Return a local label name for asm at <address>.
     """
-    # why using a random value when you can use the address?
     return '.asm_%x' % address
 
 def data_label(address):
+    """
+    Return a local label name for data at <address>.
+    """
     return '.data_%x' % address
 
 def get_local_address(address):
+    """
+    Return the local address of a rom address.
+    """
     bank = address / 0x4000
-    return (address & 0x3fff) + 0x4000 * bool(bank)
+    address &= 0x3fff
+    if bank:
+        return address + 0x4000
+    return address
 
 def get_global_address(address, bank):
-    if address < 0x8000:
-        return (address & 0x3fff) + 0x4000 * bank
-    return None
+    """
+    Return the rom address of a local address and bank.
 
-    return ".ASM_" + hex(address)[2:]
+    This accounts for a quirk in mbc3+ where 0:4000-7fff resolves to 1:4000-7fff.
+    """
+    if address < 0x8000:
+        if address >= 0x4000 and bank > 0:
+            return address + (bank - 1) * 0x4000
+        return address
+    return None
 
 def has_outstanding_labels(byte_labels):
     """
@@ -592,11 +595,53 @@ def has_outstanding_labels(byte_labels):
     return False
 
 def all_outstanding_labels_are_reverse(byte_labels, offset):
+    """
+    Check whether all labels have already been defined.
+    """
     for label_id in byte_labels.keys():
         line = byte_labels[label_id] # label_id is also the address
         if line["definition"] == False:
             if not label_id < offset: return False
     return True
+
+def load_rom(path='baserom.gbc'):
+    return bytearray(open(path, 'rb').read())
+
+def read_symfile(path='baserom.sym'):
+    """
+    Return a list of dicts of label data from an rgbds .sym file.
+    """
+    symbols = []
+    for line in open(path):
+        line = line.strip().split(';')[0]
+        if line:
+            bank_address, label = line.split(' ')[:2]
+            bank, address = bank_address.split(':')
+            symbols += [{
+                'label': label,
+                'bank': int(bank, 16),
+                'address': int(address, 16),
+            }]
+    return symbols
+
+def load_symbols(path):
+    sym = {}
+    reverse_sym = {}
+    symbols = read_symfile(path)
+    for symbol in symbols:
+        bank = symbol['bank']
+        address = symbol['address']
+        label = symbol['label']
+        if not sym.has_key(bank):
+            sym[bank] = {}
+        sym[bank][address] = label
+        reverse_sym[label] = get_global_address(address, bank)
+    return sym, reverse_sym
+
+def get_symbol(sym, address, bank=0):
+    if sym:
+        return sym.get(bank, {}).get(address)
+    return None
 
 class Disassembler(object):
     """
@@ -608,42 +653,50 @@ class Disassembler(object):
         Setup the class instance.
         """
         self.config = config
-
-        self.wram = wram.WRAMProcessor(self.config)
-        self.labels = labels.Labels(self.config)
+        self.spacing = '\t'
+        self.rom = None
+        self.sym = None
+        self.rsym = None
+        self.gbhw = None
 
     def initialize(self):
         """
         Setup the disassembler.
         """
-        self.wram.initialize()
-        self.labels.initialize()
+        path = os.path.join(self.config.path, 'baserom.gbc')
+        self.rom = load_rom(path)
 
-        # TODO: fix how ROM is handled throughout the project.
-        rom_path = os.path.join(self.config.path, "baserom.gbc")
-        self.rom = bytearray(open(rom_path, "rb").read())
+        path = os.path.join(self.config.path, 'baserom.sym')
+        if os.path.exists(path):
+            self.sym, self.rsym = load_symbols(path)
 
-    def find_label(self, local_address, bank_id=0):
-        # keep an integer
-        if type(local_address) == str:
-            local_address = int(local_address.replace("$", "0x"), 16)
+        path = os.path.join(self.config.path, 'gbhw.asm')
+        if os.path.exists(path):
+            self.gbhw = read_constants(path)
 
-        if local_address < 0x8000:
-            for label_entry in self.labels.labels:
-                if get_local_address(label_entry["address"]) == local_address:
-                    if "bank" in label_entry and (label_entry["bank"] == bank_id or label_entry["bank"] == 0):
-                        return label_entry["label"]
-        if local_address in self.wram.wram_labels.keys():
-            return self.wram.wram_labels[local_address][-1]
-        for constants in [self.wram.gbhw_constants, self.wram.hram_constants]:
-            if local_address in constants.keys() and local_address >= 0xff00:
-                return constants[local_address]
+    def find_label(self, address, bank=0):
+        if type(address) is not int:
+            address = int(address.replace('$', '0x'), 16)
+        label = self.get_symbol(address, bank)
+        if not label:
+            label = self.get_gbhw(address)
+        return label
+
+    def get_symbol(self, address, bank):
+        symbol = get_symbol(self.sym, address, bank)
+        if symbol == 'NULL' and address == 0 and bank == 0:
+            return None
+        return symbol
+
+    def get_gbhw(self, address):
+        if 0xff00 <= address < 0xff80:
+            if self.gbhw:
+                return self.gbhw.get(address)
         return None
 
     def find_address_from_label(self, label):
-        for label_entry in self.labels.labels:
-            if label == label_entry["label"]:
-                return label_entry["address"]
+        if self.rsym:
+            return self.rsym.get(label)
         return None
 
     def output_bank_opcodes(self, original_offset, max_byte_count=0x4000, include_last_address=True, stop_at=[], debug=False):
@@ -739,7 +792,7 @@ class Disassembler(object):
                         current_byte_number += 2
                         offset += 2
 
-                output += spacing + opstr #+ " ; " + hex(offset)
+                output += self.spacing + opstr #+ " ; " + hex(offset)
                 output += "\n"
 
                 current_byte_number += 2
@@ -754,7 +807,7 @@ class Disassembler(object):
                 if   op_code_type == 0 and rom[offset] == op_code_byte:
                     op_str = op_code[0].lower()
 
-                    output += spacing + op_code[0].lower() #+ " ; " + hex(offset)
+                    output += self.spacing + op_code[0].lower() #+ " ; " + hex(offset)
                     output += "\n"
 
                     offset += 1
@@ -805,7 +858,7 @@ class Disassembler(object):
                             replacetron = "[%s+%s]" % (first_orig, second_orig)
                             opstr = opstr.replace(replacetron, "[%s]" % combined_val)
 
-                        output += spacing + opstr
+                        output += self.spacing + opstr
                         if include_comment:
                             output += " ; " + hex(offset)
                             if current_byte in relative_jumps:
@@ -844,7 +897,7 @@ class Disassembler(object):
                             insertion = result
 
                         opstr = opstr[:opstr.find("?")].lower() + insertion + opstr[opstr.find("?")+1:].lower()
-                        output += spacing + opstr #+ " ; " + hex(offset)
+                        output += self.spacing + opstr #+ " ; " + hex(offset)
                         output += "\n"
 
                         current_byte_number += 2
@@ -871,7 +924,7 @@ class Disassembler(object):
                     is_data = True
             else:
             #if is_data and keep_reading:
-                output += spacing + "db $" + hex(rom[offset])[2:] #+ " ; " + hex(offset)
+                output += self.spacing + "db $" + hex(rom[offset])[2:] #+ " ; " + hex(offset)
                 output += "\n"
                 offset += 1
                 current_byte_number += 1
