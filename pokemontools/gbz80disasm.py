@@ -4,998 +4,837 @@ GBC disassembler
 """
 
 import os
-import sys
-from copy import copy, deepcopy
+import argparse
 from ctypes import c_int8
 
 import configuration
 from wram import read_constants
 
-temp_opt_table = [
-  [ "ADC A", 0x8f, 0 ],
-  [ "ADC B", 0x88, 0 ],
-  [ "ADC C", 0x89, 0 ],
-  [ "ADC D", 0x8a, 0 ],
-  [ "ADC E", 0x8b, 0 ],
-  [ "ADC H", 0x8c, 0 ],
-  [ "ADC [HL]", 0x8e, 0 ],
-  [ "ADC L", 0x8d, 0 ],
-  [ "ADC x", 0xce, 1 ],
-  [ "ADD A", 0x87, 0 ],
-  [ "ADD B", 0x80, 0 ],
-  [ "ADD C", 0x81, 0 ],
-  [ "ADD D", 0x82, 0 ],
-  [ "ADD E", 0x83, 0 ],
-  [ "ADD H", 0x84, 0 ],
-  [ "ADD [HL]", 0x86, 0 ],
-  [ "ADD HL, BC", 0x9, 0 ],
-  [ "ADD HL, DE", 0x19, 0 ],
-  [ "ADD HL, HL", 0x29, 0 ],
-  [ "ADD HL, SP", 0x39, 0 ],
-  [ "ADD L", 0x85, 0 ],
-  [ "ADD SP, x", 0xe8, 1 ],
-  [ "ADD x", 0xc6, 1 ],
-  [ "AND A", 0xa7, 0 ],
-  [ "AND B", 0xa0, 0 ],
-  [ "AND C", 0xa1, 0 ],
-  [ "AND D", 0xa2, 0 ],
-  [ "AND E", 0xa3, 0 ],
-  [ "AND H", 0xa4, 0 ],
-  [ "AND [HL]", 0xa6, 0 ],
-  [ "AND L", 0xa5, 0 ],
-  [ "AND x", 0xe6, 1 ],
-  [ "BIT 0, A", 0x47cb, 3 ],
-  [ "BIT 0, B", 0x40cb, 3 ],
-  [ "BIT 0, C", 0x41cb, 3 ],
-  [ "BIT 0, D", 0x42cb, 3 ],
-  [ "BIT 0, E", 0x43cb, 3 ],
-  [ "BIT 0, H", 0x44cb, 3 ],
-  [ "BIT 0, [HL]", 0x46cb, 3 ],
-  [ "BIT 0, L", 0x45cb, 3 ],
-  [ "BIT 1, A", 0x4fcb, 3 ],
-  [ "BIT 1, B", 0x48cb, 3 ],
-  [ "BIT 1, C", 0x49cb, 3 ],
-  [ "BIT 1, D", 0x4acb, 3 ],
-  [ "BIT 1, E", 0x4bcb, 3 ],
-  [ "BIT 1, H", 0x4ccb, 3 ],
-  [ "BIT 1, [HL]", 0x4ecb, 3 ],
-  [ "BIT 1, L", 0x4dcb, 3 ],
-  [ "BIT 2, A", 0x57cb, 3 ],
-  [ "BIT 2, B", 0x50cb, 3 ],
-  [ "BIT 2, C", 0x51cb, 3 ],
-  [ "BIT 2, D", 0x52cb, 3 ],
-  [ "BIT 2, E", 0x53cb, 3 ],
-  [ "BIT 2, H", 0x54cb, 3 ],
-  [ "BIT 2, [HL]", 0x56cb, 3 ],
-  [ "BIT 2, L", 0x55cb, 3 ],
-  [ "BIT 3, A", 0x5fcb, 3 ],
-  [ "BIT 3, B", 0x58cb, 3 ],
-  [ "BIT 3, C", 0x59cb, 3 ],
-  [ "BIT 3, D", 0x5acb, 3 ],
-  [ "BIT 3, E", 0x5bcb, 3 ],
-  [ "BIT 3, H", 0x5ccb, 3 ],
-  [ "BIT 3, [HL]", 0x5ecb, 3 ],
-  [ "BIT 3, L", 0x5dcb, 3 ],
-  [ "BIT 4, A", 0x67cb, 3 ],
-  [ "BIT 4, B", 0x60cb, 3 ],
-  [ "BIT 4, C", 0x61cb, 3 ],
-  [ "BIT 4, D", 0x62cb, 3 ],
-  [ "BIT 4, E", 0x63cb, 3 ],
-  [ "BIT 4, H", 0x64cb, 3 ],
-  [ "BIT 4, [HL]", 0x66cb, 3 ],
-  [ "BIT 4, L", 0x65cb, 3 ],
-  [ "BIT 5, A", 0x6fcb, 3 ],
-  [ "BIT 5, B", 0x68cb, 3 ],
-  [ "BIT 5, C", 0x69cb, 3 ],
-  [ "BIT 5, D", 0x6acb, 3 ],
-  [ "BIT 5, E", 0x6bcb, 3 ],
-  [ "BIT 5, H", 0x6ccb, 3 ],
-  [ "BIT 5, [HL]", 0x6ecb, 3 ],
-  [ "BIT 5, L", 0x6dcb, 3 ],
-  [ "BIT 6, A", 0x77cb, 3 ],
-  [ "BIT 6, B", 0x70cb, 3 ],
-  [ "BIT 6, C", 0x71cb, 3 ],
-  [ "BIT 6, D", 0x72cb, 3 ],
-  [ "BIT 6, E", 0x73cb, 3 ],
-  [ "BIT 6, H", 0x74cb, 3 ],
-  [ "BIT 6, [HL]", 0x76cb, 3 ],
-  [ "BIT 6, L", 0x75cb, 3 ],
-  [ "BIT 7, A", 0x7fcb, 3 ],
-  [ "BIT 7, B", 0x78cb, 3 ],
-  [ "BIT 7, C", 0x79cb, 3 ],
-  [ "BIT 7, D", 0x7acb, 3 ],
-  [ "BIT 7, E", 0x7bcb, 3 ],
-  [ "BIT 7, H", 0x7ccb, 3 ],
-  [ "BIT 7, [HL]", 0x7ecb, 3 ],
-  [ "BIT 7, L", 0x7dcb, 3 ],
-  [ "CALL C, ?", 0xdc, 2 ],
-  [ "CALL NC, ?", 0xd4, 2 ],
-  [ "CALL NZ, ?", 0xc4, 2 ],
-  [ "CALL Z, ?", 0xcc, 2 ],
-  [ "CALL ?", 0xcd, 2 ],
-  [ "CCF", 0x3f, 0 ],
-  [ "CP A", 0xbf, 0 ],
-  [ "CP B", 0xb8, 0 ],
-  [ "CP C", 0xb9, 0 ],
-  [ "CP D", 0xba, 0 ],
-  [ "CP E", 0xbb, 0 ],
-  [ "CP H", 0xbc, 0 ],
-  [ "CP [HL]", 0xbe, 0 ],
-  [ "CPL", 0x2f, 0 ],
-  [ "CP L", 0xbd, 0 ],
-  [ "CP x", 0xfe, 1 ],
-  [ "DAA", 0x27, 0 ],
-  [ "DEBUG", 0xed, 0 ],
-  [ "DEC A", 0x3d, 0 ],
-  [ "DEC B", 0x5, 0 ],
-  [ "DEC BC", 0xb, 0 ],
-  [ "DEC C", 0xd, 0 ],
-  [ "DEC D", 0x15, 0 ],
-  [ "DEC DE", 0x1b, 0 ],
-  [ "DEC E", 0x1d, 0 ],
-  [ "DEC H", 0x25, 0 ],
-  [ "DEC HL", 0x2b, 0 ],
-  [ "DEC [HL]", 0x35, 0 ],
-  [ "DEC L", 0x2d, 0 ],
-  [ "DEC SP", 0x3b, 0 ],
-  [ "DI", 0xf3, 0 ],
-  [ "EI", 0xfb, 0 ],
-  [ "HALT", 0x76, 0 ],
-  [ "INC A", 0x3c, 0 ],
-  [ "INC B", 0x4, 0 ],
-  [ "INC BC", 0x3, 0 ],
-  [ "INC C", 0xc, 0 ],
-  [ "INC D", 0x14, 0 ],
-  [ "INC DE", 0x13, 0 ],
-  [ "INC E", 0x1c, 0 ],
-  [ "INC H", 0x24, 0 ],
-  [ "INC HL", 0x23, 0 ],
-  [ "INC [HL]", 0x34, 0 ],
-  [ "INC L", 0x2c, 0 ],
-  [ "INC SP", 0x33, 0 ],
-  [ "JP C, ?", 0xda, 2 ],
-  [ "JP [HL]", 0xe9, 0 ],
-  [ "JP NC, ?", 0xd2, 2 ],
-  [ "JP NZ, ?", 0xc2, 2 ],
-  [ "JP Z, ?", 0xca, 2 ],
-  [ "JP ?", 0xc3, 2 ],
-  [ "JR C, x", 0x38, 1 ],
-  [ "JR NC, x", 0x30, 1 ],
-  [ "JR NZ, x", 0x20, 1 ],
-  [ "JR Z, x", 0x28, 1 ],
-  [ "JR x", 0x18, 1 ],
-  [ "LD A, A", 0x7f, 0 ],
-  [ "LD A, B", 0x78, 0 ],
-  [ "LD A, C", 0x79, 0 ],
-  [ "LD A, D", 0x7a, 0 ],
-  [ "LD A, E", 0x7b, 0 ],
-  [ "LD A, H", 0x7c, 0 ],
-  [ "LD A, L", 0x7d, 0 ],
-  [ "LD A, [$FF00+C]", 0xf2, 0 ],
-  [ "LD A, [$FF00+x]", 0xf0, 1 ],
-#  [ "LDH A, [x]", 0xf0, 1 ], # rgbds has trouble with this one?
-  [ "LD A, [BC]", 0xa, 0 ],
-  [ "LD A, [DE]", 0x1a, 0 ],
-#  [ "LD A, [HL+]", 0x2a, 0 ],
-#  [ "LD A, [HL-]", 0x3a, 0 ],
-  [ "LD A, [HL]", 0x7e, 0 ],
-  [ "LD A, [HLD]", 0x3a, 0 ],
-  [ "LD A, [HLI]", 0x2a, 0 ],
-  [ "LD A, [?]", 0xfa, 2 ],
-  [ "LD A, x", 0x3e, 1 ],
-  [ "LD B, A", 0x47, 0 ],
-  [ "LD B, B", 0x40, 0 ],
-  [ "LD B, C", 0x41, 0 ],
-  [ "LD [BC], A", 0x2, 0 ],
-  [ "LD B, D", 0x42, 0 ],
-  [ "LD B, E", 0x43, 0 ],
-  [ "LD B, H", 0x44, 0 ],
-  [ "LD B, [HL]", 0x46, 0 ],
-  [ "LD B, L", 0x45, 0 ],
-  [ "LD B, x", 0x6, 1 ],
-  [ "LD C, A", 0x4f, 0 ],
-  [ "LD C, B", 0x48, 0 ],
-  [ "LD C, C", 0x49, 0 ],
-  [ "LD C, D", 0x4a, 0 ],
-  [ "LD C, E", 0x4b, 0 ],
-  [ "LD C, H", 0x4c, 0 ],
-  [ "LD C, [HL]", 0x4e, 0 ],
-  [ "LD C, L", 0x4d, 0 ],
-  [ "LD C, x", 0xe, 1 ],
-  [ "LD D, A", 0x57, 0 ],
-#  [ "LDD A, [HL]", 0x3a, 0 ],
-  [ "LD D, B", 0x50, 0 ],
-  [ "LD D, C", 0x51, 0 ],
-  [ "LD D, D", 0x52, 0 ],
-  [ "LD D, E", 0x53, 0 ],
-  [ "LD [DE], A", 0x12, 0 ],
-  [ "LD D, H", 0x54, 0 ],
-  [ "LD D, [HL]", 0x56, 0 ],
-#  [ "LDD [HL], A", 0x32, 0 ],
-  [ "LD D, L", 0x55, 0 ],
-  [ "LD D, x", 0x16, 1 ],
-  [ "LD E, A", 0x5f, 0 ],
-  [ "LD E, B", 0x58, 0 ],
-  [ "LD E, C", 0x59, 0 ],
-  [ "LD E, D", 0x5a, 0 ],
-  [ "LD E, E", 0x5b, 0 ],
-  [ "LD E, H", 0x5c, 0 ],
-  [ "LD E, [HL]", 0x5e, 0 ],
-  [ "LD E, L", 0x5d, 0 ],
-  [ "LD E, x", 0x1e, 1 ],
-  [ "LD [$FF00+C], A", 0xe2, 0 ],
-  [ "LD [$FF00+x], A", 0xe0, 1 ],
-#  [ "LDH [x], A", 0xe0, 1 ],
-  [ "LD H, A", 0x67, 0 ],
-  [ "LD H, B", 0x60, 0 ],
-  [ "LD H, C", 0x61, 0 ],
-  [ "LD H, D", 0x62, 0 ],
-  [ "LD H, E", 0x63, 0 ],
-  [ "LD H, H", 0x64, 0 ],
-  [ "LD H, [HL]", 0x66, 0 ],
-  [ "LD H, L", 0x65, 0 ],
-#  [ "LD [HL+], A", 0x22, 0 ],
-#  [ "LD [HL-], A", 0x32, 0 ],
-  [ "LD [HL], A", 0x77, 0 ],
-  [ "LD [HL], B", 0x70, 0 ],
-  [ "LD [HL], C", 0x71, 0 ],
-  [ "LD [HL], D", 0x72, 0 ],
-  [ "LD [HLD], A", 0x32, 0 ],
-  [ "LD [HL], E", 0x73, 0 ],
-  [ "LD [HL], H", 0x74, 0 ],
-  [ "LD [HLI], A", 0x22, 0 ],
-  [ "LD [HL], L", 0x75, 0 ],
-#  [ "LD HL, SP+x", 0xf8, 1 ], # rgbds uses [sp+x]
-  [ "LD HL, [SP+x]", 0xf8, 1 ],
-  [ "LD [HL], x", 0x36, 1 ],
-  [ "LD H, x", 0x26, 1 ],
-#  [ "LDI A, [HL]", 0x2a, 0 ],
-#  [ "LDI [HL], A", 0x22, 0 ],
-  [ "LD L, A", 0x6f, 0 ],
-  [ "LD L, B", 0x68, 0 ],
-  [ "LD L, C", 0x69, 0 ],
-  [ "LD L, D", 0x6a, 0 ],
-  [ "LD L, E", 0x6b, 0 ],
-  [ "LD L, H", 0x6c, 0 ],
-  [ "LD L, [HL]", 0x6e, 0 ],
-  [ "LD L, L", 0x6d, 0 ],
-  [ "LD L, x", 0x2e, 1 ],
-#  [ "LD PC, HL", 0xe9, 0 ], #prefer jp [hl]
-  [ "LD SP, HL", 0xf9, 0 ],
-  [ "LD BC, ?", 0x1, 2 ],
-  [ "LD DE, ?", 0x11, 2 ],
-  [ "LD HL, ?", 0x21, 2 ],
-  [ "LD SP, ?", 0x31, 2 ],
-  [ "LD [?], SP", 0x8, 2 ],
-  [ "LD [?], A", 0xea, 2 ],
-  [ "NOP", 0x0, 0 ],
-  [ "OR A", 0xb7, 0 ],
-  [ "OR B", 0xb0, 0 ],
-  [ "OR C", 0xb1, 0 ],
-  [ "OR D", 0xb2, 0 ],
-  [ "OR E", 0xb3, 0 ],
-  [ "OR H", 0xb4, 0 ],
-  [ "OR [HL]", 0xb6, 0 ],
-  [ "OR L", 0xb5, 0 ],
-  [ "OR x", 0xf6, 1 ],
-  [ "POP AF", 0xf1, 0 ],
-  [ "POP BC", 0xc1, 0 ],
-  [ "POP DE", 0xd1, 0 ],
-  [ "POP HL", 0xe1, 0 ],
-  [ "PUSH AF", 0xf5, 0 ],
-  [ "PUSH BC", 0xc5, 0 ],
-  [ "PUSH DE", 0xd5, 0 ],
-  [ "PUSH HL", 0xe5, 0 ],
-  [ "RES 0, A", 0x87cb, 3 ],
-  [ "RES 0, B", 0x80cb, 3 ],
-  [ "RES 0, C", 0x81cb, 3 ],
-  [ "RES 0, D", 0x82cb, 3 ],
-  [ "RES 0, E", 0x83cb, 3 ],
-  [ "RES 0, H", 0x84cb, 3 ],
-  [ "RES 0, [HL]", 0x86cb, 3 ],
-  [ "RES 0, L", 0x85cb, 3 ],
-  [ "RES 1, A", 0x8fcb, 3 ],
-  [ "RES 1, B", 0x88cb, 3 ],
-  [ "RES 1, C", 0x89cb, 3 ],
-  [ "RES 1, D", 0x8acb, 3 ],
-  [ "RES 1, E", 0x8bcb, 3 ],
-  [ "RES 1, H", 0x8ccb, 3 ],
-  [ "RES 1, [HL]", 0x8ecb, 3 ],
-  [ "RES 1, L", 0x8dcb, 3 ],
-  [ "RES 2, A", 0x97cb, 3 ],
-  [ "RES 2, B", 0x90cb, 3 ],
-  [ "RES 2, C", 0x91cb, 3 ],
-  [ "RES 2, D", 0x92cb, 3 ],
-  [ "RES 2, E", 0x93cb, 3 ],
-  [ "RES 2, H", 0x94cb, 3 ],
-  [ "RES 2, [HL]", 0x96cb, 3 ],
-  [ "RES 2, L", 0x95cb, 3 ],
-  [ "RES 3, A", 0x9fcb, 3 ],
-  [ "RES 3, B", 0x98cb, 3 ],
-  [ "RES 3, C", 0x99cb, 3 ],
-  [ "RES 3, D", 0x9acb, 3 ],
-  [ "RES 3, E", 0x9bcb, 3 ],
-  [ "RES 3, H", 0x9ccb, 3 ],
-  [ "RES 3, [HL]", 0x9ecb, 3 ],
-  [ "RES 3, L", 0x9dcb, 3 ],
-  [ "RES 4, A", 0xa7cb, 3 ],
-  [ "RES 4, B", 0xa0cb, 3 ],
-  [ "RES 4, C", 0xa1cb, 3 ],
-  [ "RES 4, D", 0xa2cb, 3 ],
-  [ "RES 4, E", 0xa3cb, 3 ],
-  [ "RES 4, H", 0xa4cb, 3 ],
-  [ "RES 4, [HL]", 0xa6cb, 3 ],
-  [ "RES 4, L", 0xa5cb, 3 ],
-  [ "RES 5, A", 0xafcb, 3 ],
-  [ "RES 5, B", 0xa8cb, 3 ],
-  [ "RES 5, C", 0xa9cb, 3 ],
-  [ "RES 5, D", 0xaacb, 3 ],
-  [ "RES 5, E", 0xabcb, 3 ],
-  [ "RES 5, H", 0xaccb, 3 ],
-  [ "RES 5, [HL]", 0xaecb, 3 ],
-  [ "RES 5, L", 0xadcb, 3 ],
-  [ "RES 6, A", 0xb7cb, 3 ],
-  [ "RES 6, B", 0xb0cb, 3 ],
-  [ "RES 6, C", 0xb1cb, 3 ],
-  [ "RES 6, D", 0xb2cb, 3 ],
-  [ "RES 6, E", 0xb3cb, 3 ],
-  [ "RES 6, H", 0xb4cb, 3 ],
-  [ "RES 6, [HL]", 0xb6cb, 3 ],
-  [ "RES 6, L", 0xb5cb, 3 ],
-  [ "RES 7, A", 0xbfcb, 3 ],
-  [ "RES 7, B", 0xb8cb, 3 ],
-  [ "RES 7, C", 0xb9cb, 3 ],
-  [ "RES 7, D", 0xbacb, 3 ],
-  [ "RES 7, E", 0xbbcb, 3 ],
-  [ "RES 7, H", 0xbccb, 3 ],
-  [ "RES 7, [HL]", 0xbecb, 3 ],
-  [ "RES 7, L", 0xbdcb, 3 ],
-  [ "RETI", 0xd9, 0 ],
-  [ "RET C", 0xd8, 0 ],
-  [ "RET NC", 0xd0, 0 ],
-  [ "RET NZ", 0xc0, 0 ],
-  [ "RET Z", 0xc8, 0 ],
-  [ "RET", 0xc9, 0 ],
-  [ "RLA", 0x17, 0 ],
-  [ "RL A", 0x17cb, 3 ],
-  [ "RL B", 0x10cb, 3 ],
-  [ "RL C", 0x11cb, 3 ],
-  [ "RLCA", 0x7, 0 ],
-  [ "RLC A", 0x7cb, 3 ],
-  [ "RLC B", 0xcb, 3 ],
-  [ "RLC C", 0x1cb, 3 ],
-  [ "RLC D", 0x2cb, 3 ],
-  [ "RLC E", 0x3cb, 3 ],
-  [ "RLC H", 0x4cb, 3 ],
-  [ "RLC [HL]", 0x6cb, 3 ],
-  [ "RLC L", 0x5cb, 3 ],
-  [ "RL D", 0x12cb, 3 ],
-  [ "RL E", 0x13cb, 3 ],
-  [ "RL H", 0x14cb, 3 ],
-  [ "RL [HL]", 0x16cb, 3 ],
-  [ "RL L", 0x15cb, 3 ],
-  [ "RRA", 0x1f, 0 ],
-  [ "RR A", 0x1fcb, 3 ],
-  [ "RR B", 0x18cb, 3 ],
-  [ "RR C", 0x19cb, 3 ],
-  [ "RRCA", 0xf, 0 ],
-  [ "RRC A", 0xfcb, 3 ],
-  [ "RRC B", 0x8cb, 3 ],
-  [ "RRC C", 0x9cb, 3 ],
-  [ "RRC D", 0xacb, 3 ],
-  [ "RRC E", 0xbcb, 3 ],
-  [ "RRC H", 0xccb, 3 ],
-  [ "RRC [HL]", 0xecb, 3 ],
-  [ "RRC L", 0xdcb, 3 ],
-  [ "RR D", 0x1acb, 3 ],
-  [ "RR E", 0x1bcb, 3 ],
-  [ "RR H", 0x1ccb, 3 ],
-  [ "RR [HL]", 0x1ecb, 3 ],
-  [ "RR L", 0x1dcb, 3 ],
-  [ "RST $0", 0xc7, 0 ],
-  [ "RST $10", 0xd7, 0 ],
-  [ "RST $18", 0xdf, 0 ],
-  [ "RST $20", 0xe7, 0 ],
-  [ "RST $28", 0xef, 0 ],
-  [ "RST $30", 0xf7, 0 ],
-  [ "RST $38", 0xff, 0 ],
-  [ "RST $8", 0xcf, 0 ],
-  [ "SBC A", 0x9f, 0 ],
-  [ "SBC B", 0x98, 0 ],
-  [ "SBC C", 0x99, 0 ],
-  [ "SBC D", 0x9a, 0 ],
-  [ "SBC E", 0x9b, 0 ],
-  [ "SBC H", 0x9c, 0 ],
-  [ "SBC [HL]", 0x9e, 0 ],
-  [ "SBC L", 0x9d, 0 ],
-  [ "SBC x", 0xde, 1 ],
-  [ "SCF", 0x37, 0 ],
-  [ "SET 0, A", 0xc7cb, 3 ],
-  [ "SET 0, B", 0xc0cb, 3 ],
-  [ "SET 0, C", 0xc1cb, 3 ],
-  [ "SET 0, D", 0xc2cb, 3 ],
-  [ "SET 0, E", 0xc3cb, 3 ],
-  [ "SET 0, H", 0xc4cb, 3 ],
-  [ "SET 0, [HL]", 0xc6cb, 3 ],
-  [ "SET 0, L", 0xc5cb, 3 ],
-  [ "SET 1, A", 0xcfcb, 3 ],
-  [ "SET 1, B", 0xc8cb, 3 ],
-  [ "SET 1, C", 0xc9cb, 3 ],
-  [ "SET 1, D", 0xcacb, 3 ],
-  [ "SET 1, E", 0xcbcb, 3 ],
-  [ "SET 1, H", 0xcccb, 3 ],
-  [ "SET 1, [HL]", 0xcecb, 3 ],
-  [ "SET 1, L", 0xcdcb, 3 ],
-  [ "SET 2, A", 0xd7cb, 3 ],
-  [ "SET 2, B", 0xd0cb, 3 ],
-  [ "SET 2, C", 0xd1cb, 3 ],
-  [ "SET 2, D", 0xd2cb, 3 ],
-  [ "SET 2, E", 0xd3cb, 3 ],
-  [ "SET 2, H", 0xd4cb, 3 ],
-  [ "SET 2, [HL]", 0xd6cb, 3 ],
-  [ "SET 2, L", 0xd5cb, 3 ],
-  [ "SET 3, A", 0xdfcb, 3 ],
-  [ "SET 3, B", 0xd8cb, 3 ],
-  [ "SET 3, C", 0xd9cb, 3 ],
-  [ "SET 3, D", 0xdacb, 3 ],
-  [ "SET 3, E", 0xdbcb, 3 ],
-  [ "SET 3, H", 0xdccb, 3 ],
-  [ "SET 3, [HL]", 0xdecb, 3 ],
-  [ "SET 3, L", 0xddcb, 3 ],
-  [ "SET 4, A", 0xe7cb, 3 ],
-  [ "SET 4, B", 0xe0cb, 3 ],
-  [ "SET 4, C", 0xe1cb, 3 ],
-  [ "SET 4, D", 0xe2cb, 3 ],
-  [ "SET 4, E", 0xe3cb, 3 ],
-  [ "SET 4, H", 0xe4cb, 3 ],
-  [ "SET 4, [HL]", 0xe6cb, 3 ],
-  [ "SET 4, L", 0xe5cb, 3 ],
-  [ "SET 5, A", 0xefcb, 3 ],
-  [ "SET 5, B", 0xe8cb, 3 ],
-  [ "SET 5, C", 0xe9cb, 3 ],
-  [ "SET 5, D", 0xeacb, 3 ],
-  [ "SET 5, E", 0xebcb, 3 ],
-  [ "SET 5, H", 0xeccb, 3 ],
-  [ "SET 5, [HL]", 0xeecb, 3 ],
-  [ "SET 5, L", 0xedcb, 3 ],
-  [ "SET 6, A", 0xf7cb, 3 ],
-  [ "SET 6, B", 0xf0cb, 3 ],
-  [ "SET 6, C", 0xf1cb, 3 ],
-  [ "SET 6, D", 0xf2cb, 3 ],
-  [ "SET 6, E", 0xf3cb, 3 ],
-  [ "SET 6, H", 0xf4cb, 3 ],
-  [ "SET 6, [HL]", 0xf6cb, 3 ],
-  [ "SET 6, L", 0xf5cb, 3 ],
-  [ "SET 7, A", 0xffcb, 3 ],
-  [ "SET 7, B", 0xf8cb, 3 ],
-  [ "SET 7, C", 0xf9cb, 3 ],
-  [ "SET 7, D", 0xfacb, 3 ],
-  [ "SET 7, E", 0xfbcb, 3 ],
-  [ "SET 7, H", 0xfccb, 3 ],
-  [ "SET 7, [HL]", 0xfecb, 3 ],
-  [ "SET 7, L", 0xfdcb, 3 ],
-  [ "SLA A", 0x27cb, 3 ],
-  [ "SLA B", 0x20cb, 3 ],
-  [ "SLA C", 0x21cb, 3 ],
-  [ "SLA D", 0x22cb, 3 ],
-  [ "SLA E", 0x23cb, 3 ],
-  [ "SLA H", 0x24cb, 3 ],
-  [ "SLA [HL]", 0x26cb, 3 ],
-  [ "SLA L", 0x25cb, 3 ],
-  [ "SRA A", 0x2fcb, 3 ],
-  [ "SRA B", 0x28cb, 3 ],
-  [ "SRA C", 0x29cb, 3 ],
-  [ "SRA D", 0x2acb, 3 ],
-  [ "SRA E", 0x2bcb, 3 ],
-  [ "SRA H", 0x2ccb, 3 ],
-  [ "SRA [HL]", 0x2ecb, 3 ],
-  [ "SRA L", 0x2dcb, 3 ],
-  [ "SRL A", 0x3fcb, 3 ],
-  [ "SRL B", 0x38cb, 3 ],
-  [ "SRL C", 0x39cb, 3 ],
-  [ "SRL D", 0x3acb, 3 ],
-  [ "SRL E", 0x3bcb, 3 ],
-  [ "SRL H", 0x3ccb, 3 ],
-  [ "SRL [HL]", 0x3ecb, 3 ],
-  [ "SRL L", 0x3dcb, 3 ],
-  [ "STOP", 0x10, 0 ],
-  [ "SUB A", 0x97, 0 ],
-  [ "SUB B", 0x90, 0 ],
-  [ "SUB C", 0x91, 0 ],
-  [ "SUB D", 0x92, 0 ],
-  [ "SUB E", 0x93, 0 ],
-  [ "SUB H", 0x94, 0 ],
-  [ "SUB [HL]", 0x96, 0 ],
-  [ "SUB L", 0x95, 0 ],
-  [ "SUB x", 0xd6, 1 ],
-  [ "SWAP A", 0x37cb, 3 ],
-  [ "SWAP B", 0x30cb, 3 ],
-  [ "SWAP C", 0x31cb, 3 ],
-  [ "SWAP D", 0x32cb, 3 ],
-  [ "SWAP E", 0x33cb, 3 ],
-  [ "SWAP H", 0x34cb, 3 ],
-  [ "SWAP [HL]", 0x36cb, 3 ],
-  [ "SWAP L", 0x35cb, 3 ],
-  [ "XOR A", 0xaf, 0 ],
-  [ "XOR B", 0xa8, 0 ],
-  [ "XOR C", 0xa9, 0 ],
-  [ "XOR D", 0xaa, 0 ],
-  [ "XOR E", 0xab, 0 ],
-  [ "XOR H", 0xac, 0 ],
-  [ "XOR [HL]", 0xae, 0 ],
-  [ "XOR L", 0xad, 0 ],
-  [ "XOR x", 0xee, 1 ],
-  [ "E", 0x100, -1 ],
+z80_table = [
+	('nop', 0),                    # 00
+	('ld bc, {}', 2),              # 01
+	('ld [bc], a', 0),             # 02
+	('inc bc', 0),                 # 03
+	('inc b', 0),                  # 04
+	('dec b', 0),                  # 05
+	('ld b, ${:02x}', 1),          # 06
+	('rlca', 0),                   # 07
+	('ld [{}], sp', 2),            # 08
+	('add hl, bc', 0),             # 09
+	('ld a, [bc]', 0),             # 0a
+	('dec bc', 0),                 # 0b
+	('inc c', 0),                  # 0c
+	('dec c', 0),                  # 0d
+	('ld c, ${:02x}', 1),          # 0e
+	('rrca', 0),                   # 0f
+	('db $10', 0),                 # 10
+	('ld de, {}', 2),              # 11
+	('ld [de], a', 0),             # 12
+	('inc de', 0),                 # 13
+	('inc d', 0),                  # 14
+	('dec d', 0),                  # 15
+	('ld d, ${:02x}', 1),          # 16
+	('rla', 0),                    # 17
+	('jr {}', 1),                  # 18
+	('add hl, de', 0),             # 19
+	('ld a, [de]', 0),             # 1a
+	('dec de', 0),                 # 1b
+	('inc e', 0),                  # 1c
+	('dec e', 0),                  # 1d
+	('ld e, ${:02x}', 1),          # 1e
+	('rra', 0),                    # 1f
+	('jr nz, {}', 1),              # 20
+	('ld hl, {}', 2),              # 21
+	('ld [hli], a', 0),            # 22
+	('inc hl', 0),                 # 23
+	('inc h', 0),                  # 24
+	('dec h', 0),                  # 25
+	('ld h, ${:02x}', 1),          # 26
+	('daa', 0),                    # 27
+	('jr z, {}', 1),               # 28
+	('add hl, hl', 0),             # 29
+	('ld a, [hli]', 0),            # 2a
+	('dec hl', 0),                 # 2b
+	('inc l', 0),                  # 2c
+	('dec l', 0),                  # 2d
+	('ld l, ${:02x}', 1),          # 2e
+	('cpl', 0),                    # 2f
+	('jr nc, {}', 1),              # 30
+	('ld sp, {}', 2),              # 31
+	('ld [hld], a', 0),            # 32
+	('inc sp', 0),                 # 33
+	('inc [hl]', 0),               # 34
+	('dec [hl]', 0),               # 35
+	('ld [hl], ${:02x}', 1),       # 36
+	('scf', 0),                    # 37
+	('jr c, {}', 1),               # 38
+	('add hl, sp', 0),             # 39
+	('ld a, [hld]', 0),            # 3a
+	('dec sp', 0),                 # 3b
+	('inc a', 0),                  # 3c
+	('dec a', 0),                  # 3d
+	('ld a, ${:02x}', 1),          # 3e
+	('ccf', 0),                    # 3f
+	('ld b, b', 0),                # 40
+	('ld b, c', 0),                # 41
+	('ld b, d', 0),                # 42
+	('ld b, e', 0),                # 43
+	('ld b, h', 0),                # 44
+	('ld b, l', 0),                # 45
+	('ld b, [hl]', 0),             # 46
+	('ld b, a', 0),                # 47
+	('ld c, b', 0),                # 48
+	('ld c, c', 0),                # 49
+	('ld c, d', 0),                # 4a
+	('ld c, e', 0),                # 4b
+	('ld c, h', 0),                # 4c
+	('ld c, l', 0),                # 4d
+	('ld c, [hl]', 0),             # 4e
+	('ld c, a', 0),                # 4f
+	('ld d, b', 0),                # 50
+	('ld d, c', 0),                # 51
+	('ld d, d', 0),                # 52
+	('ld d, e', 0),                # 53
+	('ld d, h', 0),                # 54
+	('ld d, l', 0),                # 55
+	('ld d, [hl]', 0),             # 56
+	('ld d, a', 0),                # 57
+	('ld e, b', 0),                # 58
+	('ld e, c', 0),                # 59
+	('ld e, d', 0),                # 5a
+	('ld e, e', 0),                # 5b
+	('ld e, h', 0),                # 5c
+	('ld e, l', 0),                # 5d
+	('ld e, [hl]', 0),             # 5e
+	('ld e, a', 0),                # 5f
+	('ld h, b', 0),                # 60
+	('ld h, c', 0),                # 61
+	('ld h, d', 0),                # 62
+	('ld h, e', 0),                # 63
+	('ld h, h', 0),                # 64
+	('ld h, l', 0),                # 65
+	('ld h, [hl]', 0),             # 66
+	('ld h, a', 0),                # 67
+	('ld l, b', 0),                # 68
+	('ld l, c', 0),                # 69
+	('ld l, d', 0),                # 6a
+	('ld l, e', 0),                # 6b
+	('ld l, h', 0),                # 6c
+	('ld l, l', 0),                # 6d
+	('ld l, [hl]', 0),             # 6e
+	('ld l, a', 0),                # 6f
+	('ld [hl], b', 0),             # 70
+	('ld [hl], c', 0),             # 71
+	('ld [hl], d', 0),             # 72
+	('ld [hl], e', 0),             # 73
+	('ld [hl], h', 0),             # 74
+	('ld [hl], l', 0),             # 75
+	('halt', 0),                   # 76
+	('ld [hl], a', 0),             # 77
+	('ld a, b', 0),                # 78
+	('ld a, c', 0),                # 79
+	('ld a, d', 0),                # 7a
+	('ld a, e', 0),                # 7b
+	('ld a, h', 0),                # 7c
+	('ld a, l', 0),                # 7d
+	('ld a, [hl]', 0),             # 7e
+	('ld a, a', 0),                # 7f
+	('add b', 0),                  # 80
+	('add c', 0),                  # 81
+	('add d', 0),                  # 82
+	('add e', 0),                  # 83
+	('add h', 0),                  # 84
+	('add l', 0),                  # 85
+	('add [hl]', 0),               # 86
+	('add a', 0),                  # 87
+	('adc b', 0),                  # 88
+	('adc c', 0),                  # 89
+	('adc d', 0),                  # 8a
+	('adc e', 0),                  # 8b
+	('adc h', 0),                  # 8c
+	('adc l', 0),                  # 8d
+	('adc [hl]', 0),               # 8e
+	('adc a', 0),                  # 8f
+	('sub b', 0),                  # 90
+	('sub c', 0),                  # 91
+	('sub d', 0),                  # 92
+	('sub e', 0),                  # 93
+	('sub h', 0),                  # 94
+	('sub l', 0),                  # 95
+	('sub [hl]', 0),               # 96
+	('sub a', 0),                  # 97
+	('sbc b', 0),                  # 98
+	('sbc c', 0),                  # 99
+	('sbc d', 0),                  # 9a
+	('sbc e', 0),                  # 9b
+	('sbc h', 0),                  # 9c
+	('sbc l', 0),                  # 9d
+	('sbc [hl]', 0),               # 9e
+	('sbc a', 0),                  # 9f
+	('and b', 0),                  # a0
+	('and c', 0),                  # a1
+	('and d', 0),                  # a2
+	('and e', 0),                  # a3
+	('and h', 0),                  # a4
+	('and l', 0),                  # a5
+	('and [hl]', 0),               # a6
+	('and a', 0),                  # a7
+	('xor b', 0),                  # a8
+	('xor c', 0),                  # a9
+	('xor d', 0),                  # aa
+	('xor e', 0),                  # ab
+	('xor h', 0),                  # ac
+	('xor l', 0),                  # ad
+	('xor [hl]', 0),               # ae
+	('xor a', 0),                  # af
+	('or b', 0),                   # b0
+	('or c', 0),                   # b1
+	('or d', 0),                   # b2
+	('or e', 0),                   # b3
+	('or h', 0),                   # b4
+	('or l', 0),                   # b5
+	('or [hl]', 0),                # b6
+	('or a', 0),                   # b7
+	('cp b', 0),                   # b8
+	('cp c', 0),                   # b9
+	('cp d', 0),                   # ba
+	('cp e', 0),                   # bb
+	('cp h', 0),                   # bc
+	('cp l', 0),                   # bd
+	('cp [hl]', 0),                # be
+	('cp a', 0),                   # bf
+	('ret nz', 0),                 # c0
+	('pop bc', 0),                 # c1
+	('jp nz, {}', 2),              # c2
+	('jp {}', 2),                  # c3
+	('call nz, {}', 2),            # c4
+	('push bc', 0),                # c5
+	('add ${:02x}', 1),            # c6
+	('rst $0', 0),                 # c7
+	('ret z', 0),                  # c8
+	('ret', 0),                    # c9
+	('jp z, {}', 2),               # ca
+	('bitops', 1),                 # cb
+	('call z, {}', 2),             # cc
+	('call {}', 2),                # cd
+	('adc ${:02x}', 1),            # ce
+	('rst $8', 0),                 # cf
+	('ret nc', 0),                 # d0
+	('pop de', 0),                 # d1
+	('jp nc, ${:04x}', 2),         # d2
+	('db $d3', 0),                 # d3
+	('call nc, {}', 2),            # d4
+	('push de', 0),                # d5
+	('sub ${:02x}', 1),            # d6
+	('rst $10', 0),                # d7
+	('ret c', 0),                  # d8
+	('reti', 0),                   # d9
+	('jp c, ${:04x}', 2),          # da
+	('db $db', 0),                 # db
+	('call c, {}', 2),             # dc
+	('db $dd', 2),                 # dd
+	('sbc ${:02x}', 1),            # de
+	('rst $18', 0),                # df
+	('ld [{}], a', 1),             # e0
+	('pop hl', 0),                 # e1
+	('ld [$ff00+c], a', 0),        # e2
+	('db $e3', 0),                 # e3
+	('db $e4', 0),                 # e4
+	('push hl', 0),                # e5
+	('and ${:02x}', 1),            # e6
+	('rst $20', 0),                # e7
+	('add sp, ${:02x}', 1),        # e8
+	('jp [hl]', 0),                # e9
+	('ld [{}], a', 2),             # ea
+	('db $eb', 0),                 # eb
+	('db $ec', 2),                 # ec
+	('db $ed', 2),                 # ed
+	('xor ${:02x}', 1),            # ee
+	('rst $28', 0),                # ef
+	('ld a, [{}]', 1),             # f0
+	('pop af', 0),                 # f1
+	('db $f2', 0),                 # f2
+	('di', 0),                     # f3
+	('db $f4', 0),                 # f4
+	('push af', 0),                # f5
+	('or ${:02x}', 1),             # f6
+	('rst $30', 0),                # f7
+	('ld hl, sp+${:02x}', 1),      # f8
+	('ld sp, [hl]', 0),            # f9
+	('ld a, [{}]', 2),             # fa
+	('ei', 0),                     # fb
+	('db $fc', 2),                 # fc
+	('db $fd', 2),                 # fd
+	('cp ${:02x}', 1),             # fe
+	('rst $38', 0),                # ff
+]
+ 
+bit_ops_table = [
+	"rlc b",     "rlc c",     "rlc d",     "rlc e",     "rlc h",     "rlc l",     "rlc [hl]",     "rlc a",       # $00 - $07
+	"rrc b",     "rrc c",     "rrc d",     "rrc e",     "rrc h",     "rrc l",     "rrc [hl]",     "rrc a",       # $08 - $0f
+	"rl b",      "rl c",      "rl d",      "rl e",      "rl h",      "rl l",      "rl [hl]",      "rl a",        # $10 - $17
+	"rr b",      "rr c",      "rr d",      "rr e",      "rr h",      "rr l",      "rr [hl]",      "rr a",        # $18 - $1f
+	"sla b",     "sla c",     "sla d",     "sla e",     "sla h",     "sla l",     "sla [hl]",     "sla a",       # $20 - $27
+	"sra b",     "sra c",     "sra d",     "sra e",     "sra h",     "sra l",     "sra [hl]",     "sra a",       # $28 - $2f
+	"swap b",    "swap c",    "swap d",    "swap e",    "swap h",    "swap l",    "swap [hl]",    "swap a",      # $30 - $37
+	"srl b",     "srl c",     "srl d",     "srl e",     "srl h",     "srl l",     "srl [hl]",     "srl a",       # $38 - $3f
+	"bit 0, b",  "bit 0, c",  "bit 0, d",  "bit 0, e",  "bit 0, h",  "bit 0, l",  "bit 0, [hl]",  "bit 0, a",    # $40 - $47
+	"bit 1, b",  "bit 1, c",  "bit 1, d",  "bit 1, e",  "bit 1, h",  "bit 1, l",  "bit 1, [hl]",  "bit 1, a",    # $48 - $4f
+	"bit 2, b",  "bit 2, c",  "bit 2, d",  "bit 2, e",  "bit 2, h",  "bit 2, l",  "bit 2, [hl]",  "bit 2, a",    # $50 - $57
+	"bit 3, b",  "bit 3, c",  "bit 3, d",  "bit 3, e",  "bit 3, h",  "bit 3, l",  "bit 3, [hl]",  "bit 3, a",    # $58 - $5f
+	"bit 4, b",  "bit 4, c",  "bit 4, d",  "bit 4, e",  "bit 4, h",  "bit 4, l",  "bit 4, [hl]",  "bit 4, a",    # $60 - $67
+	"bit 5, b",  "bit 5, c",  "bit 5, d",  "bit 5, e",  "bit 5, h",  "bit 5, l",  "bit 5, [hl]",  "bit 5, a",    # $68 - $6f
+	"bit 6, b",  "bit 6, c",  "bit 6, d",  "bit 6, e",  "bit 6, h",  "bit 6, l",  "bit 6, [hl]",  "bit 6, a",    # $70 - $77
+	"bit 7, b",  "bit 7, c",  "bit 7, d",  "bit 7, e",  "bit 7, h",  "bit 7, l",  "bit 7, [hl]",  "bit 7, a",    # $78 - $7f
+	"res 0, b",  "res 0, c",  "res 0, d",  "res 0, e",  "res 0, h",  "res 0, l",  "res 0, [hl]",  "res 0, a",    # $80 - $87
+	"res 1, b",  "res 1, c",  "res 1, d",  "res 1, e",  "res 1, h",  "res 1, l",  "res 1, [hl]",  "res 1, a",    # $88 - $8f
+	"res 2, b",  "res 2, c",  "res 2, d",  "res 2, e",  "res 2, h",  "res 2, l",  "res 2, [hl]",  "res 2, a",    # $90 - $97
+	"res 3, b",  "res 3, c",  "res 3, d",  "res 3, e",  "res 3, h",  "res 3, l",  "res 3, [hl]",  "res 3, a",    # $98 - $9f
+	"res 4, b",  "res 4, c",  "res 4, d",  "res 4, e",  "res 4, h",  "res 4, l",  "res 4, [hl]",  "res 4, a",    # $a0 - $a7
+	"res 5, b",  "res 5, c",  "res 5, d",  "res 5, e",  "res 5, h",  "res 5, l",  "res 5, [hl]",  "res 5, a",    # $a8 - $af
+	"res 6, b",  "res 6, c",  "res 6, d",  "res 6, e",  "res 6, h",  "res 6, l",  "res 6, [hl]",  "res 6, a",    # $b0 - $b7
+	"res 7, b",  "res 7, c",  "res 7, d",  "res 7, e",  "res 7, h",  "res 7, l",  "res 7, [hl]",  "res 7, a",    # $b8 - $bf
+	"set 0, b",  "set 0, c",  "set 0, d",  "set 0, e",  "set 0, h",  "set 0, l",  "set 0, [hl]",  "set 0, a",    # $c0 - $c7
+	"set 1, b",  "set 1, c",  "set 1, d",  "set 1, e",  "set 1, h",  "set 1, l",  "set 1, [hl]",  "set 1, a",    # $c8 - $cf
+	"set 2, b",  "set 2, c",  "set 2, d",  "set 2, e",  "set 2, h",  "set 2, l",  "set 2, [hl]",  "set 2, a",    # $d0 - $d7
+	"set 3, b",  "set 3, c",  "set 3, d",  "set 3, e",  "set 3, h",  "set 3, l",  "set 3, [hl]",  "set 3, a",    # $d8 - $df
+	"set 4, b",  "set 4, c",  "set 4, d",  "set 4, e",  "set 4, h",  "set 4, l",  "set 4, [hl]",  "set 4, a",    # $e0 - $e7
+	"set 5, b",  "set 5, c",  "set 5, d",  "set 5, e",  "set 5, h",  "set 5, l",  "set 5, [hl]",  "set 5, a",    # $e8 - $ef
+	"set 6, b",  "set 6, c",  "set 6, d",  "set 6, e",  "set 6, h",  "set 6, l",  "set 6, [hl]",  "set 6, a",    # $f0 - $f7
+	"set 7, b",  "set 7, c",  "set 7, d",  "set 7, e",  "set 7, h",  "set 7, l",  "set 7, [hl]",  "set 7, a"     # $f8 - $ff
 ]
 
-# construct a more useful version of opt_table
-opt_table = {}
-for line in temp_opt_table:
-    opt_table[line[1]] = [line[0], line[2]]
-del line
+unconditional_returns = [0xc9, 0xd9]
+absolute_jumps = [0xc3, 0xc2, 0xca, 0xd2, 0xda]
+call_commands = [0xcd, 0xc4, 0xcc, 0xd4, 0xdc]
+relative_jumps = [0x18, 0x20, 0x28, 0x30, 0x38]
+unconditional_jumps = [0xc3, 0x18]
 
-end_08_scripts_with = [
-0xc9, #ret
-0xd9, #reti
-0xe9, #jp hl
-#0xc3, #jp
-##0x18, #jr
-###0xda, 0xe9, 0xd2, 0xc2, 0xca, 0xc3, 0x38, 0x30, 0x20, 0x28, 0x18, 0xd8, 0xd0, 0xc0, 0xc8, 0xc9
-]
-
-discrete_jumps = [0xda, 0xe9, 0xd2, 0xc2, 0xca, 0xc3]
-relative_jumps = [0x38, 0x30, 0x20, 0x28, 0x18, 0xc3, 0xda, 0xc2]
-relative_unconditional_jumps = [0xc3, 0x18]
-
-call_commands = [0xdc, 0xd4, 0xc4, 0xcc, 0xcd]
 
 def asm_label(address):
-    """
-    Return a local label name for asm at <address>.
-    """
-    return '.asm_%x' % address
+	"""
+	Return a local label name for asm at <address>.
+	"""
+	return '.asm_%x' % address
 
 def data_label(address):
-    """
-    Return a local label name for data at <address>.
-    """
-    return '.data_%x' % address
+	"""
+	Return a local label name for data at <address>.
+	"""
+	return '.data_%x' % address
 
 def get_local_address(address):
-    """
-    Return the local address of a rom address.
-    """
-    bank = address / 0x4000
-    address &= 0x3fff
-    if bank:
-        return address + 0x4000
-    return address
+	"""
+	Return the local address of a rom address.
+	"""
+	bank = address / 0x4000
+	address &= 0x3fff
+	if bank:
+		return address + 0x4000
+	return address
 
 def get_global_address(address, bank):
-    """
-    Return the rom address of a local address and bank.
+	"""
+	Return the rom address of a local address and bank.
 
-    This accounts for a quirk in mbc3+ where 0:4000-7fff resolves to 1:4000-7fff.
-    """
-    if address < 0x8000:
-        if address >= 0x4000 and bank > 0:
-            return address + (bank - 1) * 0x4000
-        return address
-    return None
+	This accounts for a quirk in mbc3 where 0:4000-7fff resolves to 1:4000-7fff.
+	"""
+	if address < 0x8000:
+		if address >= 0x4000 and bank > 0:
+			return address + (bank - 1) * 0x4000
+	
+	return address
 
-def has_outstanding_labels(byte_labels):
-    """
-    Check whether a label is used once in the asm output.
+def created_but_unused_labels_exist(byte_labels):
+	"""
+	Check whether a label has been created but not used.
 
-    If so, then that means it has to be called or specified later.
-    """
-    for label_line in byte_labels.keys():
-        real_line = byte_labels[label_line]
-        if real_line["definition"] == False: return True
-    return False
+	If so, then that means it has to be called or specified later.
+	"""
+	return (False in [label["definition"] for label in byte_labels.values()])
 
-def all_outstanding_labels_are_reverse(byte_labels, offset):
-    """
-    Check whether all labels have already been defined.
-    """
-    for label_id in byte_labels.keys():
-        line = byte_labels[label_id] # label_id is also the address
-        if line["definition"] == False:
-            if not label_id < offset: return False
-    return True
+def all_byte_labels_are_defined(byte_labels):
+	"""
+	Check whether all labels have already been defined.
+	"""
+	return (False not in [label["definition"] for label in byte_labels.values()])
 
 def load_rom(path='baserom.gbc'):
-    return bytearray(open(path, 'rb').read())
+	return bytearray(open(path, 'rb').read())
 
 def read_symfile(path='baserom.sym'):
-    """
-    Return a list of dicts of label data from an rgbds .sym file.
-    """
-    symbols = []
-    for line in open(path):
-        line = line.strip().split(';')[0]
-        if line:
-            bank_address, label = line.split(' ')[:2]
-            bank, address = bank_address.split(':')
-            symbols += [{
-                'label': label,
-                'bank': int(bank, 16),
-                'address': int(address, 16),
-            }]
-    return symbols
+	"""
+	Return a list of dicts of label data from an rgbds .sym file.
+	"""
+	symbols = []
+	for line in open(path):
+		line = line.strip().split(';')[0]
+		if line:
+			bank_address, label = line.split(' ')[:2]
+			bank, address = bank_address.split(':')
+			symbols += [{
+				'label': label,
+				'bank': int(bank, 16),
+				'address': int(address, 16),
+			}]
+	return symbols
 
 def load_symbols(path):
-    sym = {}
-    reverse_sym = {}
-    symbols = read_symfile(path)
-    for symbol in symbols:
-        bank = symbol['bank']
-        address = symbol['address']
-        label = symbol['label']
-        if not sym.has_key(bank):
-            sym[bank] = {}
-        sym[bank][address] = label
-        reverse_sym[label] = get_global_address(address, bank)
-    return sym, reverse_sym
+	sym = {}
+	reverse_sym = {}
+	wram_sym = {}
+	sram_sym = {}
+	
+	symbols = read_symfile(path)
+	for symbol in symbols:
+		bank = symbol['bank']
+		address = symbol['address']
+		label = symbol['label']
+		
+		if 0x0000 <= address < 0x8000:
+			if not sym.has_key(bank):
+				sym[bank] = {}
+			
+			sym[bank][address] = label
+			reverse_sym[label] = get_global_address(address, bank)
+			
+		elif 0xa000 <= address < 0xc000:
+			if not sram_sym.has_key(bank):
+				sram_sym[bank] = {}
+				
+			sram_sym[bank][address] = label
+			
+		elif address < 0xe000:
+			if not wram_sym.has_key(bank):
+				wram_sym[bank] = {}
+			
+			wram_sym[bank][address] = label
+		else:	
+			raise ValueError("Unsupported symfile label type.")
+		
+	return sym, reverse_sym, wram_sym, sram_sym
 
 def get_symbol(sym, address, bank=0):
-    if sym:
-        return sym.get(bank, {}).get(address)
-    return None
+	if sym:
+		if 0x0000 <= address < 0x4000:
+			return sym.get(0, {}).get(address)
+		else:
+			return sym.get(bank, {}).get(address)
+	
+	return None
+
+def get_banked_ram_sym(sym, address):
+	#if sym:
+	#	if 0xc000 <= address < 0xd000:
+	#		return sym.get(0, {}).get(address)
+	#	else:
+	#		return sym.get(bank, {}).get(address)
+	if sym:
+		for bank in sym.keys():
+			temp_sym = sym.get(bank, {}).get(address)
+			if temp_sym:
+				return temp_sym
+		
+	return None
+
+def create_address_comment(offset):
+	comment_bank = offset / 0x4000
+	if comment_bank != 0:
+		comment_bank_addr = (offset % 0x4000) + 0x4000
+	else:
+		comment_bank_addr = offset
+		
+	return " ; %x (%x:%x)" % (offset, comment_bank, comment_bank_addr)
+			
+def offset_is_used(labels, offset):
+	if offset in labels.keys():
+		return 0 < labels[offset]["usage"]
 
 class Disassembler(object):
-    """
-    GBC disassembler
-    """
+	"""
+	GBC disassembler
+	"""
 
-    def __init__(self, config):
-        """
-        Setup the class instance.
-        """
-        self.config = config
-        self.spacing = '\t'
-        self.rom = None
-        self.sym = None
-        self.rsym = None
-        self.gbhw = None
+	def __init__(self, config):
+		"""
+		Setup the class instance.
+		"""
+		self.config = config
+		self.spacing = '\t'
+		self.rom = None
+		self.sym = None
+		self.rsym = None
+		self.gbhw = None
+		self.vram = None
+		self.sram = None
+		self.hram = None
+		self.wram = None
 
-    def initialize(self):
-        """
-        Setup the disassembler.
-        """
-        path = os.path.join(self.config.path, 'baserom.gbc')
-        self.rom = load_rom(path)
+	def initialize(self, rom, symfile):
+		"""
+		Setup the disassembler.
+		"""
+		path = os.path.join(self.config.path, rom)
+		self.rom = load_rom(path)
+		
+		path = os.path.join(self.config.path, symfile)
+		if os.path.exists(path):
+			self.sym, self.rsym, self.wram, self.sram = load_symbols(path)
 
-        path = os.path.join(self.config.path, 'baserom.sym')
-        if os.path.exists(path):
-            self.sym, self.rsym = load_symbols(path)
+		path = os.path.join(self.config.path, 'gbhw.asm')
+		
+		if os.path.exists(path):
+			self.gbhw = read_constants(path)
+		else:
+			path = os.path.join(self.config.path, "constants/hardware_constants.asm")
+			if os.path.exists(path):
+				self.gbhw = read_constants(path)
+		
+		path = os.path.join(self.config.path, 'vram.asm')
+		if os.path.exists(path):
+			self.vram = read_constants(path)
+			
+		path = os.path.join(self.config.path, 'hram.asm')
+		if os.path.exists(path):
+			self.hram = read_constants(path)
 
-        path = os.path.join(self.config.path, 'gbhw.asm')
-        if os.path.exists(path):
-            self.gbhw = read_constants(path)
+	def find_label(self, address, bank=0):
+		if type(address) is str:
+			address = int(address.replace('$', '0x'), 16)
+		elif address is None:
+			return address
+		
+		if 0x0000 <= address < 0x8000:
+			label = self.get_symbol(address, bank)
+		elif address < 0xa000 and self.vram:
+			label = self.vram.get(address)
+		elif address < 0xc000:
+			label = self.get_sram(address)
+		elif address < 0xe000:
+			label = self.get_wram(address)
+		elif ((0xff00 <= address < 0xff80) or (address == 0xffff)) and self.gbhw:
+			label = self.gbhw.get(address)
+		elif (0xff80 <= address < 0xffff) and self.hram:
+			label = self.hram.get(address)
+		else:
+			label = None
+			
+		return label
 
-    def find_label(self, address, bank=0):
-        if type(address) is not int:
-            address = int(address.replace('$', '0x'), 16)
-        label = self.get_symbol(address, bank)
-        if not label:
-            label = self.get_gbhw(address)
-        return label
+	def get_symbol(self, address, bank):
+		symbol = get_symbol(self.sym, address, bank)
+		if symbol == 'NULL' and address == 0 and bank == 0:
+			return None
+		return symbol
 
-    def get_symbol(self, address, bank):
-        symbol = get_symbol(self.sym, address, bank)
-        if symbol == 'NULL' and address == 0 and bank == 0:
-            return None
-        return symbol
+	def get_wram(self, address):
+		symbol = get_banked_ram_sym(self.wram, address)
+		if symbol == 'NULL' and address == 0:
+			return None
+		return symbol
+		
+	def get_sram(self, address):
+		symbol = get_banked_ram_sym(self.sram, address)
+		if symbol == 'NULL' and address == 0:
+			return None
+		return symbol
+		
+	def find_address_from_label(self, label):
+		if self.rsym:
+			return self.rsym.get(label)
+		
+		return None
 
-    def get_gbhw(self, address):
-        if 0xff00 <= address < 0xff80:
-            if self.gbhw:
-                return self.gbhw.get(address)
-        return None
+	def output_bank_opcodes(self, start_offset, stop_offset, hard_stop=False, parse_data=False, include_last_address=True):
+		"""
+		Output bank opcodes.
 
-    def find_address_from_label(self, label):
-        if self.rsym:
-            return self.rsym.get(label)
-        return None
+		fs = current_address
+		b = bank_byte
+		in = input_data  -- rom
+		bank_size = byte_count
+		i = offset
+		ad = end_address
+		a, oa = current_byte_number
 
-    def output_bank_opcodes(self, original_offset, max_byte_count=0x4000, include_last_address=True, stop_at=[], debug=False):
-        """
-        Output bank opcodes.
+		stop_at can be used to supply a list of addresses to not disassemble
+		over. This is useful if you know in advance that there are a lot of
+		fall-throughs.
+		"""
+		
+		debug = False
+				
+		bank_id = start_offset / 0x4000
+		
+		stop_offset_undefined = False
+		
+		# check if stop_offset isn't defined
+		if stop_offset is None:
+			stop_offset_undefined = True
+			# stop at the end of the current bank if stop_offset is not defined
+			stop_offset = (bank_id + 1) * 0x4000 - 1
+	
+		if debug:
+			print "bank id is: " + str(bank_id)
 
-        fs = current_address
-        b = bank_byte
-        in = input_data  -- rom
-        bank_size = byte_count
-        i = offset
-        ad = end_address
-        a, oa = current_byte_number
+		rom = self.rom
 
-        stop_at can be used to supply a list of addresses to not disassemble
-        over. This is useful if you know in advance that there are a lot of
-        fall-throughs.
-        """
+		offset = start_offset
+		current_byte_number = 0 #start from the beginning		
 
-        bank_id = original_offset / 0x4000
-        if debug: print "bank id is: " + str(bank_id)
+		byte_labels = {}
+		data_tables = {}
 
-        last_hl_address = None #for when we're scanning the main map script
-        last_a_address = None
-        used_3d97 = False
+		first_loop = True
+		output = "Func_%x:%s\n" % (start_offset,create_address_comment(start_offset))
+		is_data = False
+		
+		while True:
+			#first check if this byte already has a label
+			#if it does, use the label
+			#if not, generate a new label
+			
+			local_offset = get_local_address(offset)
+			
+			data_label_used = offset_is_used(data_tables, local_offset)
+			byte_label_used = offset_is_used(byte_labels, local_offset)
+			data_label_created = local_offset in data_tables.keys()
+			byte_label_created = local_offset in byte_labels.keys()
+			
+			if byte_label_created:
+				if data_label_created:
+					data_line_label = data_tables[local_offset]["name"]
+					data_tables[local_offset]["usage"] = 0
+				else:
+					data_line_label = data_label(offset)
+					data_tables[local_offset] = {}
+					data_tables[local_offset]["name"] = data_line_label
+					data_tables[local_offset]["usage"] = 0
+					
+				line_label = byte_labels[local_offset]["name"]
+				byte_labels[local_offset]["usage"] += 1
+				output += "\n"
+			elif data_label_created and parse_data:
+				data_line_label = data_tables[local_offset]["name"]
+				data_tables[local_offset]["usage"] += 1
+				
+				line_label = asm_label(offset)
+				byte_labels[local_offset] = {}
+				byte_labels[local_offset]["name"] = line_label
+				byte_labels[local_offset]["usage"] = 0
+				output += "\n"
+			else:
+				data_line_label = data_label(offset)
+				data_tables[local_offset] = {}
+				data_tables[local_offset]["name"] = data_line_label
+				data_tables[local_offset]["usage"] = 0
+					
+				line_label = asm_label(offset)
+				byte_labels[local_offset] = {}
+				byte_labels[local_offset]["name"] = line_label
+				byte_labels[local_offset]["usage"] = 0
 
-        rom = self.rom
+			byte_labels[local_offset]["definition"] = True
+			if local_offset in data_tables:
+				data_tables[local_offset]["definition"] = True
+			
+			output += line_label + "\n" + data_line_label + "\n"
+			
+			opcode_byte = rom[offset]
+			
+			if not is_data or not parse_data:
+				opcode_str = z80_table[opcode_byte][0]
+				opcode_nargs = z80_table[opcode_byte][1]
+				opcode_arg_1 = rom[offset+1]
+				opcode_arg_2 = rom[offset+2]
+				
+				if opcode_nargs == 0:
+					opcode_output_str = opcode_str
+				
+				elif opcode_nargs == 1:
+					if opcode_byte != 0xcb: # bit opcodes are handled separately
+						
+						opcode_output_str = ""
+						
+						if opcode_byte in relative_jumps: #jr or jr nz
+							#generate a label for the byte we're jumping to
+							target_address = offset + 2 + c_int8(opcode_arg_1).value
+							local_target_address = get_local_address(target_address)
+							if local_target_address in byte_labels.keys():
+								byte_labels[local_target_address]["usage"] += 1
+								opcode_output_str = byte_labels[local_target_address]["name"]
+							elif target_address < start_offset:
+								opcode_output_str = "Func_%x" % target_address
+							else:
+								opcode_output_str = asm_label(target_address)
+								byte_labels[local_target_address] = {}
+								byte_labels[local_target_address]["name"] = opcode_output_str
+								byte_labels[local_target_address]["usage"] = 1
+								byte_labels[local_target_address]["definition"] = False
+								
+							if local_target_address in data_tables.keys():
+								data_tables[local_target_address]["usage"] = 0
+								data_tables[local_target_address]["definition"] = True
+							
+							opcode_output_str = opcode_str.format(opcode_output_str)
+							
+							if created_but_unused_labels_exist(byte_labels) and debug:
+								output += create_address_comment(offset)
+								#if current_byte in relative_jumps:
+								#	output += " $" + hex(rom[offset + 1])[2:]
+						elif opcode_byte == 0xe0 or opcode_byte == 0xf0:
+							high_ram_address = 0xff00 + opcode_arg_1
+							high_ram_label = self.find_label(high_ram_address, bank_id)
+							if high_ram_label is None:
+								high_ram_label = "$%x" % high_ram_address
+								
+							opcode_output_str = opcode_str.format(high_ram_label)
+						else:
+							opcode_output_str = opcode_str.format(opcode_arg_1)
 
-        offset = original_offset
-        current_byte_number = 0 #start from the beginning
+					else:
+						opcode_output_str = bit_ops_table[opcode_arg_1]
+						
+				elif opcode_nargs == 2:
+					local_target_offset = opcode_arg_2 << 8 | opcode_arg_1
+					target_offset = get_global_address(local_target_offset, bank_id)
+					target_label = self.find_label(target_offset, bank_id)
 
-        #we don't actually have an end address, but we'll just say $4000
-        end_address = original_offset + max_byte_count
+					if opcode_byte in call_commands + absolute_jumps:
+						if target_label is None:
+							target_label = "Func_%x" % target_offset
 
-        byte_labels = {}
-        data_tables = {}
+					else:
+						if target_label is None:
+							if local_target_offset >= 0x8000 or not parse_data:
+								target_label = "$%x" % local_target_offset
+							elif offset_is_used(byte_labels, local_target_offset):
+								target_label = byte_labels[local_target_offset]["name"]
+								if local_target_offset in data_tables.keys():
+									data_tables[local_target_offset]["usage"] = 0
+								else:
+									data_tables[local_target_offset] = {}
+									data_tables[local_target_offset]["name"] = target_label
+									data_tables[local_target_offset]["usage"] = 0
+									data_tables[local_target_offset]["definition"] = True
+							elif local_target_offset in data_tables.keys():
+								data_tables[local_target_offset]["usage"] += 1
+								target_label = data_tables[local_target_offset]["name"]	
+							else:
+								target_label = data_label(target_offset)
+								data_tables[local_target_offset] = {}
+								data_tables[local_target_offset]["name"] = target_label
+								data_tables[local_target_offset]["usage"] = 0
+								data_tables[local_target_offset]["definition"] = False
+							
+	
+					opcode_output_str = opcode_str.format(target_label)	
 
-        first_loop = True
-        output = ""
-        keep_reading = True
-        is_data = False
-        while offset <= end_address and keep_reading:
-            current_byte = rom[offset]
-            maybe_byte = current_byte
+				else:
+					raise ValueError("Invalid amount of args.")
+				
+				output += self.spacing + opcode_output_str + "\n" #+ " ; " + hex(offset)
+				current_byte_number += opcode_nargs + 1
+				offset += opcode_nargs + 1
+				
+			else:
+				output += self.spacing + "db ${:02x}\n".format(opcode_byte) #+ " ; " + hex(offset)
+				offset += 1
+				current_byte_number += 1
+				if get_local_address(offset) in byte_labels.keys():
+					is_data = False
+			
+			local_offset = get_local_address(offset)
+			
+			if hard_stop and offset >= stop_offset:
+				break
+			elif (opcode_byte in unconditional_jumps + unconditional_returns) or is_data:
+				# define data if we're right at it
+				if local_offset not in byte_labels.keys() and local_offset in data_tables.keys() and created_but_unused_labels_exist(data_tables) and parse_data:
+					is_data = True
+				#stop reading at a jump, relative jump or return
+				elif all_byte_labels_are_defined(byte_labels) and (offset >= stop_offset or stop_offset_undefined):
+					break
+				output += "\n"
 
-            # stop at any address
-            if not first_loop and offset in stop_at:
-                keep_reading = False
-                break
+			first_loop = False
 
-            #first check if this byte already has a label
-            #if it does, use the label
-            #if not, generate a new label
-            if offset in byte_labels.keys():
-                line_label = byte_labels[offset]["name"]
-                byte_labels[offset]["usage"] += 1
-                output += "\n"
-            else:
-                line_label = asm_label(offset)
-                byte_labels[offset] = {}
-                byte_labels[offset]["name"] = line_label
-                byte_labels[offset]["usage"] = 0
-            byte_labels[offset]["definition"] = True
-            output += line_label + "\n" #" ; " + hex(offset) + "\n"
+		#clean up unused labels
+		
+		for label_line in byte_labels.values():
+			if label_line["usage"] == 0:
+				output = output.replace((label_line["name"] + "\n"), "")
+		
+		output_lines = [e+"\n" for e in output.split("\n") if e != ""]
+		
+		for label_addr in data_tables.keys():
+			label_line = data_tables[label_addr]
+			if label_line["usage"] == 0:
+				label_name = label_line["name"]
+				for i, line in enumerate(output_lines):
+					if line.startswith(label_name):
+						output_lines.pop(i)
+					elif label_name in line:
+						output_lines[i] = output_lines[i].replace(label_name, "$%x" % get_local_address(label_addr))
+		
+		output = "".join(output_lines)
+		
+		#tone down excessive spacing
+		output = output.replace("\n\n\n","\n\n")
 
-            #find out if there's a two byte key like this
-            temp_maybe = maybe_byte
-            temp_maybe += ( rom[offset+1] << 8)
-            if not is_data and temp_maybe in opt_table.keys() and rom[offset+1]!=0:
-                opstr = opt_table[temp_maybe][0].lower()
+		#add the offset of the final location
+		if include_last_address:
+			output += "; " + hex(offset)
+		
+		return [output, offset, stop_offset, byte_labels]
 
-                if "x" in opstr:
-                    for x in range(0, opstr.count("x")):
-                        insertion = rom[offset + 1]
-                        insertion = "$" + hex(insertion)[2:]
-
-                        opstr = opstr[:opstr.find("x")].lower() + insertion + opstr[opstr.find("x")+1:].lower()
-
-                        current_byte += 1
-                        offset += 1
-                if "?" in opstr:
-                    for y in range(0, opstr.count("?")):
-                        byte1 = rom[offset + 1]
-                        byte2 = rom[offset + 2]
-
-                        number = byte1
-                        number += byte2 << 8;
-
-                        insertion = "$%.4x" % (number)
-
-                        opstr = opstr[:opstr.find("?")].lower() + insertion + opstr[opstr.find("?")+1:].lower()
-
-                        current_byte_number += 2
-                        offset += 2
-
-                output += self.spacing + opstr #+ " ; " + hex(offset)
-                output += "\n"
-
-                current_byte_number += 2
-                offset += 2
-            elif not is_data and maybe_byte in opt_table.keys():
-                op_code = opt_table[maybe_byte]
-                op_code_type = op_code[1]
-                op_code_byte = maybe_byte
-
-                #type = -1 when it's the E op
-                #if op_code_type != -1:
-                if   op_code_type == 0 and rom[offset] == op_code_byte:
-                    op_str = op_code[0].lower()
-
-                    output += self.spacing + op_code[0].lower() #+ " ; " + hex(offset)
-                    output += "\n"
-
-                    offset += 1
-                    current_byte_number += 1
-                elif op_code_type == 1 and rom[offset] == op_code_byte:
-                    oplen = len(op_code[0])
-                    opstr = copy(op_code[0])
-                    xes = op_code[0].count("x")
-                    include_comment = False
-                    for x in range(0, xes):
-                        insertion = rom[offset + 1]
-                        insertion = "$" + hex(insertion)[2:]
-
-                        if current_byte == 0x18 or current_byte==0x20 or current_byte in relative_jumps: #jr or jr nz
-                            #generate a label for the byte we're jumping to
-                            target_address = offset + 2 + c_int8(rom[offset + 1]).value
-                            if target_address in byte_labels.keys():
-                                byte_labels[target_address]["usage"] = 1 + byte_labels[target_address]["usage"]
-                                line_label2 = byte_labels[target_address]["name"]
-                            else:
-                                line_label2 = asm_label(target_address)
-                                byte_labels[target_address] = {}
-                                byte_labels[target_address]["name"] = line_label2
-                                byte_labels[target_address]["usage"] = 1
-                                byte_labels[target_address]["definition"] = False
-
-                            insertion = line_label2
-                            if has_outstanding_labels(byte_labels) and all_outstanding_labels_are_reverse(byte_labels, offset):
-                                include_comment = True
-                        elif current_byte == 0x3e:
-                            last_a_address = rom[offset + 1]
-
-                        opstr = opstr[:opstr.find("x")].lower() + insertion + opstr[opstr.find("x")+1:].lower()
-
-                        # because the $ff00+$ff syntax is silly
-                        if opstr.count("$") > 1 and "+" in opstr:
-                            first_orig = opstr[opstr.find("$"):opstr.find("+")]
-                            first_val = eval(first_orig.replace("$","0x"))
-
-                            second_orig = opstr[opstr.find("+$")+1:opstr.find("]")]
-                            second_val = eval(second_orig.replace("$","0x"))
-
-                            combined_val = "$%.4x" % (first_val + second_val)
-                            result = self.find_label(combined_val, bank_id)
-                            if result != None:
-                                combined_val = result
-
-                            replacetron = "[%s+%s]" % (first_orig, second_orig)
-                            opstr = opstr.replace(replacetron, "[%s]" % combined_val)
-
-                        output += self.spacing + opstr
-                        if include_comment:
-                            output += " ; " + hex(offset)
-                            if current_byte in relative_jumps:
-                                output += " $" + hex(rom[offset + 1])[2:]
-                        output += "\n"
-
-                        current_byte_number += 1
-                        offset += 1
-                        insertion = ""
-
-                    current_byte_number += 1
-                    offset += 1
-                    include_comment = False
-                elif op_code_type == 2 and rom[offset] == op_code_byte:
-                    oplen = len(op_code[0])
-                    opstr = copy(op_code[0])
-                    qes = op_code[0].count("?")
-                    for x in range(0, qes):
-                        byte1 = rom[offset + 1]
-                        byte2 = rom[offset + 2]
-
-                        number = byte1
-                        number += byte2 << 8
-
-                        if current_byte not in call_commands + discrete_jumps + relative_jumps:
-                            pointer = get_global_address(number, bank_id)
-                            if pointer not in data_tables.keys():
-                                data_tables[pointer] = {}
-                                data_tables[pointer]['usage'] = 0
-                            else:
-                                data_tables[pointer]['usage'] += 1
-
-                        insertion = "$%.4x" % (number)
-                        result = self.find_label(insertion, bank_id)
-                        if result != None:
-                            insertion = result
-
-                        opstr = opstr[:opstr.find("?")].lower() + insertion + opstr[opstr.find("?")+1:].lower()
-                        output += self.spacing + opstr #+ " ; " + hex(offset)
-                        output += "\n"
-
-                        current_byte_number += 2
-                        offset += 2
-
-                    current_byte_number += 1
-                    offset += 1
-
-                    if current_byte == 0x21:
-                        last_hl_address = byte1 + (byte2 << 8)
-                    if current_byte == 0xcd:
-                        if number == 0x3d97: used_3d97 = True
-
-                    #duck out if this is jp $24d7
-                    if current_byte == 0xc3 or current_byte in relative_unconditional_jumps:
-                        if current_byte == 0xc3:
-                            if number == 0x3d97: used_3d97 = True
-                        #if number == 0x24d7: #jp
-                        if not has_outstanding_labels(byte_labels) or all_outstanding_labels_are_reverse(byte_labels, offset):
-                            keep_reading = False
-                            is_data = False
-                            break
-                else:
-                    is_data = True
-            else:
-            #if is_data and keep_reading:
-                output += self.spacing + "db $" + hex(rom[offset])[2:] #+ " ; " + hex(offset)
-                output += "\n"
-                offset += 1
-                current_byte_number += 1
-                if offset in byte_labels.keys():
-                    is_data = False
-                    keep_reading = True
-            #else the while loop would have spit out the opcode
-
-            #these two are done prior
-            #offset += 1
-            #current_byte_number += 1
-
-            if not is_data and current_byte in relative_unconditional_jumps + end_08_scripts_with:
-                #stop reading at a jump, relative jump or return
-                if not has_outstanding_labels(byte_labels) or all_outstanding_labels_are_reverse(byte_labels, offset):
-                    keep_reading = False
-                    is_data = False #cleanup
-                    break
-                elif offset not in byte_labels.keys() and offset in data_tables.keys():
-                    is_data = True
-                    keep_reading = True
-                else:
-                    is_data = False
-                    keep_reading = True
-                output += "\n"
-            elif is_data and offset not in byte_labels.keys():
-                is_data = True
-                keep_reading = True
-            else:
-                is_data = False
-                keep_reading = True
-
-            if offset in data_tables.keys():
-                output = output.replace('$%x' % (get_local_address(offset)), data_label(offset))
-                output += data_label(offset) + '\n'
-                is_data = True
-                keep_reading = True
-
-            first_loop = False
-
-        #clean up unused labels
-        for label_line in byte_labels.keys():
-            address = label_line
-            label_line = byte_labels[label_line]
-            if label_line["usage"] == 0:
-                output = output.replace((label_line["name"] + "\n"), "")
-
-        #tone down excessive spacing
-        output = output.replace("\n\n\n","\n\n")
-
-        #add the offset of the final location
-        if include_last_address:
-            output += "; " + hex(offset)
-
-        return (output, offset, last_hl_address, last_a_address, used_3d97)
+def get_raw_addr(addr):
+	if addr:
+		if ":" in addr:
+			addr = addr.split(":")
+			addr = int(addr[0], 16)*0x4000+(int(addr[1], 16)%0x4000)
+		else:
+			label_addr = disasm.find_address_from_label(addr)
+			if label_addr:
+				addr = label_addr
+			else:
+				addr = int(addr, 16)
+	
+	return addr
 
 if __name__ == "__main__":
-    conf = configuration.Config()
-    disasm = Disassembler(conf)
-    disasm.initialize()
+	ap = argparse.ArgumentParser()
+	ap.add_argument("-r", dest="rom", default="baserom.gbc")
+	ap.add_argument("-o", dest="filename", default="gbz80disasm_output.asm")
+	ap.add_argument("-s", dest="symfile")
+	ap.add_argument("-dp", "--use-disasm-path", dest="use_disasm_path", action="store_true")
+	ap.add_argument("-q", "--quiet", dest="quiet", action="store_true")
+	ap.add_argument("-nw", "--no-write", dest="no_write", action="store_true")
+	ap.add_argument("-d", "--dry-run", dest="dry_run", action="store_true")
+	ap.add_argument("-pd", "--parse_data", dest="parse_data", action="store_true")
+	ap.add_argument('offset')
+	ap.add_argument('end', nargs='?')
+	
+	args = ap.parse_args()
+	if args.symfile is None:
+		args.symfile = args.rom.split(".")[0] + ".sym"
+		
+	if args.use_disasm_path:
+		conf = configuration.Config(path=os.path.abspath(os.path.join(os.getcwd(),"../..")))
+	else:
+		conf = configuration.Config()
 
-    addr = sys.argv[1]
-    if ":" in addr:
-        addr = addr.split(":")
-        addr = int(addr[0], 16)*0x4000+(int(addr[1], 16)%0x4000)
-    else:
-        label_addr = disasm.find_address_from_label(addr)
-        if label_addr:
-            addr = label_addr
-        else:
-            addr = int(addr, 16)
-
-    output = disasm.output_bank_opcodes(addr)[0]
-    print output
+	disasm = Disassembler(conf)
+	disasm.initialize(args.rom, args.symfile)
+	
+	start_addr = get_raw_addr(args.offset)
+	
+	stop_addr = get_raw_addr(args.end)
+	output = disasm.output_bank_opcodes(start_addr,stop_addr,hard_stop=args.dry_run,parse_data=args.parse_data)[0]
+	
+	if not args.quiet:
+		print output
+	
+	if not args.no_write:
+		with open(args.filename, "w") as f:
+			f.write(output)
