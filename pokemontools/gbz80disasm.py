@@ -584,8 +584,7 @@ class Disassembler(object):
 
 		byte_labels = {}
 		data_tables = {}
-
-		first_loop = True
+		
 		output = "Func_%x:%s\n" % (start_offset,create_address_comment(start_offset))
 		is_data = False
 		
@@ -602,6 +601,7 @@ class Disassembler(object):
 			byte_label_created = local_offset in byte_labels.keys()
 			
 			if byte_label_created:
+			# if a byte label exists, remove any significance if there is a data label that exists
 				if data_label_created:
 					data_line_label = data_tables[local_offset]["name"]
 					data_tables[local_offset]["usage"] = 0
@@ -615,6 +615,7 @@ class Disassembler(object):
 				byte_labels[local_offset]["usage"] += 1
 				output += "\n"
 			elif data_label_created and parse_data:
+			# go add usage to a data label if it exists
 				data_line_label = data_tables[local_offset]["name"]
 				data_tables[local_offset]["usage"] += 1
 				
@@ -624,6 +625,7 @@ class Disassembler(object):
 				byte_labels[local_offset]["usage"] = 0
 				output += "\n"
 			else:
+			# create both a data and byte label if neither exist
 				data_line_label = data_label(offset)
 				data_tables[local_offset] = {}
 				data_tables[local_offset]["name"] = data_line_label
@@ -634,82 +636,116 @@ class Disassembler(object):
 				byte_labels[local_offset]["name"] = line_label
 				byte_labels[local_offset]["usage"] = 0
 
+			# any labels created not above are now used, so mark them as "defined"
 			byte_labels[local_offset]["definition"] = True
-			if local_offset in data_tables:
-				data_tables[local_offset]["definition"] = True
+			data_tables[local_offset]["definition"] = True
 			
+			# for now, output the byte and data labels (unused labels will be removed later
 			output += line_label + "\n" + data_line_label + "\n"
 			
+			# get the current byte
 			opcode_byte = rom[offset]
 			
+			# process the current byte if this is code or parse data has not been set
 			if not is_data or not parse_data:
+				# fetch the opcode string from a predefined table
 				opcode_str = z80_table[opcode_byte][0]
+				# fetch the number of arguments
 				opcode_nargs = z80_table[opcode_byte][1]
+				# get opcode arguments in advance (may not be used)
 				opcode_arg_1 = rom[offset+1]
 				opcode_arg_2 = rom[offset+2]
 				
 				if opcode_nargs == 0:
+				# set output string simply as the opcode
 					opcode_output_str = opcode_str
 				
 				elif opcode_nargs == 1:
+				# opcodes with 1 argument
 					if opcode_byte != 0xcb: # bit opcodes are handled separately
 						
-						opcode_output_str = ""
-						
-						if opcode_byte in relative_jumps: #jr or jr nz
-							#generate a label for the byte we're jumping to
+						if opcode_byte in relative_jumps:
+						# if the current opcode is a relative jump, generate a label for the address we're jumping to
+							# get the address of the location to jump to
 							target_address = offset + 2 + c_int8(opcode_arg_1).value
+							# get the local address to use as a key for byte_labels and data_tables
 							local_target_address = get_local_address(target_address)
+							
 							if local_target_address in byte_labels.keys():
+							# if the label has already been created, increase the usage and set output to the already created label
 								byte_labels[local_target_address]["usage"] += 1
 								opcode_output_str = byte_labels[local_target_address]["name"]
 							elif target_address < start_offset:
+							# if we're jumping to an address that is located before the start offset, assume it is a function
 								opcode_output_str = "Func_%x" % target_address
 							else:
+							# create a new label
 								opcode_output_str = asm_label(target_address)
 								byte_labels[local_target_address] = {}
 								byte_labels[local_target_address]["name"] = opcode_output_str
+								# we know the label is used once, so set the usage to 1
 								byte_labels[local_target_address]["usage"] = 1
+								# since the label has not been output yet, mark it as "not defined"
 								byte_labels[local_target_address]["definition"] = False
-								
+							
+							# check if the target address conflicts with any data labels
 							if local_target_address in data_tables.keys():
+								# if so, remove any instances of it being used and set it as defined
 								data_tables[local_target_address]["usage"] = 0
 								data_tables[local_target_address]["definition"] = True
 							
+							# format the resulting argument into the output string
 							opcode_output_str = opcode_str.format(opcode_output_str)
 							
+							# debug function
 							if created_but_unused_labels_exist(byte_labels) and debug:
 								output += create_address_comment(offset)
-								#if current_byte in relative_jumps:
-								#	output += " $" + hex(rom[offset + 1])[2:]
+						
 						elif opcode_byte == 0xe0 or opcode_byte == 0xf0:
+						# handle gameboy hram read/write opcodes
+							# create the address
 							high_ram_address = 0xff00 + opcode_arg_1
+							# search for an hram constant if possible
 							high_ram_label = self.find_label(high_ram_address, bank_id)
+							# if we couldn't find one, default to the address
 							if high_ram_label is None:
 								high_ram_label = "$%x" % high_ram_address
-								
+							
+							# format the resulting argument into the output string
 							opcode_output_str = opcode_str.format(high_ram_label)
-						else:
-							opcode_output_str = opcode_str.format(opcode_arg_1)
-
-					else:
-						opcode_output_str = bit_ops_table[opcode_arg_1]
 						
+						else:
+						# if this isn't a relative jump or hram read/write, just format the byte into the opcode string
+							opcode_output_str = opcode_str.format(opcode_arg_1)
+					
+					else:
+					# handle bit opcodes by fetching the opcode from a separate table
+						opcode_output_str = bit_ops_table[opcode_arg_1]
+				
 				elif opcode_nargs == 2:
+				# opcodes with a pointer as an argument
+					# format the two arguments into a little endian 16-bit pointer
 					local_target_offset = opcode_arg_2 << 8 | opcode_arg_1
+					# get the global offset of the pointer
 					target_offset = get_global_address(local_target_offset, bank_id)
+					# attempt to look for a matching label
 					target_label = self.find_label(target_offset, bank_id)
-
+					
 					if opcode_byte in call_commands + absolute_jumps:
 						if target_label is None:
+						# if this is a call or jump opcode and the target label is not defined, create an undocumented label descriptor
 							target_label = "Func_%x" % target_offset
 
 					else:
+					# anything that isn't a call or jump is a load-based command
 						if target_label is None:
-							if local_target_offset >= 0x8000 or not parse_data:
-								target_label = "$%x" % local_target_offset
-							elif offset_is_used(byte_labels, local_target_offset):
+						# handle the case of a label for the current address not existing
+						
+							# first, check if this is a byte label
+							if offset_is_used(byte_labels, local_target_offset):
+								# fetch the already created byte label
 								target_label = byte_labels[local_target_offset]["name"]
+								# prevent this address from being treated as a data label
 								if local_target_offset in data_tables.keys():
 									data_tables[local_target_offset]["usage"] = 0
 								else:
@@ -717,76 +753,104 @@ class Disassembler(object):
 									data_tables[local_target_offset]["name"] = target_label
 									data_tables[local_target_offset]["usage"] = 0
 									data_tables[local_target_offset]["definition"] = True
+									
+							elif local_target_offset >= 0x8000 or not parse_data:
+							# do not create a label if this is a wram label or parse_data is not set
+								target_label = "$%x" % local_target_offset
+							
 							elif local_target_offset in data_tables.keys():
+							# if the target offset has been created as a data label, increase usage and use the already defined name
 								data_tables[local_target_offset]["usage"] += 1
 								target_label = data_tables[local_target_offset]["name"]	
 							else:
+							# for now, treat this as a data label, but do not set it as used (will be replaced later if unused)
 								target_label = data_label(target_offset)
 								data_tables[local_target_offset] = {}
 								data_tables[local_target_offset]["name"] = target_label
 								data_tables[local_target_offset]["usage"] = 0
 								data_tables[local_target_offset]["definition"] = False
 							
-	
+					# format the label that was created into the opcode string
 					opcode_output_str = opcode_str.format(target_label)	
 
 				else:
+					# error checking
 					raise ValueError("Invalid amount of args.")
 				
+				# append the formatted opcode output string to the output
 				output += self.spacing + opcode_output_str + "\n" #+ " ; " + hex(offset)
+				# increase the current byte number and offset by the amount of arguments plus 1 (opcode itself)
 				current_byte_number += opcode_nargs + 1
 				offset += opcode_nargs + 1
 				
 			else:
+				# output a single lined db, using the current byte
 				output += self.spacing + "db ${:02x}\n".format(opcode_byte) #+ " ; " + hex(offset)
+				# manually increment offset and current byte number
 				offset += 1
 				current_byte_number += 1
+				# stop treating the current code as data if we're parsing over a byte label
 				if get_local_address(offset) in byte_labels.keys():
 					is_data = False
 			
+			# update the local offset
 			local_offset = get_local_address(offset)
 			
+			# stop processing regardless of function end if we've passed the stop offset and the hard stop (dry run) flag is set
 			if hard_stop and offset >= stop_offset:
 				break
+			# check if this is the end of the function, or we're processing data
 			elif (opcode_byte in unconditional_jumps + unconditional_returns) or is_data:
-				# define data if we're right at it
+				# define data if it is located at the current offset
 				if local_offset not in byte_labels.keys() and local_offset in data_tables.keys() and created_but_unused_labels_exist(data_tables) and parse_data:
 					is_data = True
 				#stop reading at a jump, relative jump or return
 				elif all_byte_labels_are_defined(byte_labels) and (offset >= stop_offset or stop_offset_undefined):
 					break
+				# otherwise, add some spacing
 				output += "\n"
-
-			first_loop = False
-
-		#clean up unused labels
 		
+		# before returning output, we need to clean up some things
+		
+		# first, clean up on unused byte labels
 		for label_line in byte_labels.values():
 			if label_line["usage"] == 0:
 				output = output.replace((label_line["name"] + "\n"), "")
 		
+		# clean up on unused data labels
+		# this is slightly trickier to do as arguments for two byte variables use data labels
+		
+		# create a list of the output lines including the newlines
 		output_lines = [e+"\n" for e in output.split("\n") if e != ""]
 		
+		# go through each label
 		for label_addr in data_tables.keys():
+			# get the label dict
 			label_line = data_tables[label_addr]
+			# check if this label is unused
 			if label_line["usage"] == 0:
+				# get label name
 				label_name = label_line["name"]
+				# loop over all output lines
 				for i, line in enumerate(output_lines):
 					if line.startswith(label_name):
+					# remove line if it starts with the current label
 						output_lines.pop(i)
 					elif label_name in line:
+					# if the label is used in a load-based opcode, replace it with the raw hex reference
 						output_lines[i] = output_lines[i].replace(label_name, "$%x" % get_local_address(label_addr))
 		
+		# convert the modified list of lines into a string
 		output = "".join(output_lines)
 		
-		#tone down excessive spacing
+		# tone down excessive spacing
 		output = output.replace("\n\n\n","\n\n")
 
-		#add the offset of the final location
+		# add the offset of the final location
 		if include_last_address:
 			output += "; " + hex(offset)
 		
-		return [output, offset, stop_offset, byte_labels]
+		return [output, offset, stop_offset, byte_labels, data_labels]
 
 def get_raw_addr(addr):
 	if addr:
@@ -803,6 +867,7 @@ def get_raw_addr(addr):
 	return addr
 
 if __name__ == "__main__":
+	# argument parser
 	ap = argparse.ArgumentParser()
 	ap.add_argument("-r", dest="rom", default="baserom.gbc")
 	ap.add_argument("-o", dest="filename", default="gbz80disasm_output.asm")
@@ -816,25 +881,32 @@ if __name__ == "__main__":
 	ap.add_argument('end', nargs='?')
 	
 	args = ap.parse_args()
+	# if symfile is unspecified, use the rom name as the symfile name
 	if args.symfile is None:
 		args.symfile = args.rom.split(".")[0] + ".sym"
-		
+	
+	# flag to determine whether to use the extras submodule path for labels/constants or the disassembly path
 	if args.use_disasm_path:
 		conf = configuration.Config(path=os.path.abspath(os.path.join(os.getcwd(),"../..")))
 	else:
 		conf = configuration.Config()
-
+	
+	# initialize disassembler
 	disasm = Disassembler(conf)
 	disasm.initialize(args.rom, args.symfile)
 	
+	# get global address of the start and stop offsets
 	start_addr = get_raw_addr(args.offset)
-	
 	stop_addr = get_raw_addr(args.end)
+	
+	# run the disassembler and return the output
 	output = disasm.output_bank_opcodes(start_addr,stop_addr,hard_stop=args.dry_run,parse_data=args.parse_data)[0]
 	
+	# suppress output if quiet flag is set
 	if not args.quiet:
 		print output
 	
+	# only write to the output file if the no write flag is unset
 	if not args.no_write:
 		with open(args.filename, "w") as f:
 			f.write(output)

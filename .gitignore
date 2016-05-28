@@ -14,8 +14,24 @@
 *.gbc
 *.gb
 
+# asm files
+*.asm
+
+# symfile
+*.sym
+
 # generated
 *.tx
+
+# output for some scripts
+*.1bpp
+*.2bpp
+*.png
+*.bst
+*.map
+*.wav
+*.blk
+*.pic
 
 # swap files for vim
 .*.swp
