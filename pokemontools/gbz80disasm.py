@@ -850,7 +850,7 @@ class Disassembler(object):
 		if include_last_address:
 			output += "; " + hex(offset)
 		
-		return [output, offset, stop_offset, byte_labels, data_labels]
+		return [output, offset, stop_offset, byte_labels, data_tables]
 
 def get_raw_addr(addr):
 	if addr:
