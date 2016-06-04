@@ -558,6 +558,8 @@ relative_unconditional_jumps = [0xc3, 0x18]
 
 call_commands = [0xdc, 0xd4, 0xc4, 0xcc, 0xcd]
 
+avoid_wram_execution = False
+
 def asm_label(address):
     """
     Return the ASM label using the address.
@@ -622,7 +624,7 @@ class Disassembler(object):
         rom_path = os.path.join(self.config.path, "baserom.gbc")
         self.rom = bytearray(open(rom_path, "rb").read())
 
-    def find_label(self, local_address, bank_id=0):
+    def find_label(self, local_address, bank_id=0, wram_suitable = True):
         # keep an integer
         if type(local_address) == str:
             local_address = int(local_address.replace("$", "0x"), 16)
@@ -630,6 +632,9 @@ class Disassembler(object):
         if local_address < 0x8000:
             for label_entry in self.labels.labels:
                 if get_local_address(label_entry["address"]) == local_address:
+                    if label_entry["label"][0] == "w": # we assume this means it'll be wram
+                        if avoid_wram_execution and not wram_suitable:
+                            continue
                     if "bank" in label_entry and (label_entry["bank"] == bank_id or label_entry["bank"] == 0):
                         return label_entry["label"]
         if local_address in self.wram.wram_labels.keys():
@@ -638,6 +643,17 @@ class Disassembler(object):
             if local_address in constants.keys() and local_address >= 0xff00:
                 return constants[local_address]
         return None
+
+    def check_if_wram_label_suitable(self, opcode):
+        if opcode in call_commands:
+            return False
+        if opcode in relative_unconditional_jumps:
+            return False
+        if opcode in relative_jumps:
+            return False
+        if opcode in discrete_jumps:
+            return False
+        return True
 
     def find_address_from_label(self, label):
         for label_entry in self.labels.labels:
@@ -838,7 +854,8 @@ class Disassembler(object):
                                 data_tables[pointer]['usage'] += 1
 
                         insertion = "$%.4x" % (number)
-                        result = self.find_label(insertion, bank_id)
+                        result = self.find_label(insertion, bank_id, self.check_if_wram_label_suitable(current_byte) )
+
                         if result != None:
                             insertion = result
 
@@ -890,7 +907,7 @@ class Disassembler(object):
                         number += byte2 << 8
 
                         insertion = "$%.4x" % (number)
-                        result = self.find_label(insertion, temp_bank)
+                        result = self.find_label(insertion, temp_bank, self.check_if_wram_label_suitable(current_byte))
                         if op_code_byte == 0xef:
                             if result != None:
                                 insertion = result
@@ -976,7 +993,10 @@ if __name__ == "__main__":
     conf = configuration.Config()
     disasm = Disassembler(conf)
     disasm.initialize()
-
+    
+    if "-nwe" in sys.argv:
+        avoid_wram_execution = True
+    print(avoid_wram_execution)
     addr = sys.argv[1]
     if ":" in addr:
         addr = addr.split(":")
