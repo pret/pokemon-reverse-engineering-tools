@@ -995,7 +995,6 @@ if __name__ == "__main__":
 
     if "-nwe" in sys.argv:
         avoid_wram_execution = True
-    print(avoid_wram_execution)
     addr = sys.argv[1]
     if ":" in addr:
         addr = addr.split(":")
