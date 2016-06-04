@@ -855,7 +855,6 @@ class Disassembler(object):
 
                         insertion = "$%.4x" % (number)
                         result = self.find_label(insertion, bank_id, self.check_if_wram_label_suitable(current_byte) )
-
                         if result != None:
                             insertion = result
 
@@ -993,7 +992,7 @@ if __name__ == "__main__":
     conf = configuration.Config()
     disasm = Disassembler(conf)
     disasm.initialize()
-    
+
     if "-nwe" in sys.argv:
         avoid_wram_execution = True
     print(avoid_wram_execution)
