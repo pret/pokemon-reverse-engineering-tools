@@ -653,6 +653,8 @@ class Disassembler(object):
             return False
         if opcode in discrete_jumps:
             return False
+        if opcode == 0xdf or opcode == 0xef:
+            return False
         return True
 
     def find_address_from_label(self, label):
