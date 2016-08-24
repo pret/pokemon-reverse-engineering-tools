@@ -2,6 +2,7 @@
 """
 Pokemon Crystal data de/compression.
 """
+from __future__ import print_function
 
 """
 A rundown of Pokemon Crystal's compression scheme:
@@ -9,7 +10,6 @@ A rundown of Pokemon Crystal's compression scheme:
 Control commands occupy bits 5-7.
 Bits 0-4 serve as the first parameter <n> for each command.
 """
-from __future__ import print_function
 lz_commands = {
     'literal':   0, # n values for n bytes
     'iterate':   1, # one value for n bytes
@@ -45,8 +45,8 @@ lz_end = 0xff
 
 
 bit_flipped = [
-    sum(((byte >> i) & 1) << (7 - i) for i in xrange(8))
-    for byte in xrange(0x100)
+    sum(((byte >> i) & 1) << (7 - i) for i in range(8))
+    for byte in range(0x100)
 ]
 
 
@@ -190,7 +190,7 @@ class Compressed:
         )
         for method in self.lookback_methods:
             min_score = self.min_scores[method]
-            for address in xrange(self.address+1, self.address+best_score):
+            for address in range(self.address+1, self.address+best_score):
                 length, index = self.find_lookback(method, address)
                 if length > max(min_score, best_score):
                     # BUG: lookbacks can reduce themselves. This appears to be a bug in the target also.
@@ -212,7 +212,7 @@ class Compressed:
 
     def find_lookback(self, method, address=None):
         """Temporarily stubbed, because the real function doesn't run in polynomial time."""
-	return 0, None
+        return 0, None
 
     def broken_find_lookback(self, method, address=None):
         if address is None:
@@ -544,7 +544,7 @@ class Decompressed:
         Write alternating bytes.
         """
         alts = [next(self), next(self)]
-        self.output += [ alts[x & 1] for x in xrange(self.length) ]
+        self.output += [ alts[x & 1] for x in range(self.length) ]
 
     def blank(self):
         """
@@ -576,6 +576,6 @@ class Decompressed:
         self.get_offset()
         self.direction = direction
         # Note: appends must be one at a time (this way, repeats can draw from themselves if required)
-        for i in xrange(self.length):
+        for i in range(self.length):
             byte = self.output[ self.offset + i * direction ]
             self.output.append( table[byte] if table else byte )

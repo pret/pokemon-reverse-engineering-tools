@@ -1,7 +1,11 @@
 # -*- coding: utf-8 -*-
 
 from bisect import bisect_left, bisect_right
-from itertools import izip
+try:
+    from future_builtins import zip
+except ImportError:
+    pass
+
 
 class IntervalMap(object):
     """
@@ -75,7 +79,7 @@ class IntervalMap(object):
         ((low_bound, high_bound), value)
         these items are returned in order"""
         previous_bound = None
-        for (b, v) in izip(self._bounds, self._items):
+        for (b, v) in zip(self._bounds, self._items):
             if v is not None:
                 yield (previous_bound, b), v
             previous_bound = b

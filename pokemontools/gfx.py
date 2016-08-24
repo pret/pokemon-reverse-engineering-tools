@@ -19,7 +19,7 @@ def split(list_, interval):
     """
     Split a list by length.
     """
-    for i in xrange(0, len(list_), interval):
+    for i in range(0, len(list_), interval):
         j = min(i + interval, len(list_))
         yield list_[i:j]
 
@@ -249,7 +249,7 @@ def flatten(planar):
         bottom = bottom
         top = top
         strip = []
-        for i in xrange(7,-1,-1):
+        for i in range(7,-1,-1):
             color = (
                 (bottom >> i & 1) +
                 (top *2 >> i & 2)
@@ -268,10 +268,10 @@ def to_lines(image, width):
     height = len(image) / width
 
     lines = []
-    for cur_line in xrange(height):
+    for cur_line in range(height):
         tile_row = cur_line / tile_height
         line = []
-        for column in xrange(num_columns):
+        for column in range(num_columns):
             anchor = (
                 num_columns * tile_row * tile_width * tile_height +
                 column * tile_width * tile_height +
@@ -292,7 +292,7 @@ def dmg2rgb(word):
             value >>= 5
     word = shift(word)
     # distribution is less even w/ << 3
-    red, green, blue = [int(color * 8.25) for color in [next(word) for _ in xrange(3)]]
+    red, green, blue = [int(color * 8.25) for color in [next(word) for _ in range(3)]]
     alpha = 255
     return (red, green, blue, alpha)
 
@@ -448,7 +448,7 @@ def convert_2bpp_to_png(image, **kwargs):
         trailing = len(image) % pic_length
 
         pic = []
-        for i in xrange(0, len(image) - trailing, pic_length):
+        for i in range(0, len(image) - trailing, pic_length):
             pic += transpose_tiles(image[i:i+pic_length], h)
         image = bytearray(pic) + image[len(image) - trailing:]
 
@@ -522,7 +522,7 @@ def get_pic_animation(tmap, w, h):
     base = frames.pop(0)
     bitmasks = []
 
-    for i in xrange(len(frames)):
+    for i in range(len(frames)):
         frame_text += '\tdw .frame{}\n'.format(i + 1)
 
     for i, frame in enumerate(frames):
@@ -648,7 +648,7 @@ def png_to_2bpp(filein, **kwargs):
     palette = []
     for line in rgba:
         newline = []
-        for px in xrange(0, len(line), len_px):
+        for px in range(0, len(line), len_px):
             color = dict(zip('rgba', line[px:px+len_px]))
             if color not in palette:
                 if len(palette) < 4:
@@ -704,11 +704,11 @@ def png_to_2bpp(filein, **kwargs):
     num_rows = max(height, tile_height) / tile_height
     image = []
 
-    for row in xrange(num_rows):
-        for column in xrange(num_columns):
+    for row in range(num_rows):
+        for column in range(num_columns):
 
             # Split it up into strips to convert to planar data
-            for strip in xrange(min(tile_height, height)):
+            for strip in range(min(tile_height, height)):
                 anchor = (
                     row * num_columns * tile_width * tile_height +
                     column * tile_width +
@@ -737,10 +737,10 @@ def png_to_2bpp(filein, **kwargs):
         tile_width = width / 8
         trailing = len(tiles) % pic_length
         new_image = []
-        for block in xrange(len(tiles) / pic_length):
+        for block in range(len(tiles) / pic_length):
             offset = (h * tile_width) * ((block * w) / tile_width) + ((block * w) % tile_width)
             pic = []
-            for row in xrange(h):
+            for row in range(h):
                 index = offset + (row * tile_width)
                 pic += tiles[index:index + w]
             new_image += transpose(pic, w)

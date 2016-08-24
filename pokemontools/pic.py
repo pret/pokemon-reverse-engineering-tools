@@ -4,6 +4,7 @@
 A library for use with compressed monster and trainer pics in pokered.
 """
 from __future__ import absolute_import
+from __future__ import division
 
 import os
 import sys
@@ -29,14 +30,14 @@ class Decompressor:
     Ported to python 2.7 from the python 3 code at https://github.com/magical/pokemon-sprites-rby.
     """
 
-    table1 = [(2 << i) - 1 for i in xrange(16)]
+    table1 = [(2 << i) - 1 for i in range(16)]
     table2 = [
         [0x0, 0x1, 0x3, 0x2, 0x7, 0x6, 0x4, 0x5, 0xf, 0xe, 0xc, 0xd, 0x8, 0x9, 0xb, 0xa],
         [0xf, 0xe, 0xc, 0xd, 0x8, 0x9, 0xb, 0xa, 0x0, 0x1, 0x3, 0x2, 0x7, 0x6, 0x4, 0x5], # prev ^ 0xf
         [0x0, 0x8, 0xc, 0x4, 0xe, 0x6, 0x2, 0xa, 0xf, 0x7, 0x3, 0xb, 0x1, 0x9, 0xd, 0x5],
         [0xf, 0x7, 0x3, 0xb, 0x1, 0x9, 0xd, 0x5, 0x0, 0x8, 0xc, 0x4, 0xe, 0x6, 0x2, 0xa], # prev ^ 0xf
     ]
-    table3 = [bitflip(i, 4) for i in xrange(16)]
+    table3 = [bitflip(i, 4) for i in range(16)]
 
     tilesize = 8
 
@@ -118,7 +119,7 @@ class Decompressor:
         a = self._readint(i + 1)
         n += a
 
-        for i in xrange(n):
+        for i in range(n):
             ram.append(0)
 
     def _read_data_chunk(self, ram, size):
@@ -135,9 +136,9 @@ class Decompressor:
         if mirror is None:
             mirror = self.mirror
 
-        for x in xrange(self.sizex):
+        for x in range(self.sizex):
             bit = 0
-            for y in xrange(self.sizey):
+            for y in range(self.sizey):
                 i = y * self.sizex + x
                 a = (ram[i] >> 4) & 0xf
                 b = ram[i] & 0xf
@@ -158,7 +159,7 @@ class Decompressor:
         if mirror is None:
             mirror = self.mirror
 
-        for i in xrange(len(ram2)):
+        for i in range(len(ram2)):
             if mirror:
                 a = (ram2[i] >> 4) & 0xf
                 b = ram2[i] & 0xf
@@ -170,10 +171,10 @@ class Decompressor:
 
     def _deinterlace_bitgroups(self, bits):
         l = []
-        for y in xrange(self.sizey):
-            for x in xrange(self.sizex):
+        for y in range(self.sizey):
+            for x in range(self.sizex):
                 i = 4 * y * self.sizex + x
-                for j in xrange(4):
+                for j in range(4):
                     l.append(bits[i])
                     i += self.sizex
         return l
@@ -193,12 +194,12 @@ def fbitstream(f):
             break
         byte = ord(char)
 
-        for i in xrange(7, -1, -1):
+        for i in range(7, -1, -1):
             yield (byte >> i) & 1
 
 def bitstream(b):
     for byte in b:
-        for i in xrange(7, -1, -1):
+        for i in range(7, -1, -1):
             yield (byte >> i) & 1
 
 def readint(bs, count):
@@ -211,7 +212,7 @@ def readint(bs, count):
 
 def bitgroups_to_bytes(bits):
     l = []
-    for i in xrange(0, len(bits) - 3, 4):
+    for i in range(0, len(bits) - 3, 4):
         n = ((bits[i + 0] << 6)
            | (bits[i + 1] << 4)
            | (bits[i + 2] << 2)
@@ -231,21 +232,21 @@ class Compressor:
     Adapted from stag019's C compressor.
     """
 
-    table1 = [(2 << i) - 1 for i in xrange(16)]
+    table1 = [(2 << i) - 1 for i in range(16)]
     table2 = [
         [0x0, 0x1, 0x3, 0x2, 0x6, 0x7, 0x5, 0x4, 0xc, 0xd, 0xf, 0xe, 0xa, 0xb, 0x9, 0x8],
         [0x8, 0x9, 0xb, 0xa, 0xe, 0xf, 0xd, 0xc, 0x4, 0x5, 0x7, 0x6, 0x2, 0x3, 0x1, 0x0], # reverse
     ]
-    table3 = [bitflip(i, 4) for i in xrange(16)]
+    table3 = [bitflip(i, 4) for i in range(16)]
 
     def __init__(self, image, width=None, height=None):
         self.image = bytearray(image)
         self.size = len(self.image)
 
-        planar_tile = 8 * 8 / 4
-        tile_size = self.size / planar_tile
-        if   height    and not width:  width  = tile_size / height
-        elif width     and not height: height = tile_size / width
+        planar_tile = 8 * 8 // 4
+        tile_size = self.size // planar_tile
+        if   height    and not width:  width  = tile_size // height
+        elif width     and not height: height = tile_size // width
         elif not width and not height: width = height = int(sqrt(tile_size))
         self.width, self.height = width, height
 
@@ -257,7 +258,7 @@ class Compressor:
         rams = [[],[]]
         datas = []
 
-        for mode in xrange(3):
+        for mode in range(3):
 
             # Order is redundant for mode 0.
 
@@ -270,10 +271,10 @@ class Compressor:
 
             # Using order 0 instead of 1 breaks this feature.
 
-            for order in xrange(2):
+            for order in range(2):
                 if mode == 0 and order == 0:
                     continue
-                for i in xrange(2):
+                for i in range(2):
                     rams[i] = self.image[i::2]
                 self._interpret_compress(rams, mode, order)
                 datas += [(self.data[:], int(self.which_bit))]
@@ -320,10 +321,10 @@ class Compressor:
         nums = 0
         bitgroups = []
 
-        for x in xrange(self.width):
-            for bit in xrange(0, 8, 2):
+        for x in range(self.width):
+            for bit in range(0, 8, 2):
                 byte = x * self.height * 8
-                for y in xrange(self.height * 8):
+                for y in range(self.height * 8):
                     bitgroup = (ram[byte] >> (6 - bit)) & 3
                     if bitgroup == 0:
                         if rle == 0:
@@ -378,16 +379,16 @@ class Compressor:
             v >>= 1
             bitcount += 1
 
-        for j in xrange(bitcount):
+        for j in range(bitcount):
             self._writebit(1)
         self._writebit(0)
-        for j in xrange(bitcount, -1, -1):
+        for j in range(bitcount, -1, -1):
             self._writebit((number >> j) & 1)
 
     def _encode(self, ram, mirror=None):
         a = b = 0
-        for i in xrange(len(ram)):
-            j = i / self.height
+        for i in range(len(ram)):
+            j = i // self.height
             j += i % self.height * self.width * 8
             if i % self.height == 0:
                 b = 0
@@ -403,7 +404,7 @@ class Compressor:
             ram[j] = (code_1 << 4) | code_2
 
     def _xor(self, ram1, ram2):
-        for i in xrange(len(ram2)):
+        for i in range(len(ram2)):
             ram2[i] ^= ram1[i]
 
     def _writebit(self, bit):
@@ -416,7 +417,7 @@ class Compressor:
     def _writeint(self, num, size=None):
         bits = []
         if size:
-            for i in xrange(size):
+            for i in range(size):
                 bits += [num & 1]
                 num >>= 1
         else:
@@ -469,7 +470,7 @@ def compress_file(filename):
     pic = bytearray(pic)
     output_filename = os.path.splitext(filename)[0] + '.pic'
     with open(output_filename, 'wb') as out:
-	out.write(pic)
+        out.write(pic)
 
 
 def main():
