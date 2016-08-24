@@ -1,5 +1,8 @@
 # pcm.py
 # Converts between .wav files and 1-bit pcm data. (pcm = pulse-code modulation)
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 import argparse
 import os
@@ -72,7 +75,7 @@ def convert_to_pcm(filenames=[]):
 
         # Pack the 1-bit samples together.
         packed_samples = bytearray()
-        for i in xrange(0, len(clamped_samples), 8):
+        for i in range(0, len(clamped_samples), 8):
             # Read 8 pcm values to pack one byte.
             packed_value = 0
             for j in range(8):
@@ -103,7 +106,7 @@ def get_wav_samples(filename):
 
     # Unpack the values based on the sample byte width.
     unpacked_samples = []
-    for i in xrange(0, len(samples), sample_width):
+    for i in range(0, len(samples), sample_width):
         if sample_width == 1:
             fmt = 'B'
         elif sample_width == 2:
@@ -122,7 +125,7 @@ def get_wav_samples(filename):
     # Also find the average amplitude of the samples.
     resampled_samples = []
     total_value = 0
-    interval = float(sample_rate) / BASE_SAMPLE_RATE
+    interval = sample_rate / BASE_SAMPLE_RATE
     index = 0
     while index < sample_count:
         sample = unpacked_samples[int(index)]
@@ -131,7 +134,7 @@ def get_wav_samples(filename):
         resampled_samples.append(sample)
         index += interval
 
-    average_sample = float(total_value) / len(resampled_samples)
+    average_sample = total_value / len(resampled_samples)
 
     return resampled_samples, average_sample
 
