@@ -244,7 +244,7 @@ def command_debug_information(command_byte=None, map_group=None, map_id=None, ad
     return info1
 
 all_texts = []
-class TextScript:
+class TextScript(object):
     """
     A text is a sequence of bytes (and sometimes commands). It's not the same
     thing as a Script. The bytes are translated into characters based on the
@@ -440,7 +440,7 @@ def find_text_addresses():
     useful for testing parse_text_engine_script_at"""
     return TextScript.find_addresses()
 
-class EncodedText:
+class EncodedText(object):
     """a sequence of bytes that, when decoded, represent readable text
     based on the chars table from preprocessor.py and other places"""
     base_label = "UnknownRawText_"
@@ -1266,7 +1266,7 @@ class MovementPointerLabelParam(PointerLabelParam):
 class MapDataPointerParam(PointerLabelParam):
     pass
 
-class Command:
+class Command(object):
     """
     Note: when dumping to asm, anything in script_parse_table that directly
     inherits Command should not be .to_asm()'d.
@@ -1627,7 +1627,7 @@ def create_movement_commands(debug=False):
 movement_command_classes = create_movement_commands()
 
 all_movements = []
-class ApplyMovementData:
+class ApplyMovementData(object):
     base_label = "MovementData_"
 
     def __init__(self, address, map_group=None, map_id=None, debug=False, label=None, force=False):
@@ -2436,7 +2436,7 @@ def create_command_classes(debug=False):
 command_classes = create_command_classes()
 
 
-class BigEndianParam:
+class BigEndianParam(object):
     """big-endian word"""
     size = 2
     should_be_decimal = False
@@ -2888,7 +2888,7 @@ stop_points = [0x1aafa2,
                0x9f58f, # battle tower
                0x9f62f, # battle tower
               ]
-class Script:
+class Script(object):
     base_label = "UnknownScript_"
     def __init__(self, *args, **kwargs):
         self.address = None
@@ -3466,7 +3466,7 @@ class TrainerFragmentParam(PointerLabelParam):
         return deps
 
 trainer_group_table = None
-class TrainerGroupTable:
+class TrainerGroupTable(object):
     """
     A list of pointers.
 
@@ -3521,7 +3521,7 @@ class TrainerGroupTable:
         output = "".join([str("dw "+get_label_for(header.address)+"\n") for header in self.headers])
         return output
 
-class TrainerGroupHeader:
+class TrainerGroupHeader(object):
     """
     A trainer group header is a repeating list of individual trainer headers.
 
@@ -3614,7 +3614,7 @@ class TrainerGroupHeader:
         output = "\n\n".join(["; "+header.make_constant_name()+" ("+str(header.trainer_id)+") at "+hex(header.address)+"\n"+header.to_asm() for header in self.individual_trainer_headers])
         return output
 
-class TrainerHeader:
+class TrainerHeader(object):
     """
     <Trainer Name> <0x50> <Data type> <Pokémon Data>+ <0xFF>
 
@@ -3719,7 +3719,7 @@ class TrainerHeader:
         output += "\n; last_address="+hex(self.last_address)+" size="+str(self.size)
         return output
 
-class TrainerPartyMonParser:
+class TrainerPartyMonParser(object):
     """
     Just a generic trainer party mon parser.
     Don't use this directly. Only use the child classes.
@@ -4409,7 +4409,7 @@ def old_parse_people_event_bytes(some_bytes, address=None, map_group=None, map_i
     return people_events
 
 
-class SignpostRemoteBase:
+class SignpostRemoteBase(object):
     def __init__(self, address, bank=None, map_group=None, map_id=None, signpost=None, debug=False, label=None):
         self.address = address
         self.last_address = address + self.size
@@ -4848,7 +4848,7 @@ class TimeOfDayParam(DecimalParam):
         return DecimalParam.to_asm(self)
 
 
-class MapHeader:
+class MapHeader(object):
     base_label = "MapHeader_"
 
     def __init__(self, address, map_group=None, map_id=None, debug=True, label=None, bank=0x25):
@@ -4934,7 +4934,7 @@ def get_direction(connection_byte, connection_id):
 
     return results[connection_id]
 
-class SecondMapHeader:
+class SecondMapHeader(object):
     base_label = "SecondMapHeader_"
 
     def __init__(self, address, map_group=None, map_id=None, debug=True, bank=None, label=None):
@@ -5076,7 +5076,7 @@ wrong_easts = []
 wrong_souths = []
 wrong_wests = []
 
-class Connection:
+class Connection(object):
     size = 12
 
     def __init__(self, address, direction=None, map_group=None, map_id=None, debug=True, smh=None):
@@ -5740,7 +5740,7 @@ def parse_second_map_header_at(address, map_group=None, map_id=None, debug=True)
     all_second_map_headers.append(smh)
     return smh
 
-class MapBlockData:
+class MapBlockData(object):
     base_label = "MapBlockData_"
     maps_path = os.path.realpath(os.path.join(conf.path, "maps"))
 
@@ -5786,7 +5786,7 @@ class MapBlockData:
         return "INCBIN \"maps/"+self.map_name+".blk\""
 
 
-class MapEventHeader:
+class MapEventHeader(object):
     base_label = "MapEventHeader_"
 
     def __init__(self, address, map_group=None, map_id=None, debug=True, bank=None, label=None):
@@ -5925,7 +5925,7 @@ def parse_map_event_header_at(address, map_group=None, map_id=None, debug=True, 
     all_map_event_headers.append(ev)
     return ev
 
-class MapScriptHeader:
+class MapScriptHeader(object):
     """parses a script header
 
     This structure allows the game to have e.g. one-time only events on a map
@@ -6135,7 +6135,7 @@ def parse_all_map_headers(map_names, all_map_headers=None, debug=True):
             new_parsed_map = parse_map_header_at(map_header_offset, map_group=group_id, map_id=map_id, all_map_headers=all_map_headers, debug=debug)
             map_names[group_id][map_id]["header_new"] = new_parsed_map
 
-class PokedexEntryPointerTable:
+class PokedexEntryPointerTable(object):
     """
     A list of pointers.
     """
@@ -6185,7 +6185,7 @@ class PokedexEntryPointerTable:
         output = "".join([str("dw "+get_label_for(entry.address)+"\n") for entry in self.entries])
         return output
 
-class PokedexEntry:
+class PokedexEntry(object):
     def __init__(self, address, pokemon_id):
         self.address = address
         self.dependencies = None
@@ -6527,7 +6527,7 @@ def apply_diff(diff, try_fixing=True, do_compile=True):
 
 from .crystalparts.asmline import AsmLine
 
-class Incbin:
+class Incbin(object):
     def __init__(self, line, bank=None, debug=False):
         self.line = line
         self.bank = bank
@@ -6614,7 +6614,7 @@ class Incbin:
 
         return incbins
 
-class AsmSection:
+class AsmSection(object):
     def __init__(self, line):
         self.bank_id = None
         self.line = line
@@ -6656,7 +6656,7 @@ def load_asm2(filename=None, force=False):
         new_asm = Asm(filename=filename)
     return new_asm
 
-class Asm:
+class Asm(object):
     """controls the overall asm output"""
     def __init__(self, filename=None, debug=True):
         if filename == None:
@@ -7111,7 +7111,7 @@ def get_label_for(address):
 # at least until the two approaches are merged in the code base.
 all_new_labels = []
 
-class Label:
+class Label(object):
     """
     Every object in script_parse_table is given a label.
 
