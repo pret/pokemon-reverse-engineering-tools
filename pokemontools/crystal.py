@@ -8,12 +8,9 @@ from __future__ import absolute_import
 import os
 import sys
 import inspect
-import hashlib
 import json
 from copy import copy, deepcopy
 import subprocess
-from new import classobj
-import random
 import logging
 
 # for capwords
@@ -1611,7 +1608,7 @@ def create_movement_commands(debug=False):
                 klass_name = cmd_name+"Command"
                 params["id"] = copy(byte)
                 params["macro_name"] = cmd_name
-                klass = classobj(copy(klass_name), (MovementCommand,), deepcopy(params))
+                klass = type(copy(klass_name), (MovementCommand,), deepcopy(params))
                 globals()[klass_name] = klass
                 movement_command_classes2.append(klass)
 
@@ -1621,7 +1618,7 @@ def create_movement_commands(debug=False):
             del klass_name
         else:
             klass_name = cmd_name+"Command"
-            klass = classobj(klass_name, (MovementCommand,), params)
+            klass = type(klass_name, (MovementCommand,), params)
             globals()[klass_name] = klass
             movement_command_classes2.append(klass)
     # later an individual klass will be instantiated to handle something
@@ -2431,7 +2428,7 @@ def create_command_classes(debug=False):
                     logging.debug("each is {0} and thing[class] is {1}".format(each, thing["class"]))
                 params["size"] += thing["class"].size
         klass_name = cmd_name+"Command"
-        klass = classobj(klass_name, (Command,), params)
+        klass = type(klass_name, (Command,), params)
         globals()[klass_name] = klass
         klasses.append(klass)
     # later an individual klass will be instantiated to handle something
@@ -2548,7 +2545,7 @@ def create_music_command_classes(debug=False):
                     logging.debug("each is {0} and thing[class] is {1}".format(each, thing["class"]))
                 params["size"] += thing["class"].size
         klass_name = cmd_name+"Command"
-        klass = classobj(klass_name, (Command,), params)
+        klass = type(klass_name, (Command,), params)
         globals()[klass_name] = klass
         if klass.macro_name == "notetype":
             klass.allowed_lengths = [1, 2]
@@ -2808,7 +2805,7 @@ def create_effect_command_classes(debug=False):
                     logging.debug("each is {0} and thing[class] is {1}".format(each, thing["class"]))
                 params["size"] += thing["class"].size
         klass_name = cmd_name+"Command"
-        klass = classobj(klass_name, (Command,), params)
+        klass = type(klass_name, (Command,), params)
         globals()[klass_name] = klass
         klasses.append(klass)
     # later an individual klass will be instantiated to handle something
