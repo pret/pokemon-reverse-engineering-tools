@@ -1,8 +1,10 @@
+from __future__ import print_function
+from __future__ import absolute_import
 #author: Bryan Bishop <kanzure@gmail.com>
 #date: 2012-01-03
 #utilities for working with text pointers
-import extract_maps #rom, assert_rom, load_rom, calculate_pointer, load_map_pointers, read_all_map_headers, map_headers
-from pretty_map_headers import map_name_cleaner
+from . import extract_maps #rom, assert_rom, load_rom, calculate_pointer, load_map_pointers, read_all_map_headers, map_headers
+from .pretty_map_headers import map_name_cleaner
 #import analyze_incbins #asm, offset_to_pointer, find_incbin_to_replace_for, split_incbin_line_into_three, generate_diff_insert, load_asm, isolate_incbins, process_incbins
 spacing = "	"
 
@@ -39,10 +41,10 @@ def test_first_text_pointer_bytes(range=20): #30 for viridian city, 34 for cerul
         first_text_pointer = extract_maps.calculate_pointer(partial_pointer, bank)
 
         #if (first_text_pointer <= (text_list_pointer+range)):
-        print "map " + map["name"] + " (" + str(map["id"]) + ")"
-        print spacing + "text_pointer (list) = " + hex(text_list_pointer)
-        print spacing + "first_text_pointer (first text) = " + hex(first_text_pointer)
-        print spacing + "difference = " + str(first_text_pointer - text_list_pointer)
+        print("map " + map["name"] + " (" + str(map["id"]) + ")")
+        print(spacing + "text_pointer (list) = " + hex(text_list_pointer))
+        print(spacing + "first_text_pointer (first text) = " + hex(first_text_pointer))
+        print(spacing + "difference = " + str(first_text_pointer - text_list_pointer))
         #return False
 
     return True
@@ -52,4 +54,4 @@ if __name__ == "__main__":
     extract_maps.load_map_pointers()
     extract_maps.read_all_map_headers()
 
-    print test_first_text_pointer_bytes()
+    print(test_first_text_pointer_bytes())

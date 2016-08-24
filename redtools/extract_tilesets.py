@@ -1,7 +1,9 @@
+from __future__ import print_function
+from __future__ import absolute_import
 #author: Bryan Bishop <kanzure@gmail.com>
 #date: 2012-01-14
 #throw tilesets into separate files
-import extract_maps
+from . import extract_maps
 extract_maps.load_rom()
 
 locations = {
@@ -29,9 +31,9 @@ locations = {
 for tileset_id in locations.keys():
     tileset = locations[tileset_id]
 
-    print "writing ../gfx/tilesets/" + tileset[2] + ".2bpp"
+    print("writing ../gfx/tilesets/" + tileset[2] + ".2bpp")
     fh = open("../gfx/tilesets/" + tileset[2] + ".2bpp", "w")
     fh.write(extract_maps.rom[tileset[0]:tileset[1]])
     fh.close()
 
-print "Done."
+print("Done.")

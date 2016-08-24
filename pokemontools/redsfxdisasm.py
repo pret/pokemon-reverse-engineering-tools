@@ -1,4 +1,6 @@
-import configuration
+from __future__ import print_function
+from __future__ import absolute_import
+from . import configuration
 config = configuration.Config()
 rom = bytearray(open(config.rom_path, "r").read())
 
@@ -367,7 +369,7 @@ music_notes = {
 sfxnum = 0
 
 for bank in banks:
-	print bank
+	print(bank)
 	header = bank * 0x4000 + 3
 	for sfx in range(1,banks[bank]):
 		sfxname = sfx_names[sfxnum]

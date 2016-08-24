@@ -110,7 +110,7 @@ def get_wav_samples(filename):
             fmt = 'h'
         else:
             # todo: support 3-byte sample width
-            raise Exception, "Unsupported sample width: " + str(sample_width)
+            raise Exception("Unsupported sample width: " + str(sample_width))
 
         value = struct.unpack(fmt, samples[i:i + sample_width])[0]
         unpacked_samples.append(value)
@@ -148,7 +148,7 @@ def main():
     }.get(args.mode, None)
 
     if method == None:
-        raise Exception, "Unknown conversion method!"
+        raise Exception("Unknown conversion method!")
 
     method(args.filenames)
 

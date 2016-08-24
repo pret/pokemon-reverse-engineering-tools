@@ -2,6 +2,8 @@
 """
 utilities to help disassemble pokémon crystal
 """
+from __future__ import print_function
+from __future__ import absolute_import
 
 import os
 import sys
@@ -47,27 +49,27 @@ texts = []
 # this doesn't do anything but is still used in TextScript
 constant_abbreviation_bytes = {}
 
-import helpers
-import chars
-import labels
-import pksv
-import romstr
-import pointers
-import interval_map
-import trainers
-import move_constants
-import pokemon_constants
-import item_constants
-import wram
-import exceptions
+from . import helpers
+from . import chars
+from . import labels
+from . import pksv
+from . import romstr
+from . import pointers
+from . import interval_map
+from . import trainers
+from . import move_constants
+from . import pokemon_constants
+from . import item_constants
+from . import wram
+from . import exceptions
 
-import addresses
+from . import addresses
 is_valid_address = addresses.is_valid_address
 
-import old_text_script
+from . import old_text_script
 OldTextScript = old_text_script
 
-import configuration
+from . import configuration
 conf = configuration.Config()
 
 data_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), "data/pokecrystal/")
@@ -75,8 +77,8 @@ conf.wram = os.path.join(data_path, "wram.asm")
 conf.gbhw = os.path.join(data_path, "gbhw.asm")
 conf.hram = os.path.join(data_path, "hram.asm")
 
-from map_names import map_names
-from song_names import song_names
+from .map_names import map_names
+from .song_names import song_names
 
 # ---- script_parse_table explanation ----
 # This is an IntervalMap that keeps track of previously parsed scripts, texts
@@ -1457,13 +1459,13 @@ event_flags = None
 def read_event_flags():
     global event_flags
     constants = wram.read_constants(os.path.join(conf.path, 'constants.asm'))
-    event_flags = dict(filter(lambda (key, value): value.startswith('EVENT_'), constants.items()))
+    event_flags = dict(filter(lambda key_value: key_value[1].startswith('EVENT_'), constants.items()))
 
 engine_flags = None
 def read_engine_flags():
     global engine_flags
     constants = wram.read_constants(os.path.join(conf.path, 'constants.asm'))
-    engine_flags = dict(filter(lambda (key, value): value.startswith('ENGINE_'), constants.items()))
+    engine_flags = dict(filter(lambda key_value1: key_value1[1].startswith('ENGINE_'), constants.items()))
 
 class EventFlagParam(MultiByteParam):
     def to_asm(self):
@@ -1761,9 +1763,9 @@ class ApplyMovementData:
 
 def print_all_movements():
     for each in all_movements:
-        print each.to_asm()
-        print "------------------"
-    print "done"
+        print(each.to_asm())
+        print("------------------")
+    print("done")
 
 class TextCommand(Command):
     # an individual text command will not end it
@@ -2852,9 +2854,9 @@ def pretty_print_pksv_no_names():
     for (command_byte, addresses) in pksv_no_names.items():
         if command_byte in pksv.pksv_crystal_unknowns:
             continue
-        print hex(command_byte) + " appearing in these scripts: "
+        print(hex(command_byte) + " appearing in these scripts: ")
         for address in addresses:
-            print "    " + hex(address)
+            print("    " + hex(address))
 
 recursive_scripts = set([])
 def rec_parse_script_engine_script_at(address, origin=None, debug=True):
@@ -3084,7 +3086,7 @@ class Script:
     def old_parse(self, *args, **kwargs):
         """included from old_parse_scripts"""
 
-import old_parse_scripts
+from . import old_parse_scripts
 Script.old_parse = old_parse_scripts.old_parse
 
 def parse_script_engine_script_at(address, map_group=None, map_id=None, force=False, debug=True, origin=True):
@@ -4249,8 +4251,8 @@ class PeopleEvent(Command):
                 lower_bits = color_function_byte & 0xF
                 higher_bits = color_function_byte >> 4
                 is_regular_script = lower_bits == 00
-                is_give_item = lower_bits == 01
-                is_trainer = lower_bits == 02
+                is_give_item = lower_bits == 0o1
+                is_trainer = lower_bits == 0o2
             current_address += obj.size
             self.size += obj.size
             i += 1
@@ -4324,9 +4326,9 @@ def old_parse_people_event_bytes(some_bytes, address=None, map_group=None, map_i
 
         is_regular_script = lower_bits == 00
         # pointer points to script
-        is_give_item = lower_bits == 01
+        is_give_item = lower_bits == 0o1
         # pointer points to [Item no.][Amount]
-        is_trainer = lower_bits == 02
+        is_trainer = lower_bits == 0o2
         # pointer points to trainer header
 
         # goldmap called these next two bytes "text_block" and "text_bank"?
@@ -6117,7 +6119,7 @@ def parse_all_map_headers(map_names, all_map_headers=None, debug=True):
     Calls parse_map_header_at for each map in each map group. Updates the
     map_names structure.
     """
-    if not map_names[1].has_key("offset"):
+    if "offset" not in map_names[1]:
         raise Exception("dunno what to do - map_names should have groups with pre-calculated offsets by now")
     for (group_id, group_data) in map_names.items():
         offset = group_data["offset"]
@@ -6240,7 +6242,7 @@ for map_group_id in map_names.keys():
         # skip if we maybe already have the 'offset' label set in this map group
         if map_id == "offset": continue
         # skip if we provided a pre-set value for the map's label
-        if map_group[map_id].has_key("label"): continue
+        if "label" in map_group[map_id]: continue
         # convience alias
         map_data = map_group[map_id]
         # clean up the map name to be an asm label
@@ -6302,7 +6304,7 @@ def get_dependencies_for(some_object, recompute=False, global_dependencies=set()
         else:
             some_object.get_dependencies(recompute=recompute, global_dependencies=global_dependencies)
         return global_dependencies
-    except RuntimeError, e:
+    except RuntimeError as e:
         # 1552, 1291, 2075, 1552, 1291...
 
         errorargs = {
@@ -6521,13 +6523,12 @@ def apply_diff(diff, try_fixing=True, do_compile=True):
         try:
             subprocess.check_call("cd " + conf.path + "; make clean; make", shell=True)
             return True
-        except Exception, exc:
+        except Exception as exc:
             if try_fixing:
                 os.system("mv " + os.path.join(conf.path, "main1.asm") + " " + os.path.join(conf.path, "main.asm"))
             return False
 
-import crystalparts.asmline
-AsmLine = crystalparts.asmline.AsmLine
+from .crystalparts.asmline import AsmLine
 
 class Incbin:
     def __init__(self, line, bank=None, debug=False):
@@ -6548,7 +6549,7 @@ class Incbin:
             logging.debug("Incbin.parse start is {0}".format(start))
         try:
             start = eval(start)
-        except Exception, e:
+        except Exception as e:
             logging.debug("start is {0}".format(start))
             raise Exception("problem with evaluating interval range: " + str(e))
 

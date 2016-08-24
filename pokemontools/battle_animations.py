@@ -1,12 +1,14 @@
 # coding: utf-8
 
+from __future__ import print_function
+from __future__ import absolute_import
 import os
 from new import classobj
 
-import configuration
+from . import configuration
 conf = configuration.Config()
 
-from crystal import (
+from .crystal import (
 	SingleByteParam,
 	PointerLabelParam,
 	DecimalParam,
@@ -15,11 +17,11 @@ from crystal import (
 	load_rom
 )
 
-from gbz80disasm import get_local_address, get_global_address
-from audio import sort_asms
+from .gbz80disasm import get_local_address, get_global_address
+from .audio import sort_asms
 
 
-from wram import read_constants
+from .wram import read_constants
 
 rom = bytearray(load_rom())
 
@@ -42,7 +44,7 @@ anims = read_constants(os.path.join(conf.path, 'constants/animation_constants.as
 objs  = { k: v for k, v in anims.items() if 'ANIM_OBJ' in v }
 bgs   = { k: v for k, v in anims.items() if 'ANIM_BG'  in v }
 anims = { k: v.replace('ANIM_','') for k, v in anims.items() }
-from move_constants import moves
+from .move_constants import moves
 anims.update(moves)
 
 class AnimObjParam(SingleByteParam):
@@ -320,5 +322,5 @@ def asm_list_to_text(asms):
 
 if __name__ == '__main__':
 	asms = dump_battle_anims()
-	print asm_list_to_text(asms)
+	print(asm_list_to_text(asms))
 

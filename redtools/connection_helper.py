@@ -1,8 +1,10 @@
+from __future__ import print_function
+from __future__ import absolute_import
 #author: Bryan Bishop <kanzure@gmail.com>
 #date: 2012-01-15
 #help with connection math
-import extract_maps
-from pretty_map_headers import map_constants, map_name_cleaner, offset_to_pointer
+from . import extract_maps
+from .pretty_map_headers import map_constants, map_name_cleaner, offset_to_pointer
 
 def print_connections(map_id, in_connection_id=None, do_output=False):
     map1        = extract_maps.map_headers[map_id]
@@ -101,4 +103,4 @@ if __name__ == "__main__":
     
     for map_id in extract_maps.map_headers.keys():
         if map_id not in extract_maps.bad_maps:
-            print print_connections(map_id, do_output=True)
+            print(print_connections(map_id, do_output=True))

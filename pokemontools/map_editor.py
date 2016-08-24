@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 import os
 import sys
 import logging
@@ -36,10 +37,10 @@ from PIL import (
     ImageTk,
 )
 
-import gfx
-import wram
-import preprocessor
-import configuration
+from . import gfx
+from . import wram
+from . import preprocessor
+from . import configuration
 config = configuration.Config()
 
 

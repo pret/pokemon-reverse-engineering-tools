@@ -1,8 +1,10 @@
+from __future__ import print_function
+from __future__ import absolute_import
 #author: Bryan Bishop <kanzure@gmail.com>
 #date: 2012-01-15
 #dump map height/width constants
-import extract_maps
-from pretty_map_headers import map_name_cleaner, map_constants
+from . import extract_maps
+from .pretty_map_headers import map_name_cleaner, map_constants
 
 def get_map_size_constants(do_sed=False):
     output = ""
@@ -34,4 +36,4 @@ if __name__ == "__main__":
     extract_maps.load_rom()
     extract_maps.load_map_pointers()
     extract_maps.read_all_map_headers()
-    print get_map_size_constants(do_sed=True)
+    print(get_map_size_constants(do_sed=True))

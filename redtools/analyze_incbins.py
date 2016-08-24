@@ -1,3 +1,5 @@
+from __future__ import print_function
+from __future__ import absolute_import
 #author: Bryan Bishop <kanzure@gmail.com>
 #date: 2012-01-03
 #purpose: map which addresses are left
@@ -6,11 +8,11 @@ import sys, os
 from copy import copy, deepcopy
 import subprocess
 import json
-from extract_maps import rom, assert_rom, load_rom, calculate_pointer, load_map_pointers, read_all_map_headers, map_headers
-from pokered_dir import pokered_dir
+from .extract_maps import rom, assert_rom, load_rom, calculate_pointer, load_map_pointers, read_all_map_headers, map_headers
+from .pokered_dir import pokered_dir
 
 try:
-    from pretty_map_headers import map_header_pretty_printer, map_name_cleaner
+    from .pretty_map_headers import map_header_pretty_printer, map_name_cleaner
 except Exception:
     pass
 
@@ -183,9 +185,9 @@ def generate_diff_insert(line_number, newline):
         diffcontent = subprocess.check_output(
                 "diff -u {0} {1}".format(os.path.join(pokered_dir, "main.asm"), newfile_filename),
                 shell=True)
-    except AttributeError, exc:
+    except AttributeError as exc:
         raise exc
-    except Exception, exc:
+    except Exception as exc:
         diffcontent = exc.output
 
     os.system("rm " + original_filename)
@@ -197,7 +199,7 @@ def insert_map_header_asm(map_id):
     map = map_headers[map_id]
     line_number = find_incbin_to_replace_for(map["address"])
     if line_number == None: # or map_name_cleaner(map["name"], 0) in "\n".join(line for line in asm):
-        print "i think map id=" + str(map_id) + " has previously been added."
+        print("i think map id=" + str(map_id) + " has previously been added.")
         return #this map has already been added i bet
     newlines = split_incbin_line_into_three(line_number, map["address"], 12 + (11 * len(map["connections"])))
 
@@ -213,8 +215,8 @@ def insert_map_header_asm(map_id):
 
     diff = generate_diff_insert(line_number, newlines)
     
-    print diff
-    print "... Applying diff."
+    print(diff)
+    print("... Applying diff.")
 
     #write the diff to a file
     fh = open("temp.patch", "w")
@@ -236,7 +238,7 @@ def wrapper_insert_map_header_asm(map_id):
 
 def dump_all_remaining_maps():
     for map_id in map_headers:
-        print "Inserting map id=" + str(map_id)
+        print("Inserting map id=" + str(map_id))
         wrapper_insert_map_header_asm(map_id)
 
 def reset_incbins():
@@ -249,7 +251,7 @@ def reset_incbins():
     process_incbins()
 
 def apply_diff(diff, try_fixing=True, do_compile=True):
-    print "... Applying diff."
+    print("... Applying diff.")
 
     #write the diff to a file
     fh = open("temp.patch", "w")
@@ -272,7 +274,7 @@ def apply_diff(diff, try_fixing=True, do_compile=True):
         try:
             subprocess.check_call("cd {0}; make clean; LC_CTYPE=C make".format(pokered_dir), shell=True)
             return True
-        except Exception, exc:
+        except Exception as exc:
             if try_fixing:
                 os.system("mv {0} {1}".format(
                     os.path.join(pokered_dir, "main1.asm"),
@@ -390,7 +392,7 @@ def get_labels_between(start_line_id, end_line_id, bank_id):
             else:
                 local_pointer = hex((address % 0x4000) + 0x4000).replace("0x", "$")
 
-        print line_label + " is at " + hex(address)
+        print(line_label + " is at " + hex(address))
         
         label = {
             "line_number": line_id,
@@ -438,7 +440,7 @@ def scan_for_predefined_labels():
         else:
             end_line_id = len(asm) - 1
 
-        print "bank" + abbreviation + " starts at " + str(start_line_id) + " to " + str(end_line_id)
+        print("bank" + abbreviation + " starts at " + str(start_line_id) + " to " + str(end_line_id))
 
         bank_intervals[bank_id] = {
                                     "start": start_line_id,
@@ -502,6 +504,6 @@ if __name__ == "__main__":
     #dump_all_remaining_maps()
 
     scan_for_predefined_labels()
-    print "Errors:"
-    print label_errors
+    print("Errors:")
+    print(label_errors)
 

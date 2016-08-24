@@ -1,3 +1,5 @@
+from __future__ import print_function
+from __future__ import absolute_import
 #author: Bryan Bishop <kanzure@gmail.com>
 #date: 2012-01-14
 #split out blocksets into binary data files
@@ -5,7 +7,7 @@
 # but it's too many lines and will probably crash rgbasm.
 
 import sys
-import extract_maps
+from . import extract_maps
 extract_maps.load_rom()
 spacing = "	"
 
@@ -77,7 +79,7 @@ for tileblock_id in tileblocks.keys():
     fh.write(main_data)
     fh.close()
 
-    print output
+    print(output)
 
 """
 Tset00_Block:

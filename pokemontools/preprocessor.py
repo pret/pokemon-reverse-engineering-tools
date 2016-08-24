@@ -2,12 +2,13 @@
 """
 Basic preprocessor for both pokecrystal and pokered.
 """
+from __future__ import absolute_import
 
 import os
 import sys
 
-import exceptions
-import crystal
+from . import exceptions
+from . import crystal
 
 chars = {
 "ガ": 0x05,

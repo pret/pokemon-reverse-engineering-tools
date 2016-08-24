@@ -2,8 +2,10 @@
 """
 Find shared functions between red/crystal.
 """
+from __future__ import print_function
+from __future__ import absolute_import
 
-from crystal import (
+from .crystal import (
     get_label_from_line,
     get_address_from_line_comment,
     AsmSection,
@@ -11,7 +13,7 @@ from crystal import (
     direct_load_asm,
 )
 
-from romstr import (
+from .romstr import (
     RomStr,
     AsmList,
 )
@@ -53,7 +55,7 @@ class Address(int):
                 instance = int.__new__(cls, int(x, base=16), *args, **kwargs)
             else:
                 msg = "Address.__new__ doesn't know how to parse this string"
-                raise Exception, msg
+                raise Exception(msg)
         else:
             instance = int.__new__(cls, x, *args, **kwargs)
 
@@ -157,7 +159,7 @@ class BinaryBlob(object):
             found_blobs.append(self)
 
             if self.debug:
-                print self.label + ": found " + str(len(self.locations)) + " matches."
+                print(self.label + ": found " + str(len(self.locations)) + " matches.")
 
     def find_by_first_bytes(self):
         """
@@ -181,7 +183,7 @@ class BinaryBlob(object):
             found_blobs.append(self)
 
             if self.debug:
-                print self.label + ": found " + str(len(self.locations)) + " matches."
+                print(self.label + ": found " + str(len(self.locations)) + " matches.")
 
 pokecrystal_rom_path = "../baserom.gbc"
 pokecrystal_src_path = "../main.asm"
@@ -214,14 +216,14 @@ def scan_red_asm(bank_stop=3, debug=True):
 
     for line in redsrc:
         if debug and show_lines:
-            print "processing a line from red: " + line
+            print("processing a line from red: " + line)
 
         if line[0:7] == "SECTION":
             thing        = AsmSection(line)
             current_bank = thing.bank_id
 
             if debug:
-                print "scan_red_asm: switching to bank " + str(current_bank)
+                print("scan_red_asm: switching to bank " + str(current_bank))
 
         elif line[0:6] != "INCBIN":
             if ":" in line and not ";XXX:" in line and not " ; XXX:" in line:
@@ -240,7 +242,7 @@ def scan_red_asm(bank_stop=3, debug=True):
                                    line_number=line_number)
 
                             if debug:
-                                print "Created a new blob: " + str(blob) + " from line: " + str(latest_line)
+                                print("Created a new blob: " + str(blob) + " from line: " + str(latest_line))
 
                     latest_label          = current_label
                     latest_start_address  = current_start_address
@@ -250,18 +252,18 @@ def scan_red_asm(bank_stop=3, debug=True):
 
         if current_bank == bank_stop:
             if debug:
-                print "scan_red_asm: stopping because current_bank >= " + \
-                      str(bank_stop) + " (bank_stop)"
+                print("scan_red_asm: stopping because current_bank >= " + \
+                      str(bank_stop) + " (bank_stop)")
 
             break
 
 scan_red_asm(bank_stop=3)
 
-print "================================"
+print("================================")
 
 for blob in found_blobs:
-    print blob
+    print(blob)
 
-print "Found " + str(len(found_blobs)) + " possibly copied functions."
+print("Found " + str(len(found_blobs)) + " possibly copied functions.")
 
-print [hex(x) for x in found_blobs[10].locations]
+print([hex(x) for x in found_blobs[10].locations])

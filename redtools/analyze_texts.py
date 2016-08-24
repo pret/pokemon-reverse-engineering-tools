@@ -1,11 +1,13 @@
+from __future__ import print_function
+from __future__ import absolute_import
 #author: Bryan Bishop <kanzure@gmail.com>
 #date: 2012-01-06
 #analyze texts, how many commands are unknown?
-import extract_maps
-import analyze_incbins #for asm
+from . import extract_maps
+from . import analyze_incbins #for asm
 try:
-    from pretty_map_headers import map_name_cleaner, txt_bytes, spacing, constant_abbreviation_bytes
-except Exception, exc: pass
+    from .pretty_map_headers import map_name_cleaner, txt_bytes, spacing, constant_abbreviation_bytes
+except Exception as exc: pass
 from operator import itemgetter
 import sys
 debug = False #set to True to increase logging output
@@ -31,7 +33,7 @@ def how_many_until(byte, starting):
 
 def print_command_debug_info(command_byte, text_id, text_pointer, map_id):
     if debug:
-        print "byte is " + str(command_byte) + " on text #" + str(text_id) + " at " + hex(text_pointer) + " on map " + str(map_id) + " (" + extract_maps.map_headers[map_id]["name"] + ")"
+        print("byte is " + str(command_byte) + " on text #" + str(text_id) + " at " + hex(text_pointer) + " on map " + str(map_id) + " (" + extract_maps.map_headers[map_id]["name"] + ")")
 
 def add_command_byte_to_totals(byte):
     global totals
@@ -155,7 +157,7 @@ def parse_text_script(text_pointer, text_id, map_id, txfar=False):
 
             #use this to look at the surrounding bytes
             if debug:
-                print "next command is: " + hex(ord(extract_maps.rom[offset])) + " ... we are at command number: " + str(command_counter) + " near " + hex(offset) + " on map_id=" + str(map_id) + " for text_id=" + str(text_id) + " and txfar(recursion)=" + str(txfar)
+                print("next command is: " + hex(ord(extract_maps.rom[offset])) + " ... we are at command number: " + str(command_counter) + " near " + hex(offset) + " on map_id=" + str(map_id) + " for text_id=" + str(text_id) + " and txfar(recursion)=" + str(txfar))
         elif command_byte == 0x7:
             #07 = shift texts 1 row above (2nd line becomes 1st line); address for next text = 2nd line. [07]
             size = 1
@@ -317,7 +319,7 @@ def parse_text_script(text_pointer, text_id, map_id, txfar=False):
             #if len(commands) > 0:
             #   print "Unknown text command " + hex(command_byte) + " at " + hex(offset) + ", script began with " + hex(commands[0]["type"])
             if debug:
-                print "Unknown text command at " + hex(offset) + " - command: " + hex(ord(extract_maps.rom[offset])) + " on map_id=" + str(map_id) + " text_id=" + str(text_id)
+                print("Unknown text command at " + hex(offset) + " - command: " + hex(ord(extract_maps.rom[offset])) + " on map_id=" + str(map_id) + " text_id=" + str(text_id))
             
             #end at the first unknown command
             end = True
@@ -359,7 +361,7 @@ def analyze_texts():
                     if debug:
                         if len(TX_FAR.keys()) > 0:
                             #print "TX_FAR object: " + str(TX_FAR)
-                            print "processing a TX_FAR at " + hex(commands[command_id]["pointer"]) + "... first byte is: " + str(ord(extract_maps.rom[commands[command_id]["pointer"]])) + " .. offset: " + hex(commands[command_id]["pointer"])
+                            print("processing a TX_FAR at " + hex(commands[command_id]["pointer"]) + "... first byte is: " + str(ord(extract_maps.rom[commands[command_id]["pointer"]])) + " .. offset: " + hex(commands[command_id]["pointer"]))
                             ##sys.exit(0)
 
                     commands[command_id]["TX_FAR"] = TX_FAR
@@ -382,7 +384,7 @@ def find_missing_08s(all_texts):
                     if "type" in current_line.keys():
                         if current_line["type"] == 0x8:
                             missing_08s += 1
-                            print "missing $08 on map_id=" + str(map_id) + " text_id=" + str(text_id) + " line_id=" + str(line_id) + " at " + hex(current_line["start_address"])
+                            print("missing $08 on map_id=" + str(map_id) + " text_id=" + str(text_id) + " line_id=" + str(line_id) + " at " + hex(current_line["start_address"]))
     return missing_08s
 
 def text_pretty_printer_at(start_address, label="SomeLabel"):
@@ -412,7 +414,7 @@ def text_pretty_printer_at(start_address, label="SomeLabel"):
         if not "lines" in commands[this_command].keys():
             command = commands[this_command]
             if not "type" in command.keys():
-                print "ERROR in command: " + str(command)
+                print("ERROR in command: " + str(command))
                 continue #dunno what to do here?
 
             if   command["type"] == 0x1: #TX_RAM
@@ -501,7 +503,7 @@ def text_pretty_printer_at(start_address, label="SomeLabel"):
                 byte_count += 1
                 had_db_last = True
             else:
-                print "ERROR in command: " + hex(command["type"])
+                print("ERROR in command: " + hex(command["type"]))
                 had_db_last = False
 
             #everything else is for $0s, really
@@ -585,7 +587,7 @@ def text_pretty_printer_at(start_address, label="SomeLabel"):
     if len(output)!=0 and output[-1] == "\n":
         include_newline = ""
     output += include_newline + "; " + hex(start_address) + " + " + str(byte_count) + " bytes = " + hex(start_address + byte_count)
-    print output
+    print(output)
     return (output, byte_count)
 
 def is_label_in_asm(label):
@@ -619,16 +621,16 @@ def find_undone_texts():
                 address = extract_maps.map_headers[map_id]["texts"][text_id][1]["start_address"]
             
             if not is_label_in_asm(label):
-                print label + " map_id=" + str(map_id) + " text_id=" + str(text_id) + " at " + hex(address) + " byte is: " + hex(ord(extract_maps.rom[address]))
+                print(label + " map_id=" + str(map_id) + " text_id=" + str(text_id) + " at " + hex(address) + " byte is: " + hex(ord(extract_maps.rom[address])))
                 if not address in usable_table.keys():
                     usable_table[address] = 1
                 else:
                     usable_table[address] += 1
 
-    print "\n\n which ones are priority?"
+    print("\n\n which ones are priority?")
     sorted_results =  sorted(usable_table.iteritems(), key=itemgetter(1), reverse=True)
     for result in sorted_results:
-        print str(result[1]) + " times: " + hex(result[0])
+        print(str(result[1]) + " times: " + hex(result[0]))
 
 def scan_rom_for_tx_fars(printer=True):
     """find TX_FARs
@@ -675,14 +677,14 @@ def scan_rom_for_tx_fars(printer=True):
             if address_bundle[0] in pre_handled:
                 continue #already did this
     
-            print "-------"
-            print "TX_FAR is at: " + hex(address_bundle[1])
+            print("-------")
+            print("TX_FAR is at: " + hex(address_bundle[1]))
             
             #let's try printing out the TX_FAR?
             text_pretty_printer_at(address_bundle[1], "blah")
 
             text_pretty_printer_at(address_bundle[0], "_blah")
-            print "-------"
+            print("-------")
             pre_handled.append(address_bundle[0])
     return possible_tx_far_targets
 

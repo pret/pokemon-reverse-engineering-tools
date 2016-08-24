@@ -2,6 +2,8 @@
 """
 GBC disassembler, specialized for TCG macros
 """
+from __future__ import print_function
+from __future__ import absolute_import
 
 import os
 import sys
@@ -10,9 +12,9 @@ from ctypes import c_int8
 import random
 import json
 
-import configuration
-import labels
-import wram
+from . import configuration
+from . import labels
+from . import wram
 
 # New versions of json don't have read anymore.
 if not hasattr(json, "read"):
@@ -663,7 +665,7 @@ class Disassembler(object):
         """
 
         bank_id = original_offset / 0x4000
-        if debug: print "bank id is: " + str(bank_id)
+        if debug: print("bank id is: " + str(bank_id))
 
         last_hl_address = None #for when we're scanning the main map script
         last_a_address = None
@@ -995,4 +997,4 @@ if __name__ == "__main__":
     else:
         output = "Func_{:02x}: ; {:02x} ({:0x}:{:02x})\n".format(addr, addr, addr / 0x4000, addr % 0x4000 + 0x4000)
     output += disasm.output_bank_opcodes(addr)[0]
-    print output
+    print(output)

@@ -3,9 +3,10 @@
 Dump out asm for scripting things in bank $25. This script will modify main.asm
 and insert all scripting commands.
 """
+from __future__ import absolute_import
 
-import crystal
-import gbz80disasm
+from . import crystal
+from . import gbz80disasm
 
 rom = crystal.load_rom()
 roml = [ord(x) for x in rom]

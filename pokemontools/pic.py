@@ -3,13 +3,14 @@
 """
 A library for use with compressed monster and trainer pics in pokered.
 """
+from __future__ import absolute_import
 
 import os
 import sys
 import argparse
 from math import sqrt
 
-from gfx import transpose_tiles
+from .gfx import transpose_tiles
 
 
 def bitflip(x, n):
@@ -79,7 +80,7 @@ class Decompressor:
             self._decode(rams[r1])
             self._xor(rams[r1], rams[r2])
         else:
-            raise Exception, "Invalid deinterlace mode!"
+            raise Exception("Invalid deinterlace mode!")
 
         data = []
         if self.planar:
@@ -278,7 +279,7 @@ class Compressor:
                 datas += [(self.data[:], int(self.which_bit))]
 
         # Pick the smallest pic, measured in bits.
-        datas = sorted(datas, key=lambda (data, bit): (len(data), -bit))
+        datas = sorted(datas, key=lambda data_bit: (len(data_bit[0]), -data_bit[1]))
         self.data, self.which_bit = datas[0]
 
     def _interpret_compress(self, rams, mode, order):
@@ -299,7 +300,7 @@ class Compressor:
             self._encode(rams[r1])
             self._encode(rams[r2], mirror=False)
         else:
-            raise Exception, 'invalid interlace mode!'
+            raise Exception('invalid interlace mode!')
 
         self._writeint(self.height, 4)
         self._writeint(self.width,  4)

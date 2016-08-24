@@ -1,16 +1,18 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import print_function
+from __future__ import absolute_import
 import os
 import sys
-import png
+from . import png
 from math import sqrt, floor, ceil
 import argparse
 import operator
 
-import configuration
+from . import configuration
 config = configuration.Config()
 
-from lz import Compressed, Decompressed
+from .lz import Compressed, Decompressed
 
 
 def split(list_, interval):
@@ -69,7 +71,7 @@ def transpose(tiles, width=None):
     """
     if width == None:
         width = int(sqrt(len(tiles))) # assume square image
-    tiles = sorted(enumerate(tiles), key= lambda (i, tile): i % width)
+    tiles = sorted(enumerate(tiles), key= lambda i_tile: i_tile[0] % width)
     return [tile for i, tile in tiles]
 
 def transpose_tiles(image, width=None):
@@ -290,7 +292,7 @@ def dmg2rgb(word):
             value >>= 5
     word = shift(word)
     # distribution is less even w/ << 3
-    red, green, blue = [int(color * 8.25) for color in [word.next() for _ in xrange(3)]]
+    red, green, blue = [int(color * 8.25) for color in [next(word) for _ in xrange(3)]]
     alpha = 255
     return (red, green, blue, alpha)
 
@@ -487,9 +489,9 @@ def convert_2bpp_to_png(image, **kwargs):
                 matches += [(w, h)]
         # go for the most square image
         if len(matches):
-            width, height = sorted(matches, key= lambda (w, h): (h % 8 != 0, w + h))[0] # favor height
+            width, height = sorted(matches, key= lambda w_h: (w_h[1] % 8 != 0, w_h[0] + w_h[1]))[0] # favor height
         else:
-            raise Exception, 'Image can\'t be divided into tiles (%d px)!' % (px_length(image))
+            raise Exception('Image can\'t be divided into tiles (%d px)!' % (px_length(image)))
 
     # convert tiles to lines
     lines = to_lines(flatten(image), width)
@@ -530,7 +532,7 @@ def get_pic_animation(tmap, w, h):
         which_bitmask = bitmasks.index(bitmask)
 
         mask = iter(bitmask)
-        masked_frame = filter(lambda _: mask.next(), frame)
+        masked_frame = filter(lambda _: next(mask), frame)
 
         frame_text += '.frame{}\n'.format(i + 1)
         frame_text += '\tdb ${:02x} ; bitmask\n'.format(which_bitmask)
@@ -653,9 +655,9 @@ def png_to_2bpp(filein, **kwargs):
                     palette += [color]
                 else:
                     # TODO Find the nearest match
-                    print 'WARNING: %s: Color %s truncated to' % (filein, color),
+                    print('WARNING: %s: Color %s truncated to' % (filein, color), end=' ')
                     color = sorted(palette, key=lambda x: sum(x.values()))[0]
-                    print color
+                    print(color)
             newline += [color]
         image += [newline]
 
@@ -865,7 +867,7 @@ def convert_to_2bpp(filenames=[]):
         elif extension == '.png':
             export_png_to_2bpp(filename)
         else:
-            raise Exception, "Don't know how to convert {} to 2bpp!".format(filename)
+            raise Exception("Don't know how to convert {} to 2bpp!".format(filename))
 
 def convert_to_1bpp(filenames=[]):
     for filename in filenames:
@@ -877,7 +879,7 @@ def convert_to_1bpp(filenames=[]):
         elif extension == '.png':
             export_png_to_1bpp(filename)
         else:
-            raise Exception, "Don't know how to convert {} to 1bpp!".format(filename)
+            raise Exception("Don't know how to convert {} to 1bpp!".format(filename))
 
 def convert_to_png(filenames=[]):
     for filename in filenames:
@@ -889,7 +891,7 @@ def convert_to_png(filenames=[]):
         elif extension == '.png':
             pass
         else:
-            raise Exception, "Don't know how to convert {} to png!".format(filename)
+            raise Exception("Don't know how to convert {} to png!".format(filename))
 
 def compress(filenames=[]):
     for filename in filenames:
@@ -933,7 +935,7 @@ def main():
     }.get(args.mode, None)
 
     if method == None:
-        raise Exception, "Unknown conversion method!"
+        raise Exception("Unknown conversion method!")
 
     method(args.filenames)
 

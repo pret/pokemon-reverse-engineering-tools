@@ -9,6 +9,7 @@ A rundown of Pokemon Crystal's compression scheme:
 Control commands occupy bits 5-7.
 Bits 0-4 serve as the first parameter <n> for each command.
 """
+from __future__ import print_function
 lz_commands = {
     'literal':   0, # n values for n bytes
     'iterate':   1, # one value for n bytes
@@ -282,7 +283,7 @@ class Compressed:
         return lookback
 
     def get_indexes(self, byte):
-        if not self.indexes.has_key(byte):
+        if byte not in self.indexes:
             self.indexes[byte] = []
             index = -1
             while 1:
@@ -315,15 +316,15 @@ class Compressed:
 
     def do_winner(self):
         winners = filter(
-            lambda (method, score):
-                score
-              > self.min_scores[method] + int(score > lowmax),
+            lambda method_score:
+                method_score[1]
+              > self.min_scores[method_score[0]] + int(method_score[1] > lowmax),
             self.scores.iteritems()
         )
         winners.sort(
-            key = lambda (method, score): (
-                -(score - self.min_scores[method] - int(score > lowmax)),
-                self.preference.index(method)
+            key = lambda method_score1: (
+                -(method_score1[1] - self.min_scores[method_score1[0]] - int(method_score1[1] > lowmax)),
+                self.preference.index(method_score1[0])
             )
         )
         winner, score = winners[0]
@@ -368,11 +369,11 @@ class Compressed:
                 output += [offset / 0x100, offset % 0x100] # big endian
 
         if self.debug:
-            print ' '.join(map(str, [
+            print(' '.join(map(str, [
                   cmd, length, '\t',
                   ' '.join(map('{:02x}'.format, output)),
                   self.data[start_address:start_address+length] if cmd in self.lookback_methods else '',
-            ]))
+            ])))
 
         self.output += output
 
@@ -414,7 +415,7 @@ class Decompressed:
         if self.lz is not None:
             self.decompress()
 
-        if self.debug: print self.command_list()
+        if self.debug: print(self.command_list())
 
 
     def command_list(self):
@@ -466,7 +467,7 @@ class Decompressed:
             self.direction = None
 
             if (self.byte == lz_end):
-                self.next()
+                next(self)
                 break
 
             self.cmd = (self.byte & 0b11100000) >> 5
@@ -474,11 +475,11 @@ class Decompressed:
             if self.cmd_name == 'long':
                 # 10-bit length
                 self.cmd = (self.byte & 0b00011100) >> 2
-                self.length = (self.next() & 0b00000011) * 0x100
-                self.length += self.next() + 1
+                self.length = (next(self) & 0b00000011) * 0x100
+                self.length += next(self) + 1
             else:
                 # 5-bit length
-                self.length = (self.next() & 0b00011111) + 1
+                self.length = (next(self) & 0b00011111) + 1
 
             self.__class__.__dict__[self.cmd_name](self)
 
@@ -515,12 +516,12 @@ class Decompressed:
 
         if self.byte >= 0x80: # negative
             # negative
-            offset = self.next() & 0x7f
+            offset = next(self) & 0x7f
             offset = len(self.output) - offset - 1
         else:
             # positive
-            offset =  self.next() * 0x100
-            offset += self.next()
+            offset =  next(self) * 0x100
+            offset += next(self)
 
         self.offset = offset
 
@@ -536,13 +537,13 @@ class Decompressed:
         """
         Write one byte repeatedly.
         """
-        self.output += [self.next()] * self.length
+        self.output += [next(self)] * self.length
 
     def alternate(self):
         """
         Write alternating bytes.
         """
-        alts = [self.next(), self.next()]
+        alts = [next(self), next(self)]
         self.output += [ alts[x & 1] for x in xrange(self.length) ]
 
     def blank(self):

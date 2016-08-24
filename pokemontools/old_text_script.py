@@ -1,8 +1,9 @@
 """
 An old implementation of TextScript that may not be useful anymore.
 """
+from __future__ import absolute_import
 
-import pointers
+from . import pointers
 
 class OldTextScript:
     "a text is a sequence of commands different from a script-engine script"
@@ -43,7 +44,7 @@ class OldTextScript:
                     if signpost["func"] in [0, 1, 2, 3, 4]:
                         # dump this into script
                         script = signpost["script"]
-                    elif signpost["func"] in [05, 06]:
+                    elif signpost["func"] in [0o5, 0o6]:
                         script = signpost["script"]
                     else: continue
                     # skip signposts with no bytes

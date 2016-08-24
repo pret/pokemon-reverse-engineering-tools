@@ -2,12 +2,14 @@
 #author: Bryan Bishop <kanzure@gmail.com>
 #date: 2012-01-02
 #purpose: dump asm for each map header
+from __future__ import print_function
+from __future__ import absolute_import
 import json
-import extract_maps
-import sprite_helper
+from . import extract_maps
+from . import sprite_helper
 import random
 import string
-import analyze_texts #hopefully not a dependency loop
+from . import analyze_texts #hopefully not a dependency loop
 
 base = 16
 spacing = "	"
@@ -395,7 +397,7 @@ def write_connections(north, south, west, east):
     if not north and south and not west and east: return "SOUTH | EAST"
     if north and not south and west and not east: return "NORTH | WEST"
     if north and not south and not west and east: return "NORTH | EAST"
-    raise Exception, "unpredicted outcome on write_connections"
+    raise Exception("unpredicted outcome on write_connections")
 
 #TODO: make this elegant
 def connection_line(byte):
@@ -551,7 +553,7 @@ def object_data_pretty_printer(map_id):
 
         try:
             warp_to_map_constant = map_constants[warp_to_map_id]
-        except Exception, exc:
+        except Exception as exc:
             warp_to_map_constant = "$" + hex(warp_to_map_id)[2:]
 
         output += spacing + "db $" + hex(int(y))[2:] + ", $" + hex(int(x))[2:] + ", $" + hex(int(warp_to_point))[2:] + ", " + warp_to_map_constant + "\n"
@@ -606,7 +608,7 @@ def object_data_pretty_printer(map_id):
             try:
                 previous_location = map_constants[object["warps"][warp_to_id]["warp_to_map_id"]]
                 comment = " ; " + previous_location
-            except Exception, exc:
+            except Exception as exc:
                 comment = ""
 
             output += spacing + "EVENT_DISP $" + map_width[2:] + ", $" + warp_to_y + ", $" + warp_to_x + comment + "\n"
@@ -727,7 +729,7 @@ def print_all_headers():
 
     for map in maps:
         output = map_header_pretty_printer(map)
-        if output != "": print output
+        if output != "": print(output)
 
 if __name__ == "__main__":
     #read binary data from file
