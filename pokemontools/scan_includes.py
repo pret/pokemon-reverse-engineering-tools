@@ -4,40 +4,48 @@
 """
 Recursively scan an asm file for dependencies.
 """
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 import sys
 import argparse
 import os.path
 
-includes = set()
 
 def scan_file(filename):
-	for line in open(filename):
-		if 'INC' not in line:
-			continue
-		line = line.split(';')[0]
-		if 'INCLUDE' in line:
-			include = line.split('"')[1]
-			if os.path.exists("src/"):
-				includes.add("src/" + include)
-				scan_file("src/" + include)
-			else:
-				includes.add(include)
-				scan_file(include)
-		elif 'INCBIN' in line:
-			include = line.split('"')[1]
-			if 'baserom.gbc' not in line and os.path.exists("src/"):
-				includes.add("src/" + include)
-			else:
-				includes.add(include)
+    with open(filename) as f:
+        for line in f:
+            if 'INC' not in line:
+                continue
+            line = line.split(';')[0]
+            if 'INCLUDE' in line:
+                include = line.split('"')[1]
+                if os.path.exists("src/"):
+                    yield "src/" + include
+                    for inc in scan_file("src/" + include):
+                        yield inc
+                else:
+                    yield include
+                    for inc in scan_file(include):
+                        yield inc
+            elif 'INCBIN' in line:
+                include = line.split('"')[1]
+                if 'baserom.gbc' not in line and os.path.exists("src/"):
+                    yield "src/" + include
+                else:
+                    yield include
+
 
 def main():
-	ap = argparse.ArgumentParser()
-	ap.add_argument('filenames', nargs='*')
-	args = ap.parse_args()
-	for filename in set(args.filenames):
-		scan_file(filename)
-	sys.stdout.write(' '.join(includes))
+    ap = argparse.ArgumentParser()
+    ap.add_argument('filenames', nargs='*')
+    args = ap.parse_args()
+    includes = set()
+    for filename in set(args.filenames):
+        includes.update(scan_file(filename))
+    sys.stdout.write(' '.join(sorted(includes)))
+
 
 if __name__ == '__main__':
-	main()
+    main()
