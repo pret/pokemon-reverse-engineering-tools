@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
-
-from __future__ import print_function
 from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import os
-import sys
 from . import png
 from math import sqrt, floor, ceil
 import argparse
@@ -137,7 +137,7 @@ def condense_tiles_to_map(tiles, pic=0):
 
     # Leave the first frame intact for pics.
     new_tiles = tiles[:pic]
-    tilemap   = range(pic)
+    tilemap   = list(range(pic))
 
     for i, tile in enumerate(tiles[pic:]):
         if tile not in new_tiles:
@@ -177,14 +177,13 @@ def to_file(filename, data):
     """
     Apparently open(filename, 'wb').write(bytearray(data)) won't work.
     """
-    file = open(filename, 'wb')
-    for byte in data:
-        file.write('%c' % byte)
-    file.close()
+    with open(filename, 'wb') as f:
+        f.write((bytearray(data)))
 
 
 def decompress_file(filein, fileout=None):
-    image = bytearray(open(filein).read())
+    with open(filein, 'rb') as f:
+        image = bytearray(f.read())
     de = Decompressed(image)
 
     if fileout == None:
@@ -193,7 +192,8 @@ def decompress_file(filein, fileout=None):
 
 
 def compress_file(filein, fileout=None):
-    image = bytearray(open(filein).read())
+    with open(filein, 'rb') as f:
+        image = bytearray(f.read())
     lz = Compressed(image)
 
     if fileout == None:
@@ -210,7 +210,8 @@ def bin_to_rgb(word):
     return (red, green, blue)
 
 def convert_binary_pal_to_text_by_filename(filename):
-    pal = bytearray(open(filename).read())
+    with open(filename, 'rb') as f:
+        pal = bytearray(f.read())
     return convert_binary_pal_to_text(pal)
 
 def convert_binary_pal_to_text(pal):
@@ -264,12 +265,12 @@ def to_lines(image, width):
     """
     tile_width = 8
     tile_height = 8
-    num_columns = width / tile_width
-    height = len(image) / width
+    num_columns = width // tile_width
+    height = len(image) // width
 
     lines = []
     for cur_line in range(height):
-        tile_row = cur_line / tile_height
+        tile_row = cur_line // tile_height
         line = []
         for column in range(num_columns):
             anchor = (
@@ -301,9 +302,9 @@ def rgb_to_dmg(color):
     """
     For PNGs.
     """
-    word =  (color['r'] / 8)
-    word += (color['g'] / 8) << 5
-    word += (color['b'] / 8) << 10
+    word =  (color['r'] // 8)
+    word += (color['g'] // 8) << 5
+    word += (color['b'] // 8) << 10
     return word
 
 
@@ -334,7 +335,7 @@ def png_to_rgb(palette):
     """
     output = ''
     for color in palette:
-        r, g, b = [color[c] / 8 for c in 'rgb']
+        r, g, b = [color[c] // 8 for c in 'rgb']
         output += '\tRGB ' + ', '.join(['%.2d' % hue for hue in (r, g, b)])
         output += '\n'
     return output
@@ -433,7 +434,7 @@ def convert_2bpp_to_png(image, **kwargs):
 
     # Width must be specified to interleave.
     if interleave and width:
-        image = interleave_tiles(image, width / 8)
+        image = interleave_tiles(image, width // 8)
 
     # Pad the image by a given number of tiles if asked.
     image += pad_color * 0x10 * tile_padding
@@ -453,29 +454,29 @@ def convert_2bpp_to_png(image, **kwargs):
         image = bytearray(pic) + image[len(image) - trailing:]
 
         # Pad out trailing lines.
-        image += pad_color * 0x10 * ((w - (len(image) / 0x10) % h) % w)
+        image += pad_color * 0x10 * ((w - (len(image) // 0x10) % h) % w)
 
     def px_length(img):
         return len(img) * 4
     def tile_length(img):
-        return len(img) * 4 / (8*8)
+        return len(img) * 4 // (8*8)
 
     if width and height:
-        tile_width = width / 8
+        tile_width = width // 8
         more_tile_padding = (tile_width - (tile_length(image) % tile_width or tile_width))
         image += pad_color * 0x10 * more_tile_padding
 
     elif width and not height:
-        tile_width = width / 8
+        tile_width = width // 8
         more_tile_padding = (tile_width - (tile_length(image) % tile_width or tile_width))
         image += pad_color * 0x10 * more_tile_padding
-        height = px_length(image) / width
+        height = px_length(image) // width
 
     elif height and not width:
-        tile_height = height / 8
+        tile_height = height // 8
         more_tile_padding = (tile_height - (tile_length(image) % tile_height or tile_height))
         image += pad_color * 0x10 * more_tile_padding
-        width = px_length(image) / height
+        width = px_length(image) // height
 
     # at least one dimension should be given
     if width * height != px_length(image):
@@ -483,8 +484,8 @@ def convert_2bpp_to_png(image, **kwargs):
         matches = []
         # Height need not be divisible by 8, but width must.
         # See pokered gfx/minimize_pic.1bpp.
-        for w in range(8, px_length(image) / 2 + 1, 8):
-            h = px_length(image) / w
+        for w in range(8, px_length(image) // 2 + 1, 8):
+            h = px_length(image) // w
             if w * h == px_length(image):
                 matches += [(w, h)]
         # go for the most square image
@@ -609,12 +610,12 @@ def get_image_padding(width, height, wstep=8, hstep=8):
     }
 
     if width % wstep and width >= wstep:
-       pad = float(width % wstep) / 2
+       pad = width % wstep / 2
        padding['left']   = int(ceil(pad))
        padding['right']  = int(floor(pad))
 
     if height % hstep and height >= hstep:
-       pad = float(height % hstep) / 2
+       pad = height % hstep / 2
        padding['top']    = int(ceil(pad))
        padding['bottom'] = int(floor(pad))
 
@@ -637,8 +638,6 @@ def png_to_2bpp(filein, **kwargs):
 
     if type(filein) is str:
         filein = open(filein, 'rb')
-
-    assert type(filein) is file
 
     width, height, rgba, info = png.Reader(filein).asRGBA8()
 
@@ -700,8 +699,8 @@ def png_to_2bpp(filein, **kwargs):
     # Graphics are stored in tiles instead of lines
     tile_width  = 8
     tile_height = 8
-    num_columns = max(width, tile_width) / tile_width
-    num_rows = max(height, tile_height) / tile_height
+    num_columns = max(width, tile_width) // tile_width
+    num_rows = max(height, tile_height) // tile_height
     image = []
 
     for row in range(num_rows):
@@ -718,7 +717,7 @@ def png_to_2bpp(filein, **kwargs):
                 bottom, top = 0, 0
                 for bit, quad in enumerate(line):
                     bottom += (quad & 1) << (7 - bit)
-                    top += (quad /2 & 1) << (7 - bit)
+                    top += (quad // 2 & 1) << (7 - bit)
                 image += [bottom, top]
 
     dim = arguments['pic_dimensions']
@@ -727,18 +726,18 @@ def png_to_2bpp(filein, **kwargs):
             w, h = dim
         else:
             # infer dimensions based on width.
-            w = width / tile_width
-            h = height / tile_height
+            w = width // tile_width
+            h = height // tile_height
             if h % w == 0:
                 h = w
 
         tiles = get_tiles(image)
         pic_length = w * h
-        tile_width = width / 8
+        tile_width = width // 8
         trailing = len(tiles) % pic_length
         new_image = []
-        for block in range(len(tiles) / pic_length):
-            offset = (h * tile_width) * ((block * w) / tile_width) + ((block * w) % tile_width)
+        for block in range(len(tiles) // pic_length):
+            offset = (h * tile_width) * ((block * w) // tile_width) + ((block * w) % tile_width)
             pic = []
             for row in range(h):
                 index = offset + (row * tile_width)
