@@ -136,13 +136,7 @@ def load_rom(filename=None):
     and then loads the rom if necessary."""
     if filename == None:
         filename = os.path.join(conf.path, "baserom.gbc")
-    global rom
-    if rom != romstr.RomStr(None) and rom != None:
-        return rom
-    if not isinstance(rom, romstr.RomStr):
-        return direct_load_rom(filename=filename)
-    elif os.lstat(filename).st_size != len(rom):
-        return direct_load_rom(filename)
+    return direct_load_rom(filename)
 
 def direct_load_asm(filename=None):
     if filename == None:
@@ -904,6 +898,8 @@ class PointerLabelParam(MultiByteParam):
                 label = None
             elif result.address != caddress:
                 label = None
+        elif hasattr(result, "keys") and "label" in result.keys():
+            label = result["label"]
         elif result != None:
             label = None
 
@@ -1458,21 +1454,27 @@ def read_event_flags():
     global event_flags
     constants = wram.read_constants(os.path.join(conf.path, 'constants.asm'))
     event_flags = dict(filter(lambda (key, value): value.startswith('EVENT_'), constants.items()))
+    return event_flags
 
 engine_flags = None
 def read_engine_flags():
     global engine_flags
     constants = wram.read_constants(os.path.join(conf.path, 'constants.asm'))
     engine_flags = dict(filter(lambda (key, value): value.startswith('ENGINE_'), constants.items()))
+    return engine_flags
 
 class EventFlagParam(MultiByteParam):
     def to_asm(self):
-        if event_flags is None: read_event_flags()
+        global event_flags
+        if event_flags is None:
+            event_flags = read_event_flags()
         return event_flags.get(self.parsed_number) or MultiByteParam.to_asm(self)
 
 class EngineFlagParam(MultiByteParam):
     def to_asm(self):
-        if engine_flags is None: read_engine_flags()
+        global engine_flags
+        if engine_flags is None:
+            engine_flags = read_engine_flags()
         return engine_flags.get(self.parsed_number) or MultiByteParam.to_asm(self)
 
 
@@ -4906,7 +4908,7 @@ class MapHeader:
         output += "db " + ", ".join([self.location_on_world_map.to_asm(), self.music.to_asm(), self.time_of_day.to_asm(), self.fishing_group.to_asm()])
         return output
 
-def parse_map_header_at(address, map_group=None, map_id=None, all_map_headers=None, debug=True):
+def parse_map_header_at(address, map_group=None, map_id=None, all_map_headers=None, rom=None, debug=True):
     """parses an arbitrary map header at some address"""
     logging.debug("parsing a map header at {0}".format(hex(address)))
     map_header = MapHeader(address, map_group=map_group, map_id=map_id, debug=debug)
@@ -6112,11 +6114,13 @@ def parse_map_header_by_id(*args, **kwargs):
     map_header_offset = offset + ((map_id - 1) * map_header_byte_size)
     return parse_map_header_at(map_header_offset, all_map_headers=all_map_headers, map_group=map_group, map_id=map_id)
 
-def parse_all_map_headers(map_names, all_map_headers=None, debug=True):
+def parse_all_map_headers(map_names, all_map_headers=None, _parse_map_header_at=None, rom=None, debug=True):
     """
     Calls parse_map_header_at for each map in each map group. Updates the
     map_names structure.
     """
+    if _parse_map_header_at == None:
+        _parse_map_header_at = parse_map_header_at
     if not map_names[1].has_key("offset"):
         raise Exception("dunno what to do - map_names should have groups with pre-calculated offsets by now")
     for (group_id, group_data) in map_names.items():
@@ -6133,7 +6137,7 @@ def parse_all_map_headers(map_names, all_map_headers=None, debug=True):
             map_header_offset = offset + ((map_id - 1) * map_header_byte_size)
             map_names[group_id][map_id]["header_offset"] = map_header_offset
 
-            new_parsed_map = parse_map_header_at(map_header_offset, map_group=group_id, map_id=map_id, all_map_headers=all_map_headers, debug=debug)
+            new_parsed_map = _parse_map_header_at(map_header_offset, map_group=group_id, map_id=map_id, all_map_headers=all_map_headers, rom=rom, debug=debug)
             map_names[group_id][map_id]["header_new"] = new_parsed_map
 
 class PokedexEntryPointerTable:
@@ -6458,12 +6462,15 @@ def split_incbin_line_into_three(line, start_address, byte_count, rom_file=None)
     output += "INCBIN \"baserom.gbc\",$" + hex(third[0])[2:] + ",$" + hex(third[1])[2:] # no newline
     return output
 
-def generate_diff_insert(line_number, newline, debug=False):
+def generate_diff_insert(line_number, newline, _asm=None, debug=False):
     """generates a diff between the old main.asm and the new main.asm
     note: requires python2.7 i think? b/c of subprocess.check_output"""
     global asm
-    original = "\n".join(line for line in asm)
-    newfile = deepcopy(asm)
+    if _asm == None:
+        _asm = asm
+
+    original = "\n".join(line for line in _asm)
+    newfile = deepcopy(_asm)
     newfile[line_number] = newline # possibly inserting multiple lines
     newfile = "\n".join(line for line in newfile)
 
@@ -6473,6 +6480,10 @@ def generate_diff_insert(line_number, newline, debug=False):
 
     original_filename = "ejroqjfoad.temp"
     newfile_filename = "fjiqefo.temp"
+
+    main_path = os.path.join(conf.path, "main.asm")
+    if os.path.exists(main_path):
+        original_filename = main_path
 
     original_fh = open(original_filename, "w")
     original_fh.write(original)
@@ -6488,9 +6499,9 @@ def generate_diff_insert(line_number, newline, debug=False):
         CalledProcessError = None
 
     try:
-        diffcontent = subprocess.check_output("diff -u " + os.path.join(conf.path, "main.asm") + " " + newfile_filename, shell=True)
+        diffcontent = subprocess.check_output("diff -u " + original_filename + " " + newfile_filename, shell=True)
     except (AttributeError, CalledProcessError):
-        p = subprocess.Popen(["diff", "-u", os.path.join(conf.path, "main.asm"), newfile_filename], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        p = subprocess.Popen(["diff", "-u", original_filename, newfile_filename], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = p.communicate()
         diffcontent = out
 
@@ -7079,11 +7090,18 @@ def get_ram_label(address):
         return wram.wram_labels[address][-1]
     return None
 
-def get_label_for(address):
+def get_label_for(address, _all_labels=None, _script_parse_table=None):
     """
     returns a label assigned to a particular address
     """
     global all_labels
+    global script_parse_table
+
+    if _all_labels == None:
+        _all_labels = all_labels
+
+    if _script_parse_table == None:
+        _script_parse_table = script_parse_table
 
     if address == None:
         return None
@@ -7095,15 +7113,17 @@ def get_label_for(address):
         return None
 
     # the old way
-    for thing in all_labels:
+    for thing in _all_labels:
         if thing["address"] == address:
             return thing["label"]
 
     # the new way
-    obj = script_parse_table[address]
+    obj = _script_parse_table[address]
     if obj:
         if hasattr(obj, "label"):
             return obj.label.name
+        elif hasattr(obj, "keys") and "label" in obj.keys():
+            return obj["label"]
         else:
             return "AlreadyParsedNoDefaultUnknownLabel_" + hex(address)
 
@@ -7322,13 +7342,14 @@ def add_map_offsets_into_map_names(map_group_offsets, map_names=None):
 
 rom_parsed = False
 
-def parse_rom(rom=None):
+def parse_rom(rom=None, _skip_wram_labels=False, _parse_map_header_at=None, debug=False):
     if not rom:
         # read the rom and figure out the offsets for maps
         rom = direct_load_rom()
 
     # make wram.wram_labels available
-    setup_wram_labels()
+    if not _skip_wram_labels:
+        setup_wram_labels()
 
     # figure out the map offsets
     map_group_offsets = load_map_group_offsets(map_group_pointer_table=map_group_pointer_table, map_group_count=map_group_count, rom=rom)
@@ -7337,7 +7358,7 @@ def parse_rom(rom=None):
     add_map_offsets_into_map_names(map_group_offsets, map_names=map_names)
 
     # parse map header bytes for each map
-    parse_all_map_headers(map_names, all_map_headers=all_map_headers)
+    parse_all_map_headers(map_names, all_map_headers=all_map_headers, _parse_map_header_at=_parse_map_header_at, rom=rom, debug=debug)
 
     # find trainers based on scripts and map headers
     # this can only happen after parsing the entire map and map scripts
