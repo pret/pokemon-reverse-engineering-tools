@@ -39,6 +39,12 @@ Run the tests with:
 nosetests-2.7
 ```
 
+There might be a great deal of spammy output. Drop some of the spam with:
+
+```
+nosetests-2.7 tests.integration.tests --nocapture --nologcapture
+```
+
 # see also
 
 * [Pokémon Crystal source code](https://github.com/kanzure/pokecrystal)
