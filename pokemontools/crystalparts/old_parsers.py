@@ -2,18 +2,37 @@
 Some old methods rescued from crystal.py
 """
 
+import logging
+
 import pokemontools.pointers as pointers
+
+from pokemontools.crystal import (
+    rom_interval,
+    old_parse_xy_trigger_bytes,
+    parse_script_engine_script_at,
+    calculate_pointer_from_bytes_at,
+    parse_text_engine_script_at,
+
+    # constants
+    second_map_header_byte_size,
+    warp_byte_size,
+    trigger_byte_size,
+    signpost_byte_size,
+    people_event_byte_size,
+)
+
+import pokemontools.helpers as helpers
 
 map_header_byte_size = 9
 
 all_map_headers = []
 
-def old_parse_map_script_header_at(address, map_group=None, map_id=None, debug=True):
+def old_parse_map_script_header_at(address, map_group=None, map_id=None, rom=None, debug=True):
     logging.debug("starting to parse the map's script header..")
     #[[Number1 of pointers] Number1 * [2byte pointer to script][00][00]]
     ptr_line_size = 4 #[2byte pointer to script][00][00]
     trigger_ptr_cnt = ord(rom[address])
-    trigger_pointers = helpers.grouper(rom_interval(address+1, trigger_ptr_cnt * ptr_line_size, strings=False), count=ptr_line_size)
+    trigger_pointers = helpers.grouper(rom_interval(address+1, trigger_ptr_cnt * ptr_line_size, rom=rom, strings=False), count=ptr_line_size)
     triggers = {}
     for index, trigger_pointer in enumerate(trigger_pointers):
         logging.debug("parsing a trigger header...")
@@ -34,7 +53,7 @@ def old_parse_map_script_header_at(address, map_group=None, map_id=None, debug=T
     #[[Number2 of pointers] Number2 * [hook number][2byte pointer to script]]
     callback_ptr_line_size = 3
     callback_ptr_cnt = ord(rom[address])
-    callback_ptrs = helpers.grouper(rom_interval(address+1, callback_ptr_cnt * callback_ptr_line_size, strings=False), count=callback_ptr_line_size)
+    callback_ptrs = helpers.grouper(rom_interval(address+1, callback_ptr_cnt * callback_ptr_line_size, rom=rom, strings=False), count=callback_ptr_line_size)
     callback_pointers = {}
     callbacks = {}
     for index, callback_line in enumerate(callback_ptrs):
@@ -64,10 +83,10 @@ def old_parse_map_script_header_at(address, map_group=None, map_id=None, debug=T
     }
 
 
-def old_parse_map_header_at(address, map_group=None, map_id=None, debug=True):
+def old_parse_map_header_at(address, map_group=None, map_id=None, all_map_headers=None, rom=None, debug=True):
     """parses an arbitrary map header at some address"""
     logging.debug("parsing a map header at {0}".format(hex(address)))
-    bytes = rom_interval(address, map_header_byte_size, strings=False, debug=debug)
+    bytes = rom_interval(address, map_header_byte_size, rom=rom, strings=False, debug=debug)
     bank = bytes[0]
     tileset = bytes[1]
     permission = bytes[2]
@@ -89,19 +108,19 @@ def old_parse_map_header_at(address, map_group=None, map_id=None, debug=True):
         "fishing": fishing_group,
     }
     logging.debug("second map header address is {0}".format(hex(second_map_header_address)))
-    map_header["second_map_header"] = old_parse_second_map_header_at(second_map_header_address, debug=debug)
+    map_header["second_map_header"] = old_parse_second_map_header_at(second_map_header_address, rom=rom, debug=debug)
     event_header_address = map_header["second_map_header"]["event_address"]
     script_header_address = map_header["second_map_header"]["script_address"]
     # maybe event_header and script_header should be put under map_header["second_map_header"]
-    map_header["event_header"] = old_parse_map_event_header_at(event_header_address, map_group=map_group, map_id=map_id, debug=debug)
-    map_header["script_header"] = old_parse_map_script_header_at(script_header_address, map_group=map_group, map_id=map_id, debug=debug)
+    map_header["event_header"] = old_parse_map_event_header_at(event_header_address, map_group=map_group, map_id=map_id, rom=rom, debug=debug)
+    map_header["script_header"] = old_parse_map_script_header_at(script_header_address, map_group=map_group, map_id=map_id, rom=rom, debug=debug)
     return map_header
 
 all_second_map_headers = []
 
-def old_parse_second_map_header_at(address, map_group=None, map_id=None, debug=True):
+def old_parse_second_map_header_at(address, map_group=None, map_id=None, rom=None, debug=True):
     """each map has a second map header"""
-    bytes = rom_interval(address, second_map_header_byte_size, strings=False)
+    bytes = rom_interval(address, second_map_header_byte_size, rom=rom, strings=False)
     border_block = bytes[0]
     height = bytes[1]
     width = bytes[2]
@@ -150,7 +169,7 @@ def old_parse_warp_bytes(some_bytes, debug=True):
         })
     return warps
 
-def old_parse_signpost_bytes(some_bytes, bank=None, map_group=None, map_id=None, debug=True):
+def old_parse_signpost_bytes(some_bytes, bank=None, map_group=None, map_id=None, rom=None, debug=True):
     assert len(some_bytes) % signpost_byte_size == 0, "wrong number of bytes"
     signposts = []
     for bytes in helpers.grouper(some_bytes, count=signpost_byte_size):
@@ -216,7 +235,7 @@ def old_parse_signpost_bytes(some_bytes, bank=None, map_group=None, map_id=None,
         signposts.append(spost)
     return signposts
 
-def old_parse_people_event_bytes(some_bytes, address=None, map_group=None, map_id=None, debug=True):
+def old_parse_people_event_bytes(some_bytes, address=None, map_group=None, map_id=None, rom=None, debug=True):
     """parse some number of people-events from the data
     see http://hax.iimarck.us/files/scriptingcodes_eng.htm#Scripthdr
 
@@ -297,7 +316,7 @@ def old_parse_people_event_bytes(some_bytes, address=None, map_group=None, map_i
                     "parsing a trainer (person-event) at x={x} y={y}"
                     .format(x=x, y=y)
                 )
-                parsed_trainer = parse_trainer_header_at(ptr_address, map_group=map_group, map_id=map_id)
+                parsed_trainer = old_parse_trainer_header_at(ptr_address, map_group=map_group, map_id=map_id, rom=rom)
                 extra_portion = {
                     "event_type": "trainer",
                     "trainer_data_address": ptr_address,
@@ -340,9 +359,9 @@ def old_parse_people_event_bytes(some_bytes, address=None, map_group=None, map_i
         people_events.append(people_event)
     return people_events
 
-def old_parse_trainer_header_at(address, map_group=None, map_id=None, debug=True):
+def old_parse_trainer_header_at(address, map_group=None, map_id=None, rom=None, debug=True):
     bank = pointers.calculate_bank(address)
-    bytes = rom_interval(address, 12, strings=False)
+    bytes = rom_interval(address, 12, rom=rom, strings=False)
     bit_number = bytes[0] + (bytes[1] << 8)
     trainer_group = bytes[2]
     trainer_id = bytes[3]
@@ -382,7 +401,7 @@ def old_parse_trainer_header_at(address, map_group=None, map_id=None, debug=True
         "script_talk_again": script_talk_again,
     }
 
-def old_parse_map_event_header_at(address, map_group=None, map_id=None, debug=True):
+def old_parse_map_event_header_at(address, map_group=None, map_id=None, rom=None, debug=True):
     """parse crystal map event header byte structure thing"""
     returnable = {}
 
@@ -396,29 +415,29 @@ def old_parse_map_event_header_at(address, map_group=None, map_id=None, debug=Tr
     # warps
     warp_count = ord(rom[address+2])
     warp_byte_count = warp_byte_size * warp_count
-    warps = rom_interval(address+3, warp_byte_count)
+    warps = rom_interval(address+3, warp_byte_count, rom=rom)
     after_warps = address + 3 + warp_byte_count
     returnable.update({"warp_count": warp_count, "warps": old_parse_warp_bytes(warps)})
 
     # triggers (based on xy location)
     trigger_count = ord(rom[after_warps])
     trigger_byte_count = trigger_byte_size * trigger_count
-    triggers = rom_interval(after_warps+1, trigger_byte_count)
+    triggers = rom_interval(after_warps+1, trigger_byte_count, rom=rom)
     after_triggers = after_warps + 1 + trigger_byte_count
     returnable.update({"xy_trigger_count": trigger_count, "xy_triggers": old_parse_xy_trigger_bytes(triggers, bank=bank, map_group=map_group, map_id=map_id)})
 
     # signposts
     signpost_count = ord(rom[after_triggers])
     signpost_byte_count = signpost_byte_size * signpost_count
-    signposts = rom_interval(after_triggers+1, signpost_byte_count)
+    signposts = rom_interval(after_triggers+1, signpost_byte_count, rom=rom)
     after_signposts = after_triggers + 1 + signpost_byte_count
-    returnable.update({"signpost_count": signpost_count, "signposts": old_parse_signpost_bytes(signposts, bank=bank, map_group=map_group, map_id=map_id)})
+    returnable.update({"signpost_count": signpost_count, "signposts": old_parse_signpost_bytes(signposts, bank=bank, map_group=map_group, map_id=map_id, rom=rom)})
 
     # people events
     people_event_count = ord(rom[after_signposts])
     people_event_byte_count = people_event_byte_size * people_event_count
-    people_events_bytes = rom_interval(after_signposts+1, people_event_byte_count)
-    people_events = old_parse_people_event_bytes(people_events_bytes, address=after_signposts+1, map_group=map_group, map_id=map_id)
+    people_events_bytes = rom_interval(after_signposts+1, people_event_byte_count, rom=rom)
+    people_events = old_parse_people_event_bytes(people_events_bytes, address=after_signposts+1, map_group=map_group, map_id=map_id, rom=rom)
     returnable.update({"people_event_count": people_event_count, "people_events": people_events})
 
     return returnable
