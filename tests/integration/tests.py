@@ -99,7 +99,11 @@ from pokemontools.crystal import (
 import pokemontools.wram
 
 import unittest
-import mock
+
+try:
+    import unittest.mock as mock
+except ImportError:
+    import mock
 
 class BasicTestCase(unittest.TestCase):
     "this is where i cram all of my unit tests together"

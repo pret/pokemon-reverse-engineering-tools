@@ -95,7 +95,11 @@ from pokemontools.crystal import (
 )
 
 import unittest
-import mock
+
+try:
+    import unittest.mock as mock
+except ImportError:
+    import mock
 
 class TestCram(unittest.TestCase):
     "this is where i cram all of my unit tests together"
