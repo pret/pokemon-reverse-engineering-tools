@@ -2,7 +2,7 @@
 Functions to bootstrap the emulator state
 """
 
-from setup_vba import (
+from tests.setup_vba import (
     vba,
     autoplayer,
 )
