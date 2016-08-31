@@ -192,6 +192,8 @@ def line_has_label(line):
         return False
     if line[0] == "\"":
         return False
+    if line[0] == ":":
+        return False
     return True
 
 def get_label_from_line(line):

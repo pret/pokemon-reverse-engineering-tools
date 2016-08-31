@@ -47,7 +47,7 @@ from pokemontools.crystalparts.old_parsers import (
 )
 
 from pokemontools.crystal import (
-    rom,
+    script_parse_table,
     load_rom,
     rom_until,
     direct_load_rom,
@@ -86,14 +86,24 @@ from pokemontools.crystal import (
     isolate_incbins,
     process_incbins,
     get_labels_between,
-    generate_diff_insert,
     rom_text_at,
     get_label_for,
     split_incbin_line_into_three,
     reset_incbins,
+    parse_rom,
+
+    # globals
+    engine_flags,
 )
 
+import pokemontools.wram
+
 import unittest
+
+try:
+    import unittest.mock as mock
+except ImportError:
+    import mock
 
 class BasicTestCase(unittest.TestCase):
     "this is where i cram all of my unit tests together"
@@ -114,13 +124,10 @@ class BasicTestCase(unittest.TestCase):
         self.failUnless(isinstance(rom, RomStr))
 
     def test_load_rom(self):
-        global rom
-        rom = None
-        load_rom()
-        self.failIf(rom == None)
-        rom = RomStr(None)
-        load_rom()
-        self.failIf(rom == RomStr(None))
+        rom = load_rom()
+        self.assertNotEqual(rom, None)
+        rom = load_rom()
+        self.assertNotEqual(rom, RomStr(None))
 
     def test_load_asm(self):
         asm = load_asm()
@@ -131,7 +138,9 @@ class BasicTestCase(unittest.TestCase):
 
     def test_rom_file_existence(self):
         "ROM file must exist"
-        self.failUnless("baserom.gbc" in os.listdir("../"))
+        dirname = os.path.dirname(__file__)
+        filenames = os.listdir(os.path.join(os.path.abspath(dirname), "../../"))
+        self.failUnless("baserom.gbc" in filenames)
 
     def test_rom_md5(self):
         "ROM file must have the correct md5 sum"
@@ -146,29 +155,32 @@ class BasicTestCase(unittest.TestCase):
         rom_segment = self.rom[0x112116:0x112116+8]
         self.assertEqual(rom_segment, "HTTP/1.0")
 
+    def test_rom_text_at(self):
+        self.assertEquals(rom_text_at(0x112116, 8), b"HTTP/1.0")
+
     def test_rom_interval(self):
         address = 0x100
         interval = 10
         correct_strings = ['0x0', '0xc3', '0x6e', '0x1', '0xce',
                            '0xed', '0x66', '0x66', '0xcc', '0xd']
-        byte_strings = rom_interval(address, interval, strings=True)
+        byte_strings = rom_interval(address, interval, rom=self.rom, strings=True)
         self.assertEqual(byte_strings, correct_strings)
         correct_ints = [0, 195, 110, 1, 206, 237, 102, 102, 204, 13]
-        ints = rom_interval(address, interval, strings=False)
+        ints = rom_interval(address, interval, rom=self.rom, strings=False)
         self.assertEqual(ints, correct_ints)
 
     def test_rom_until(self):
         address = 0x1337
         byte = 0x13
-        bytes = rom_until(address, byte, strings=True)
+        bytes = rom_until(address, byte, rom=self.rom, strings=True)
         self.failUnless(len(bytes) == 3)
         self.failUnless(bytes[0] == '0xd5')
-        bytes = rom_until(address, byte, strings=False)
+        bytes = rom_until(address, byte, rom=self.rom, strings=False)
         self.failUnless(len(bytes) == 3)
         self.failUnless(bytes[0] == 0xd5)
 
     def test_how_many_until(self):
-        how_many = how_many_until(chr(0x13), 0x1337)
+        how_many = how_many_until(chr(0x13), 0x1337, self.rom)
         self.assertEqual(how_many, 3)
 
     def test_calculate_pointer_from_bytes_at(self):
@@ -176,9 +188,6 @@ class BasicTestCase(unittest.TestCase):
         self.assertEqual(addr1, 0xc300)
         addr2 = calculate_pointer_from_bytes_at(0x100, bank=True)
         self.assertEqual(addr2, 0x2ec3)
-
-    def test_rom_text_at(self):
-        self.assertEquals(rom_text_at(0x112116, 8), "HTTP/1.0")
 
 class TestRomStr(unittest.TestCase):
     sample_text = "hello world!"
@@ -237,8 +246,8 @@ class TestEncodedText(unittest.TestCase):
 
     def test_parse_text_engine_script_at(self):
         p = parse_text_engine_script_at(0x197185, debug=False)
-        self.assertEqual(len(p.commands), 2)
-        self.assertEqual(len(p.commands[0]["lines"]), 41)
+        self.assertEqual(len(p.commands), 1)
+        self.assertEqual(p.commands[0].to_asm().count("\n"), 40)
 
 class TestScript(unittest.TestCase):
     """for testing parse_script_engine_script_at and script parsing in
@@ -302,9 +311,10 @@ class TestByteParams(unittest.TestCase):
 
 class TestMultiByteParam(unittest.TestCase):
     def setup_for(self, somecls, byte_size=2, address=443, **kwargs):
+        self.rom = load_rom()
         self.cls = somecls(address=address, size=byte_size, **kwargs)
         self.assertEqual(self.cls.address, address)
-        self.assertEqual(self.cls.bytes, rom_interval(address, byte_size, strings=False))
+        self.assertEqual(self.cls.bytes, rom_interval(address, byte_size, rom=self.rom, strings=False))
         self.assertEqual(self.cls.size, byte_size)
 
     def test_two_byte_param(self):
@@ -318,52 +328,63 @@ class TestMultiByteParam(unittest.TestCase):
         self.setup_for(PointerLabelParam, bank=None)
         # assuming no label at this location..
         self.assertEqual(self.cls.to_asm(), "$f0c0")
-        global all_labels
-        # hm.. maybe all_labels should be using a class?
-        all_labels = [{"label": "poop", "address": 0xf0c0,
-                       "offset": 0xf0c0, "bank": 0,
-                       "line_number": 2
-                     }]
+        global script_parse_table
+        script_parse_table[0xf0c0:0xf0c0 + 1] = {"label": "poop", "bank": 0, "line_number": 2}
         self.assertEqual(self.cls.to_asm(), "poop")
 
 class TestPostParsing(unittest.TestCase):
     """tests that must be run after parsing all maps"""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.rom = direct_load_rom()
+
+        pokemontools.wram.wram_labels = {}
+
+        with mock.patch("pokemontools.crystal.read_engine_flags", return_value={}):
+            with mock.patch("pokemontools.crystal.read_event_flags", return_value={}):
+                with mock.patch("pokemontools.crystal.setup_wram_labels", return_value={}):
+                    parse_rom(rom=cls.rom, _skip_wram_labels=True, _parse_map_header_at=old_parse_map_header_at, debug=False)
+
     def test_signpost_counts(self):
-        self.assertEqual(len(map_names[1][1]["signposts"]), 0)
-        self.assertEqual(len(map_names[1][2]["signposts"]), 2)
-        self.assertEqual(len(map_names[10][5]["signposts"]), 7)
+        self.assertEqual(len(map_names[1][1]["header_new"]["event_header"]["signposts"]), 0)
+        self.assertEqual(len(map_names[1][2]["header_new"]["event_header"]["signposts"]), 2)
+        self.assertEqual(len(map_names[10][5]["header_new"]["event_header"]["signposts"]), 7)
 
     def test_warp_counts(self):
-        self.assertEqual(map_names[10][5]["warp_count"], 9)
-        self.assertEqual(map_names[18][5]["warp_count"], 3)
-        self.assertEqual(map_names[15][1]["warp_count"], 2)
+        self.assertEqual(map_names[10][5]["header_new"]["event_header"]["warp_count"], 9)
+        self.assertEqual(map_names[18][5]["header_new"]["event_header"]["warp_count"], 3)
+        self.assertEqual(map_names[15][1]["header_new"]["event_header"]["warp_count"], 2)
 
     def test_map_sizes(self):
-        self.assertEqual(map_names[15][1]["height"], 18)
-        self.assertEqual(map_names[15][1]["width"], 10)
-        self.assertEqual(map_names[7][1]["height"], 4)
-        self.assertEqual(map_names[7][1]["width"], 4)
+        self.assertEqual(map_names[15][1]["header_new"]["second_map_header"]["height"], 18)
+        self.assertEqual(map_names[15][1]["header_new"]["second_map_header"]["width"], 10)
+        self.assertEqual(map_names[7][1]["header_new"]["second_map_header"]["height"], 4)
+        self.assertEqual(map_names[7][1]["header_new"]["second_map_header"]["width"], 4)
 
     def test_map_connection_counts(self):
-        self.assertEqual(map_names[7][1]["connections"], 0)
-        self.assertEqual(map_names[10][1]["connections"], 12)
-        self.assertEqual(map_names[10][2]["connections"], 12)
-        self.assertEqual(map_names[11][1]["connections"], 9) # or 13?
+        #print map_names[10][5]
+        #print map_names[10][5].keys()
+        #print map_names[10][5]["header_new"].keys()
+        self.assertEqual(map_names[7][1]["header_new"]["second_map_header"]["connections"], 0)
+        self.assertEqual(map_names[10][1]["header_new"]["second_map_header"]["connections"], 12)
+        self.assertEqual(map_names[10][2]["header_new"]["second_map_header"]["connections"], 12)
+        self.assertEqual(map_names[11][1]["header_new"]["second_map_header"]["connections"], 9) # or 13?
 
     def test_second_map_header_address(self):
-        self.assertEqual(map_names[11][1]["second_map_header_address"], 0x9509c)
-        self.assertEqual(map_names[1][5]["second_map_header_address"], 0x95bd0)
+        self.assertEqual(map_names[11][1]["header_new"]["second_map_header_address"], 0x9509c)
+        self.assertEqual(map_names[1][5]["header_new"]["second_map_header_address"], 0x95bd0)
 
     def test_event_address(self):
-        self.assertEqual(map_names[17][5]["event_address"], 0x194d67)
-        self.assertEqual(map_names[23][3]["event_address"], 0x1a9ec9)
+        self.assertEqual(map_names[17][5]["header_new"]["second_map_header"]["event_address"], 0x194d67)
+        self.assertEqual(map_names[23][3]["header_new"]["second_map_header"]["event_address"], 0x1a9ec9)
 
     def test_people_event_counts(self):
-        self.assertEqual(len(map_names[23][3]["people_events"]), 4)
-        self.assertEqual(len(map_names[10][3]["people_events"]), 9)
+        self.assertEqual(len(map_names[23][3]["header_new"]["event_header"]["people_events"]), 4)
+        self.assertEqual(len(map_names[10][3]["header_new"]["event_header"]["people_events"]), 9)
 
 class TestMapParsing(unittest.TestCase):
-    def test_parse_all_map_headers(self):
+    def xtest_parse_all_map_headers(self):
         global parse_map_header_at, old_parse_map_header_at, counter
         counter = 0
         for k in map_names.keys():

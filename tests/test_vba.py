@@ -5,13 +5,13 @@ from __future__ import print_function
 
 import unittest
 
-from setup_vba import (
+from tests.setup_vba import (
     vba,
     autoplayer,
     keyboard,
 )
 
-from bootstrapping import (
+from tests.bootstrapping import (
     bootstrap,
     bootstrap_trainer_battle,
 )

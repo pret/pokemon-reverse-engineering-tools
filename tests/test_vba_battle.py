@@ -4,7 +4,7 @@ Tests for the battle controller
 
 import unittest
 
-from setup_vba import (
+from tests.setup_vba import (
     vba,
     autoplayer,
 )
