@@ -2,16 +2,15 @@
 """
 utilities to help disassemble pokémon crystal
 """
+from __future__ import print_function
+from __future__ import absolute_import
 
 import os
 import sys
 import inspect
-import hashlib
 import json
 from copy import copy, deepcopy
 import subprocess
-from new import classobj
-import random
 import logging
 
 # for capwords
@@ -47,27 +46,27 @@ texts = []
 # this doesn't do anything but is still used in TextScript
 constant_abbreviation_bytes = {}
 
-import helpers
-import chars
-import labels
-import pksv
-import romstr
-import pointers
-import interval_map
-import trainers
-import move_constants
-import pokemon_constants
-import item_constants
-import wram
-import exceptions
+from . import helpers
+from . import chars
+from . import labels
+from . import pksv
+from . import romstr
+from . import pointers
+from . import interval_map
+from . import trainers
+from . import move_constants
+from . import pokemon_constants
+from . import item_constants
+from . import wram
+from . import exceptions
 
-import addresses
+from . import addresses
 is_valid_address = addresses.is_valid_address
 
-import old_text_script
+from . import old_text_script
 OldTextScript = old_text_script
 
-import configuration
+from . import configuration
 conf = configuration.Config()
 
 data_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), "data/pokecrystal/")
@@ -75,8 +74,8 @@ conf.wram = os.path.join(data_path, "wram.asm")
 conf.gbhw = os.path.join(data_path, "gbhw.asm")
 conf.hram = os.path.join(data_path, "hram.asm")
 
-from map_names import map_names
-from song_names import song_names
+from .map_names import map_names
+from .song_names import song_names
 
 # ---- script_parse_table explanation ----
 # This is an IntervalMap that keeps track of previously parsed scripts, texts
@@ -239,7 +238,7 @@ def command_debug_information(command_byte=None, map_group=None, map_id=None, ad
     return info1
 
 all_texts = []
-class TextScript:
+class TextScript(object):
     """
     A text is a sequence of bytes (and sometimes commands). It's not the same
     thing as a Script. The bytes are translated into characters based on the
@@ -435,7 +434,7 @@ def find_text_addresses():
     useful for testing parse_text_engine_script_at"""
     return TextScript.find_addresses()
 
-class EncodedText:
+class EncodedText(object):
     """a sequence of bytes that, when decoded, represent readable text
     based on the chars table from preprocessor.py and other places"""
     base_label = "UnknownRawText_"
@@ -1263,7 +1262,7 @@ class MovementPointerLabelParam(PointerLabelParam):
 class MapDataPointerParam(PointerLabelParam):
     pass
 
-class Command:
+class Command(object):
     """
     Note: when dumping to asm, anything in script_parse_table that directly
     inherits Command should not be .to_asm()'d.
@@ -1453,14 +1452,14 @@ event_flags = None
 def read_event_flags():
     global event_flags
     constants = wram.read_constants(os.path.join(conf.path, 'constants.asm'))
-    event_flags = dict(filter(lambda (key, value): value.startswith('EVENT_'), constants.items()))
+    event_flags = dict(filter(lambda key_value: key_value[1].startswith('EVENT_'), constants.items()))
     return event_flags
 
 engine_flags = None
 def read_engine_flags():
     global engine_flags
     constants = wram.read_constants(os.path.join(conf.path, 'constants.asm'))
-    engine_flags = dict(filter(lambda (key, value): value.startswith('ENGINE_'), constants.items()))
+    engine_flags = dict(filter(lambda key_value1: key_value1[1].startswith('ENGINE_'), constants.items()))
     return engine_flags
 
 class EventFlagParam(MultiByteParam):
@@ -1611,7 +1610,7 @@ def create_movement_commands(debug=False):
                 klass_name = cmd_name+"Command"
                 params["id"] = copy(byte)
                 params["macro_name"] = cmd_name
-                klass = classobj(copy(klass_name), (MovementCommand,), deepcopy(params))
+                klass = type(copy(klass_name), (MovementCommand,), deepcopy(params))
                 globals()[klass_name] = klass
                 movement_command_classes2.append(klass)
 
@@ -1621,7 +1620,7 @@ def create_movement_commands(debug=False):
             del klass_name
         else:
             klass_name = cmd_name+"Command"
-            klass = classobj(klass_name, (MovementCommand,), params)
+            klass = type(klass_name, (MovementCommand,), params)
             globals()[klass_name] = klass
             movement_command_classes2.append(klass)
     # later an individual klass will be instantiated to handle something
@@ -1630,7 +1629,7 @@ def create_movement_commands(debug=False):
 movement_command_classes = create_movement_commands()
 
 all_movements = []
-class ApplyMovementData:
+class ApplyMovementData(object):
     base_label = "MovementData_"
 
     def __init__(self, address, map_group=None, map_id=None, debug=False, label=None, force=False):
@@ -1763,9 +1762,9 @@ class ApplyMovementData:
 
 def print_all_movements():
     for each in all_movements:
-        print each.to_asm()
-        print "------------------"
-    print "done"
+        print(each.to_asm())
+        print("------------------")
+    print("done")
 
 class TextCommand(Command):
     # an individual text command will not end it
@@ -2431,7 +2430,7 @@ def create_command_classes(debug=False):
                     logging.debug("each is {0} and thing[class] is {1}".format(each, thing["class"]))
                 params["size"] += thing["class"].size
         klass_name = cmd_name+"Command"
-        klass = classobj(klass_name, (Command,), params)
+        klass = type(klass_name, (Command,), params)
         globals()[klass_name] = klass
         klasses.append(klass)
     # later an individual klass will be instantiated to handle something
@@ -2439,7 +2438,7 @@ def create_command_classes(debug=False):
 command_classes = create_command_classes()
 
 
-class BigEndianParam:
+class BigEndianParam(object):
     """big-endian word"""
     size = 2
     should_be_decimal = False
@@ -2548,7 +2547,7 @@ def create_music_command_classes(debug=False):
                     logging.debug("each is {0} and thing[class] is {1}".format(each, thing["class"]))
                 params["size"] += thing["class"].size
         klass_name = cmd_name+"Command"
-        klass = classobj(klass_name, (Command,), params)
+        klass = type(klass_name, (Command,), params)
         globals()[klass_name] = klass
         if klass.macro_name == "notetype":
             klass.allowed_lengths = [1, 2]
@@ -2808,7 +2807,7 @@ def create_effect_command_classes(debug=False):
                     logging.debug("each is {0} and thing[class] is {1}".format(each, thing["class"]))
                 params["size"] += thing["class"].size
         klass_name = cmd_name+"Command"
-        klass = classobj(klass_name, (Command,), params)
+        klass = type(klass_name, (Command,), params)
         globals()[klass_name] = klass
         klasses.append(klass)
     # later an individual klass will be instantiated to handle something
@@ -2854,9 +2853,9 @@ def pretty_print_pksv_no_names():
     for (command_byte, addresses) in pksv_no_names.items():
         if command_byte in pksv.pksv_crystal_unknowns:
             continue
-        print hex(command_byte) + " appearing in these scripts: "
+        print(hex(command_byte) + " appearing in these scripts: ")
         for address in addresses:
-            print "    " + hex(address)
+            print("    " + hex(address))
 
 recursive_scripts = set([])
 def rec_parse_script_engine_script_at(address, origin=None, debug=True):
@@ -2891,7 +2890,7 @@ stop_points = [0x1aafa2,
                0x9f58f, # battle tower
                0x9f62f, # battle tower
               ]
-class Script:
+class Script(object):
     base_label = "UnknownScript_"
     def __init__(self, *args, **kwargs):
         self.address = None
@@ -3086,7 +3085,7 @@ class Script:
     def old_parse(self, *args, **kwargs):
         """included from old_parse_scripts"""
 
-import old_parse_scripts
+from . import old_parse_scripts
 Script.old_parse = old_parse_scripts.old_parse
 
 def parse_script_engine_script_at(address, map_group=None, map_id=None, force=False, debug=True, origin=True):
@@ -3469,7 +3468,7 @@ class TrainerFragmentParam(PointerLabelParam):
         return deps
 
 trainer_group_table = None
-class TrainerGroupTable:
+class TrainerGroupTable(object):
     """
     A list of pointers.
 
@@ -3524,7 +3523,7 @@ class TrainerGroupTable:
         output = "".join([str("dw "+get_label_for(header.address)+"\n") for header in self.headers])
         return output
 
-class TrainerGroupHeader:
+class TrainerGroupHeader(object):
     """
     A trainer group header is a repeating list of individual trainer headers.
 
@@ -3617,7 +3616,7 @@ class TrainerGroupHeader:
         output = "\n\n".join(["; "+header.make_constant_name()+" ("+str(header.trainer_id)+") at "+hex(header.address)+"\n"+header.to_asm() for header in self.individual_trainer_headers])
         return output
 
-class TrainerHeader:
+class TrainerHeader(object):
     """
     <Trainer Name> <0x50> <Data type> <Pokémon Data>+ <0xFF>
 
@@ -3722,7 +3721,7 @@ class TrainerHeader:
         output += "\n; last_address="+hex(self.last_address)+" size="+str(self.size)
         return output
 
-class TrainerPartyMonParser:
+class TrainerPartyMonParser(object):
     """
     Just a generic trainer party mon parser.
     Don't use this directly. Only use the child classes.
@@ -4251,8 +4250,8 @@ class PeopleEvent(Command):
                 lower_bits = color_function_byte & 0xF
                 higher_bits = color_function_byte >> 4
                 is_regular_script = lower_bits == 00
-                is_give_item = lower_bits == 01
-                is_trainer = lower_bits == 02
+                is_give_item = lower_bits == 0o1
+                is_trainer = lower_bits == 0o2
             current_address += obj.size
             self.size += obj.size
             i += 1
@@ -4326,9 +4325,9 @@ def old_parse_people_event_bytes(some_bytes, address=None, map_group=None, map_i
 
         is_regular_script = lower_bits == 00
         # pointer points to script
-        is_give_item = lower_bits == 01
+        is_give_item = lower_bits == 0o1
         # pointer points to [Item no.][Amount]
-        is_trainer = lower_bits == 02
+        is_trainer = lower_bits == 0o2
         # pointer points to trainer header
 
         # goldmap called these next two bytes "text_block" and "text_bank"?
@@ -4412,7 +4411,7 @@ def old_parse_people_event_bytes(some_bytes, address=None, map_group=None, map_i
     return people_events
 
 
-class SignpostRemoteBase:
+class SignpostRemoteBase(object):
     def __init__(self, address, bank=None, map_group=None, map_id=None, signpost=None, debug=False, label=None):
         self.address = address
         self.last_address = address + self.size
@@ -4851,7 +4850,7 @@ class TimeOfDayParam(DecimalParam):
         return DecimalParam.to_asm(self)
 
 
-class MapHeader:
+class MapHeader(object):
     base_label = "MapHeader_"
 
     def __init__(self, address, map_group=None, map_id=None, debug=True, label=None, bank=0x25):
@@ -4937,7 +4936,7 @@ def get_direction(connection_byte, connection_id):
 
     return results[connection_id]
 
-class SecondMapHeader:
+class SecondMapHeader(object):
     base_label = "SecondMapHeader_"
 
     def __init__(self, address, map_group=None, map_id=None, debug=True, bank=None, label=None):
@@ -5079,7 +5078,7 @@ wrong_easts = []
 wrong_souths = []
 wrong_wests = []
 
-class Connection:
+class Connection(object):
     size = 12
 
     def __init__(self, address, direction=None, map_group=None, map_id=None, debug=True, smh=None):
@@ -5743,7 +5742,7 @@ def parse_second_map_header_at(address, map_group=None, map_id=None, debug=True)
     all_second_map_headers.append(smh)
     return smh
 
-class MapBlockData:
+class MapBlockData(object):
     base_label = "MapBlockData_"
     maps_path = os.path.realpath(os.path.join(conf.path, "maps"))
 
@@ -5789,7 +5788,7 @@ class MapBlockData:
         return "INCBIN \"maps/"+self.map_name+".blk\""
 
 
-class MapEventHeader:
+class MapEventHeader(object):
     base_label = "MapEventHeader_"
 
     def __init__(self, address, map_group=None, map_id=None, debug=True, bank=None, label=None):
@@ -5928,7 +5927,7 @@ def parse_map_event_header_at(address, map_group=None, map_id=None, debug=True, 
     all_map_event_headers.append(ev)
     return ev
 
-class MapScriptHeader:
+class MapScriptHeader(object):
     """parses a script header
 
     This structure allows the game to have e.g. one-time only events on a map
@@ -6121,7 +6120,7 @@ def parse_all_map_headers(map_names, all_map_headers=None, _parse_map_header_at=
     """
     if _parse_map_header_at == None:
         _parse_map_header_at = parse_map_header_at
-    if not map_names[1].has_key("offset"):
+    if "offset" not in map_names[1]:
         raise Exception("dunno what to do - map_names should have groups with pre-calculated offsets by now")
     for (group_id, group_data) in map_names.items():
         offset = group_data["offset"]
@@ -6140,7 +6139,7 @@ def parse_all_map_headers(map_names, all_map_headers=None, _parse_map_header_at=
             new_parsed_map = _parse_map_header_at(map_header_offset, map_group=group_id, map_id=map_id, all_map_headers=all_map_headers, rom=rom, debug=debug)
             map_names[group_id][map_id]["header_new"] = new_parsed_map
 
-class PokedexEntryPointerTable:
+class PokedexEntryPointerTable(object):
     """
     A list of pointers.
     """
@@ -6190,7 +6189,7 @@ class PokedexEntryPointerTable:
         output = "".join([str("dw "+get_label_for(entry.address)+"\n") for entry in self.entries])
         return output
 
-class PokedexEntry:
+class PokedexEntry(object):
     def __init__(self, address, pokemon_id):
         self.address = address
         self.dependencies = None
@@ -6244,7 +6243,7 @@ for map_group_id in map_names.keys():
         # skip if we maybe already have the 'offset' label set in this map group
         if map_id == "offset": continue
         # skip if we provided a pre-set value for the map's label
-        if map_group[map_id].has_key("label"): continue
+        if "label" in map_group[map_id]: continue
         # convience alias
         map_data = map_group[map_id]
         # clean up the map name to be an asm label
@@ -6306,7 +6305,7 @@ def get_dependencies_for(some_object, recompute=False, global_dependencies=set()
         else:
             some_object.get_dependencies(recompute=recompute, global_dependencies=global_dependencies)
         return global_dependencies
-    except RuntimeError, e:
+    except RuntimeError as e:
         # 1552, 1291, 2075, 1552, 1291...
 
         errorargs = {
@@ -6532,15 +6531,14 @@ def apply_diff(diff, try_fixing=True, do_compile=True):
         try:
             subprocess.check_call("cd " + conf.path + "; make clean; make", shell=True)
             return True
-        except Exception, exc:
+        except Exception as exc:
             if try_fixing:
                 os.system("mv " + os.path.join(conf.path, "main1.asm") + " " + os.path.join(conf.path, "main.asm"))
             return False
 
-import crystalparts.asmline
-AsmLine = crystalparts.asmline.AsmLine
+from .crystalparts.asmline import AsmLine
 
-class Incbin:
+class Incbin(object):
     def __init__(self, line, bank=None, debug=False):
         self.line = line
         self.bank = bank
@@ -6559,7 +6557,7 @@ class Incbin:
             logging.debug("Incbin.parse start is {0}".format(start))
         try:
             start = eval(start)
-        except Exception, e:
+        except Exception as e:
             logging.debug("start is {0}".format(start))
             raise Exception("problem with evaluating interval range: " + str(e))
 
@@ -6627,7 +6625,7 @@ class Incbin:
 
         return incbins
 
-class AsmSection:
+class AsmSection(object):
     def __init__(self, line):
         self.bank_id = None
         self.line = line
@@ -6669,7 +6667,7 @@ def load_asm2(filename=None, force=False):
         new_asm = Asm(filename=filename)
     return new_asm
 
-class Asm:
+class Asm(object):
     """controls the overall asm output"""
     def __init__(self, filename=None, debug=True):
         if filename == None:
@@ -7133,7 +7131,7 @@ def get_label_for(address, _all_labels=None, _script_parse_table=None):
 # at least until the two approaches are merged in the code base.
 all_new_labels = []
 
-class Label:
+class Label(object):
     """
     Every object in script_parse_table is given a label.
 

@@ -1,10 +1,12 @@
+from __future__ import print_function
+from __future__ import absolute_import
 #author: Bryan Bishop <kanzure@gmail.com>
 #date: 2012-01-05
 #insert object data into pokered.asm
-import extract_maps
-from pretty_map_headers import map_name_cleaner, object_data_pretty_printer, make_object_label_name, make_text_label, map_constants
-from analyze_incbins import asm, offset_to_pointer, find_incbin_to_replace_for, split_incbin_line_into_three, generate_diff_insert, load_asm, isolate_incbins, process_incbins
-import analyze_incbins
+from . import extract_maps
+from .pretty_map_headers import map_name_cleaner, object_data_pretty_printer, make_object_label_name, make_text_label, map_constants
+from .analyze_incbins import asm, offset_to_pointer, find_incbin_to_replace_for, split_incbin_line_into_three, generate_diff_insert, load_asm, isolate_incbins, process_incbins
+from . import analyze_incbins
 import os, sys
 import subprocess
 spacing = "	"
@@ -17,7 +19,7 @@ def insert_object(map_id):
 
     line_number = find_incbin_to_replace_for(address)
     if line_number == None:
-        print "skipping object data for map " + str(map["id"]) + " at " + map["object_data_pointer"] + " for " + str(size) + " bytes."
+        print("skipping object data for map " + str(map["id"]) + " at " + map["object_data_pointer"] + " for " + str(size) + " bytes.")
         return
 
     newlines = split_incbin_line_into_three(line_number, address, size)
@@ -36,9 +38,9 @@ def insert_object(map_id):
     newlines = "\n".join(line for line in newlines)
 
     diff = generate_diff_insert(line_number, newlines)
-    print diff
+    print(diff)
 
-    print "... Applying diff."
+    print("... Applying diff.")
 
     #write the diff to a file
     fh = open("temp.patch", "w")

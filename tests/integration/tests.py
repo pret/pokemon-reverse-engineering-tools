@@ -99,7 +99,11 @@ from pokemontools.crystal import (
 import pokemontools.wram
 
 import unittest
-import mock
+
+try:
+    import unittest.mock as mock
+except ImportError:
+    import mock
 
 class BasicTestCase(unittest.TestCase):
     "this is where i cram all of my unit tests together"
@@ -151,6 +155,9 @@ class BasicTestCase(unittest.TestCase):
         rom_segment = self.rom[0x112116:0x112116+8]
         self.assertEqual(rom_segment, "HTTP/1.0")
 
+    def test_rom_text_at(self):
+        self.assertEquals(rom_text_at(0x112116, 8), b"HTTP/1.0")
+
     def test_rom_interval(self):
         address = 0x100
         interval = 10
@@ -181,9 +188,6 @@ class BasicTestCase(unittest.TestCase):
         self.assertEqual(addr1, 0xc300)
         addr2 = calculate_pointer_from_bytes_at(0x100, bank=True)
         self.assertEqual(addr2, 0x2ec3)
-
-    def test_rom_text_at(self):
-        self.assertEquals(rom_text_at(0x112116, 8), "HTTP/1.0")
 
 class TestRomStr(unittest.TestCase):
     sample_text = "hello world!"

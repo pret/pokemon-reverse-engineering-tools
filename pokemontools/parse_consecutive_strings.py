@@ -1,6 +1,8 @@
+from __future__ import print_function
+from __future__ import absolute_import
 import sys
 
-import crystal
+from . import crystal
 
 rom = crystal.load_rom()
 
@@ -16,10 +18,10 @@ for i in range(count):
         asm = string.to_asm()
     except Exception as ex:
         break
-    print label_prefix+str(i)+": ; "+hex(addr)
-    print "\t"+asm
-    print
+    print(label_prefix+str(i)+": ; "+hex(addr))
+    print("\t"+asm)
+    print()
     addr = string.last_address
 
-print "; "+hex(addr)
+print("; "+hex(addr))
 if ex: raise ex

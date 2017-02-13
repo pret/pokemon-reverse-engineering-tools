@@ -1,16 +1,17 @@
 """
 Tests for VBA automation tools
 """
+from __future__ import print_function
 
 import unittest
 
-from setup_vba import (
+from tests.setup_vba import (
     vba,
     autoplayer,
     keyboard,
 )
 
-from bootstrapping import (
+from tests.bootstrapping import (
     bootstrap,
     bootstrap_trainer_battle,
 )
@@ -267,13 +268,13 @@ class VbaTests(unittest.TestCase):
         start_state = self.cry.vba.state
 
         for name in names:
-            print "Writing name: " + name
+            print("Writing name: " + name)
 
             self.cry.vba.state = start_state
 
             sequence = self.cry.write(name)
 
-            print "sequence is: " + str(sequence)
+            print("sequence is: " + str(sequence))
 
             # save this selection
             self.cry.vba.press("start", hold=20)

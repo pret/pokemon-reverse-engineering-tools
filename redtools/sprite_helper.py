@@ -1,4 +1,6 @@
-import extract_maps
+from __future__ import print_function
+from __future__ import absolute_import
+from . import extract_maps
 spacing = "\t"
 
 #provided by sawakita
@@ -172,7 +174,7 @@ def load_icons():
             pic = thing["picture_number"]
             unique_icons.add(pic)
     
-            if not icons.has_key(pic): icons[pic] = []
+            if pic not in icons: icons[pic] = []
             
             alerter = None
             if int(thing["y"])-4 > int(map["y"], 16)*2: alerter = True
@@ -199,7 +201,7 @@ def print_appearances():
             output += spacing + ".. in " + appearance[0] + " at (" + str(appearance[1]) + ", " + str(appearance[2]) + ")" + outside_alert + "\n"
         output += "\n"
     
-    print output
+    print(output)
 
 def insert_todo_sprites():
     load_icons()
@@ -251,7 +253,7 @@ def sprite_printer():
         value = hex(key)[2:]
         if len(value) == 1: value = "0" + value
         
-        print sprites[key] + extra + " EQU $" + value
+        print(sprites[key] + extra + " EQU $" + value)
 
 def parse_sprite_sheet_pointer_table():
     """parses the bytes making up the pointer table
@@ -321,7 +323,7 @@ def parse_sprite_sheet_pointer_table():
                 data_entry["byte_count"] += 64
                 setter3 = True
 
-        print ("$%.2x " % (sprite_id)) + sprite_name + " has $%.2x bytes" % (byte_count) + " pointing to 0x%.x" % (pointer) + " bank is $%.2x" % (bank) + " with pose_count=" + str(data_entry["poses"])
+        print(("$%.2x " % (sprite_id)) + sprite_name + " has $%.2x bytes" % (byte_count) + " pointing to 0x%.x" % (pointer) + " bank is $%.2x" % (bank) + " with pose_count=" + str(data_entry["poses"]))
 
         ptable_sheet_data[sprite_id] = data_entry
     return ptable_sheet_data
@@ -398,5 +400,5 @@ if __name__ == "__main__":
     #sprite_printer()
     
     ptable_sheet_data = parse_sprite_sheet_pointer_table()
-    print pretty_print_sheet_incbins(ptable_sheet_data)
-    print pretty_print_sheet_data(ptable_sheet_data)
+    print(pretty_print_sheet_incbins(ptable_sheet_data))
+    print(pretty_print_sheet_data(ptable_sheet_data))

@@ -3,6 +3,7 @@
 This file constructs a networkx.DiGraph object called graph, which can be used
 to find the shortest path of keypresses on the keyboard to type a word.
 """
+from __future__ import print_function
 
 import os
 import itertools
@@ -44,7 +45,7 @@ def convert_nodes_to_button_press(node1, node2):
     """
     Determines the button necessary to switch from node1 to node2.
     """
-    print "getting button press for state transition: " + node1 + " -> " + node2
+    print("getting button press for state transition: " + node1 + " -> " + node2)
     return graph.get_edge_data(node1, node2)["key"]
 
 def plan_typing(text, current="A"):
@@ -56,7 +57,7 @@ def plan_typing(text, current="A"):
         if target == current:
             buttons.append("a")
         else:
-            print "Finding the shortest path between " + current + " and " + target
+            print("Finding the shortest path between " + current + " and " + target)
             more_buttons = shortest_path(current, target)
             buttons.extend(more_buttons)
             buttons.append("a")

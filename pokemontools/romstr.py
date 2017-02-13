@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import print_function
+from __future__ import absolute_import
 import sys
 import os
 import time
@@ -12,7 +14,7 @@ import json
 if not hasattr(json, "read"):
     json.read = json.loads
 
-from labels import (
+from .labels import (
     get_label_from_line,
     get_address_from_line_comment,
 )
@@ -170,7 +172,7 @@ class RomStr(str):
         start_address = address
 
         if start_address == None:
-            raise Exception, "address must be given"
+            raise Exception("address must be given")
 
         if debug == None:
             if not hasattr(self, "debug"):
@@ -180,9 +182,9 @@ class RomStr(str):
 
         # this is probably a terrible idea.. why am i doing this?
         if size != None and max_size < size:
-            raise Exception, "max_size must be greater than or equal to size"
+            raise Exception("max_size must be greater than or equal to size")
         elif end_address != None and (end_address - start_address) > max_size:
-            raise Exception, "end_address is out of bounds"
+            raise Exception("end_address is out of bounds")
         elif end_address != None and size != None:
             if (end_address - start_address) >= size:
                 size = end_address - start_address
@@ -216,4 +218,4 @@ class AsmList(list):
 if __name__ == "__main__":
     cryrom = RomStr(open("../pokecrystal.gbc", "r").read());
     asm = cryrom.to_asm(sys.argv[1])
-    print asm
+    print(asm)

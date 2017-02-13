@@ -1,7 +1,9 @@
-from gfx import *
-from pokemon_constants import pokemon_constants
-import trainers
-import romstr
+from __future__ import print_function
+from __future__ import absolute_import
+from .gfx import *
+from .pokemon_constants import pokemon_constants
+from . import trainers
+from . import romstr
 
 def load_rom(filename=config.rom_path):
     rom = romstr.RomStr.load(filename=filename)
@@ -357,7 +359,7 @@ def dump_pic_animations(addresses={'bitmasks': 'BitmasksPointers', 'frames': 'Fr
             tiles = (x for x in frame[1])
             for j, bit in enumerate(bitmask):
                 if bit:
-                    tmap[(i + 1) * length + j] = tiles.next()
+                    tmap[(i + 1) * length + j] = next(tiles)
 
         filename = os.path.join(directory, 'front.{0}x{0}.2bpp.lz'.format(size))
         tiles = get_tiles(Decompressed(open(filename).read()).output)
@@ -495,7 +497,7 @@ def dump_trainer_pals():
         to_file('../'+dir+filename, pal_data)
 
         spacing = ' ' * (12 - len(name))
-        print name+'Palette:'+spacing+' INCBIN"'+dir+filename+'"'
+        print(name+'Palette:'+spacing+' INCBIN"'+dir+filename+'"')
 
 
 def get_uncompressed_gfx(start, num_tiles, filename):

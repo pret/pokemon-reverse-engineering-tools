@@ -1,8 +1,10 @@
+from __future__ import print_function
+from __future__ import absolute_import
 #author: Bryan Bishop <kanzure@gmail.com>
 #date: 2012-01-24
 from optparse import OptionParser
-from gbz80disasm import load_labels, find_label
-from extract_maps import calculate_pointer
+from .gbz80disasm import load_labels, find_label
+from .extract_maps import calculate_pointer
 import sys
 spacing = "\t"
 rom = None
@@ -46,8 +48,8 @@ def pretty_print_trainer_header(address, label=None):
     partial_pointer = (pointer_byte1 + (pointer_byte2 << 8))
     label = find_label(partial_pointer, bank_id)
     if label == None:
-        print "label not found for (TextBeforeBattle) " + hex(calculate_pointer(partial_pointer, bank_id))
-        print ""
+        print("label not found for (TextBeforeBattle) " + hex(calculate_pointer(partial_pointer, bank_id)))
+        print("")
         label = "$" + hex(partial_pointer)[2:]
         #sys.exit(0)
 
@@ -59,8 +61,8 @@ def pretty_print_trainer_header(address, label=None):
     partial_pointer = (pointer_byte1 + (pointer_byte2 << 8))
     label = find_label(partial_pointer, bank_id)
     if label == None:
-        print "label not found for (TextAfterBattle) " + hex(calculate_pointer(partial_pointer, bank_id))
-        print ""
+        print("label not found for (TextAfterBattle) " + hex(calculate_pointer(partial_pointer, bank_id)))
+        print("")
         label = "$" + hex(partial_pointer)[2:]
         #sys.exit(0)
 
@@ -72,8 +74,8 @@ def pretty_print_trainer_header(address, label=None):
     partial_pointer = (pointer_byte1 + (pointer_byte2 << 8))
     label = find_label(partial_pointer, bank_id)
     if label == None:
-        print "label not found for (TextEndBattle) " + hex(calculate_pointer(partial_pointer, bank_id))
-        print ""
+        print("label not found for (TextEndBattle) " + hex(calculate_pointer(partial_pointer, bank_id)))
+        print("")
         label = "$" + hex(partial_pointer)[2:]
         #sys.exit(0)
 
@@ -85,8 +87,8 @@ def pretty_print_trainer_header(address, label=None):
     partial_pointer = (pointer_byte1 + (pointer_byte2 << 8))
     label = find_label(partial_pointer, bank_id)
     if label == None:
-        print "label not found for (TextEndBattle) " + hex(calculate_pointer(partial_pointer, bank_id))
-        print ""
+        print("label not found for (TextEndBattle) " + hex(calculate_pointer(partial_pointer, bank_id)))
+        print("")
         label = "$" + hex(partial_pointer)[2:]
         #sys.exit(0)
 
@@ -99,7 +101,7 @@ def pretty_print_trainer_header(address, label=None):
 def all_trainer_headers_at(address):
     i = 0
     while ord(rom[address + (i*12)]) != 0xff:
-        print pretty_print_trainer_header(address + (i*12))
+        print(pretty_print_trainer_header(address + (i*12)))
         i += 1
 
 def main():
@@ -109,7 +111,7 @@ def main():
     parser = OptionParser(usage)
     (options, args) = parser.parse_args()
     if len(args) == 1:
-        print "usage: python pretty_trainer_headers.py address label\n"
+        print("usage: python pretty_trainer_headers.py address label\n")
         args.append("TrainerHeader_" + (args[0].replace("0x", "")))
     elif len(args) != 2:
         parser.error("we need both an address and a label")
@@ -120,7 +122,7 @@ def main():
     rom = open("../baserom.gbc", "r").read()
 
     #print pretty_print_trainer_header(address, label)
-    print all_trainer_headers_at(address)
+    print(all_trainer_headers_at(address))
 
 if __name__ == "__main__":
     main()

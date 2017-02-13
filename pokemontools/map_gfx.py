@@ -1,9 +1,11 @@
 """
 Map-related graphic functions.
 """
+from __future__ import print_function
+from __future__ import absolute_import
 
 import os
-import png
+from . import png
 from io import BytesIO
 
 from PIL import (
@@ -11,8 +13,8 @@ from PIL import (
     ImageDraw,
 )
 
-import crystal
-import gfx
+from . import crystal
+from . import gfx
 
 tile_width = 8
 tile_height = 8
@@ -285,7 +287,7 @@ def draw_map_sprites(map_header, map_image, config=config):
         other_args = {}
 
         if sprite_image_id not in sprites.keys() or sprite_image_id > 0x66:
-            print "sprite_image_id {} is not in sprites".format(sprite_image_id)
+            print("sprite_image_id {} is not in sprites".format(sprite_image_id))
 
             sprite_image = Image.new("RGBA", (16, 16))
 
@@ -362,7 +364,7 @@ def save_map(map_group_id, map_id, savedir, show_sprites=True, config=config):
 
     palettes = read_palettes(config=config)
 
-    print "Drawing {}".format(map_name)
+    print("Drawing {}".format(map_name))
     map_image = draw_map(map_group_id, map_id, palettes, show_sprites=show_sprites, config=config)
     map_image.save(filepath)
 

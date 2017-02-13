@@ -1,14 +1,16 @@
+from __future__ import print_function
+from __future__ import absolute_import
 #author: Bryan Bishop <kanzure@gmail.com>
 #date: 2012-01-07, 2012-01-17, 2012-01-27
 #insert TX_FAR targets into pokered.asm
 #and other insertion tasks
-import extract_maps
-from analyze_texts import analyze_texts, text_pretty_printer_at, scan_rom_for_tx_fars
-from pretty_map_headers import map_name_cleaner, make_text_label, map_constants, find_all_tx_fars, tx_far_pretty_printer, tx_far_label_maker
-import pretty_map_headers
-from analyze_incbins import asm, offset_to_pointer, find_incbin_to_replace_for, split_incbin_line_into_three, generate_diff_insert, load_asm, isolate_incbins, process_incbins, reset_incbins, apply_diff
-import analyze_incbins
-from gbz80disasm import text_asm_pretty_printer, output_bank_opcodes, load_labels, find_label
+from . import extract_maps
+from .analyze_texts import analyze_texts, text_pretty_printer_at, scan_rom_for_tx_fars
+from .pretty_map_headers import map_name_cleaner, make_text_label, map_constants, find_all_tx_fars, tx_far_pretty_printer, tx_far_label_maker
+from . import pretty_map_headers
+from .analyze_incbins import asm, offset_to_pointer, find_incbin_to_replace_for, split_incbin_line_into_three, generate_diff_insert, load_asm, isolate_incbins, process_incbins, reset_incbins, apply_diff
+from . import analyze_incbins
+from .gbz80disasm import text_asm_pretty_printer, output_bank_opcodes, load_labels, find_label
 import os, sys
 import subprocess
 spacing = "	"
@@ -66,13 +68,13 @@ def insert_tx_far(map_id, text_id, tx_far_line=None):
 
     line_number = find_incbin_to_replace_for(start_address)
     if line_number == None:
-        print "skipping tx_far for map_id=" + str(map_id) + " text_id=" + str(text_id) + " text_pointer=" + hex(text_pointer) + " tx_far_start_address=" + hex(start_address)
+        print("skipping tx_far for map_id=" + str(map_id) + " text_id=" + str(text_id) + " text_pointer=" + hex(text_pointer) + " tx_far_start_address=" + hex(start_address))
         return
 
     #also do a name check
     label = tx_far_label_maker(extract_maps.map_headers[map_id]["name"], text_id)
     if (label + ":") in "\n".join(analyze_incbins.asm):
-        print "skipping tx_far for map_id=" + str(map_id) + " text_id=" + str(text_id) + " text_pointer=" + hex(text_pointer) + " tx_far_start_address=" + hex(start_address)
+        print("skipping tx_far for map_id=" + str(map_id) + " text_id=" + str(text_id) + " text_pointer=" + hex(text_pointer) + " tx_far_start_address=" + hex(start_address))
         return
     
     newlines = split_incbin_line_into_three(line_number, start_address, end_address - start_address)
@@ -105,8 +107,8 @@ def insert_tx_far(map_id, text_id, tx_far_line=None):
     newlines = newlines.replace("Char52", "$52")
 
     diff = generate_diff_insert(line_number, newlines)
-    print "working on map_id=" + str(map_id) + " text_id=" + str(text_id)
-    print diff
+    print("working on map_id=" + str(map_id) + " text_id=" + str(text_id))
+    print(diff)
     apply_diff(diff)
 
 def insert_all_tx_far_targets():
@@ -184,12 +186,12 @@ def insert_texts_label(map_id):
 
     line_number = find_incbin_to_replace_for(texts_pointer)
     if line_number == None:
-        print "skipping texts label for map_id=" + str(map_id) + " texts_pointer=" + hex(texts_pointer) + " because the address is taken"
+        print("skipping texts label for map_id=" + str(map_id) + " texts_pointer=" + hex(texts_pointer) + " because the address is taken")
         return
 
     #also do a name check
     if (label + ":") in "\n".join(analyze_incbins.asm):
-        print "skipping texts label for map_id=" + str(map_id) + " texts_pointer=" + hex(texts_pointer) + " because the label is already used"
+        print("skipping texts label for map_id=" + str(map_id) + " texts_pointer=" + hex(texts_pointer) + " because the label is already used")
         return
     
     newlines = split_incbin_line_into_three(line_number, texts_pointer, len(map2["referenced_texts"])*2 )
@@ -208,8 +210,8 @@ def insert_texts_label(map_id):
     newlines = newlines.replace("$x", "$")
 
     diff = generate_diff_insert(line_number, newlines)
-    print "working on map_id=" + str(map_id) + " texts_pointer=" + hex(texts_pointer)
-    print diff
+    print("working on map_id=" + str(map_id) + " texts_pointer=" + hex(texts_pointer))
+    print(diff)
     apply_diff(diff)
 
 #untested as of 2012-01-07
@@ -241,7 +243,7 @@ def txt_to_tx_far_pretty_printer(address, label, target_label, include_byte=Fals
 
 def insert_text_label_tx_far(map_id, text_id):
     if map_id in extract_maps.bad_maps:
-        print "bad map id=" + str(map_id)
+        print("bad map id=" + str(map_id))
         return
     map2 = extract_maps.map_headers[map_id]
     if map2["texts"][text_id] == {0: {}}: return None
@@ -253,7 +255,7 @@ def insert_text_label_tx_far(map_id, text_id):
     if 0x4000 <= start_address <= 0x7fff:
         start_address = extract_maps.calculate_pointer(start_address, int(map2["bank"],16))
     include_byte = False
-    print map2["texts"][text_id]
+    print(map2["texts"][text_id])
     if "type" in map2["texts"][text_id][1].keys():
         if map2["texts"][text_id][1]["type"] == 0x50:
             include_byte = True
@@ -261,12 +263,12 @@ def insert_text_label_tx_far(map_id, text_id):
     
     line_number = find_incbin_to_replace_for(start_address)
     if line_number == None:
-        print "skipping text label that calls TX_FAR for map_id=" + str(map_id) + " text_id=" + str(text_id) + " because the address is taken " + hex(start_address)
+        print("skipping text label that calls TX_FAR for map_id=" + str(map_id) + " text_id=" + str(text_id) + " because the address is taken " + hex(start_address))
         return
 
     #also do a name check
     if 1 < ("\n".join(analyze_incbins.asm)).count("\n" + label + ":"):
-        print "skipping text label that calls TX_FAR for map_id=" + str(map_id) + " text_id" + str(text_id) + " because the label is already used (" + label + ":)"
+        print("skipping text label that calls TX_FAR for map_id=" + str(map_id) + " text_id" + str(text_id) + " because the label is already used (" + label + ":)")
         return
     
     extra = 0
@@ -288,8 +290,8 @@ def insert_text_label_tx_far(map_id, text_id):
     newlines = newlines.replace("$x", "$")
 
     diff = generate_diff_insert(line_number, newlines)
-    print "working on map_id=" + str(map_id) + " text_id=" + str(text_id)
-    print diff
+    print("working on map_id=" + str(map_id) + " text_id=" + str(text_id))
+    print(diff)
     apply_diff(diff)
 
 def insert_all_text_labels():
@@ -321,17 +323,17 @@ def insert_08_asm(map_id, text_id, line_id=0):
     start_address = all_texts[map_id][text_id][line_id]["start_address"]
 
     (text_asm, end_address) = text_asm_pretty_printer(label, start_address)
-    print "end address is: " + hex(end_address)
+    print("end address is: " + hex(end_address))
 
     #find where to insert the assembly
     line_number = find_incbin_to_replace_for(start_address)
     if line_number == None:
-        print "skipping text label for a $08 on map_id=" + str(map_id) + " text_id=" + str(text_id) + " because the address is taken"
+        print("skipping text label for a $08 on map_id=" + str(map_id) + " text_id=" + str(text_id) + " because the address is taken")
         return
 
     #also do a name check
     if 1 <= ("\n".join(analyze_incbins.asm)).count("\n" + label + ":"):
-        print "skipping text label for a $08 on map_id=" + str(map_id) + " text_id=" + str(text_id) + " because the label is already taken (" + label + ":)"
+        print("skipping text label for a $08 on map_id=" + str(map_id) + " text_id=" + str(text_id) + " because the label is already taken (" + label + ":)")
         return
     
     newlines = split_incbin_line_into_three(line_number, start_address, end_address - start_address )
@@ -351,8 +353,8 @@ def insert_08_asm(map_id, text_id, line_id=0):
     newlines = newlines.replace("$x", "$")
 
     diff = generate_diff_insert(line_number, newlines)
-    print "working on map_id=" + str(map_id) + " text_id=" + str(text_id)
-    print diff
+    print("working on map_id=" + str(map_id) + " text_id=" + str(text_id))
+    print(diff)
     result = apply_diff(diff)
 
     if result == False:
@@ -376,7 +378,7 @@ def insert_all_08s():
         text_id = the_08_line[1]
         line_id = the_08_line[2]
 
-        print "processing map_id=" + str(map_id) + " text_id=" + str(text_id)
+        print("processing map_id=" + str(map_id) + " text_id=" + str(text_id))
         insert_08_asm(map_id, text_id, line_id)
         
         #reset everything
@@ -396,17 +398,17 @@ def insert_all_08s():
 def insert_asm(start_address, label, text_asm=None, end_address=None):
     if text_asm == None and end_address == None:
         (text_asm, end_address) = text_asm_pretty_printer(label, start_address, include_08=False)
-        print "end address is: " + hex(end_address)
+        print("end address is: " + hex(end_address))
 
     #find where to insert the assembly
     line_number = find_incbin_to_replace_for(start_address)
     if line_number == None:
-        print "skipping asm because the address is taken"
+        print("skipping asm because the address is taken")
         return False
 
     #name check
     if (label + ":") in "\n".join(analyze_incbins.asm):
-        print "skipping asm because the label is taken"
+        print("skipping asm because the label is taken")
         return False
 
     newlines = split_incbin_line_into_three(line_number, start_address, end_address - start_address )
@@ -426,7 +428,7 @@ def insert_asm(start_address, label, text_asm=None, end_address=None):
     newlines = newlines.replace("$x", "$")
 
     diff = generate_diff_insert(line_number, newlines)
-    print diff
+    print(diff)
     result = apply_diff(diff, try_fixing=True)
     return True
 
@@ -436,13 +438,13 @@ def insert_text(address, label, apply=False, try_fixing=True):
 
     line_number = find_incbin_to_replace_for(start_address)
     if line_number == None:
-        print "skipping text at " + hex(start_address) + " with address " + label
+        print("skipping text at " + hex(start_address) + " with address " + label)
         return "skip"
 
     #another reason to skip is if the interval is 0
     processed_incbin = analyze_incbins.processed_incbins[line_number]
     if processed_incbin["interval"] == 0:
-        print "skipping text at " + hex(start_address) + " with address " + label + " because the interval is 0"
+        print("skipping text at " + hex(start_address) + " with address " + label + " because the interval is 0")
         return "skip"
 
     text_asm, byte_count = text_pretty_printer_at(start_address, label)
@@ -466,7 +468,7 @@ def insert_text(address, label, apply=False, try_fixing=True):
     newlines = newlines.replace("Char52", "$52")
 
     diff = generate_diff_insert(line_number, newlines)
-    print diff
+    print(diff)
     if apply:
         return apply_diff(diff, try_fixing=try_fixing)
     else: #simulate a successful insertion
@@ -560,16 +562,16 @@ def scan_for_map_scripts_pointer():
                     isolate_incbins()
                     process_incbins()
 
-            print "map_id=" + str(map_id) + " scripts are: " + str(script_pointers)
+            print("map_id=" + str(map_id) + " scripts are: " + str(script_pointers))
         
         if last_hl_address == None: last_hl_address = "None"
         else: last_hl_address = hex(last_hl_address)
 
         if hl_pointer != None and hl_pointer != "None": hl_pointer = hex(hl_pointer)
 
-        print "map_id=" + str(map_id) + " " + map2["name"] + " script_pointer=" + hex(script_pointer) + " script_pointers=" + hl_pointer + first_script_text
-        print main_asm_output
-        print "\n\n"
+        print("map_id=" + str(map_id) + " " + map2["name"] + " script_pointer=" + hex(script_pointer) + " script_pointers=" + hl_pointer + first_script_text)
+        print(main_asm_output)
+        print("\n\n")
 
         #insert asm for the main script
         result = insert_asm(script_pointer, map_name_cleaner(map2["name"], None)[:-2] + "Script")
@@ -625,8 +627,8 @@ def scan_for_map_scripts_pointer():
                 isolate_incbins()
                 process_incbins()
             else:
-                print "trouble inserting map script pointer list"
-                print script_asm
+                print("trouble inserting map script pointer list")
+                print(script_asm)
                 sys.exit(0)
 
 def scan_rom_for_tx_fars_and_insert():
@@ -647,7 +649,7 @@ def scan_rom_for_tx_fars_and_insert():
 
         #let's also do a quick check if it might be in the file already
         if not (": ; " + hex(tx_far_address) in analyze_incbins.asm):
-            print "inserting text at " + hex(tx_far_address)
+            print("inserting text at " + hex(tx_far_address))
             result = insert_text(tx_far_target_address, tx_far_target_label, apply=True)
         else:
             #we can't just pretend like it worked, because we don't know what label was used
@@ -662,7 +664,7 @@ def scan_rom_for_tx_fars_and_insert():
             result2 = insert_text(tx_far_address, tx_far_label, apply=True)
             local_reset_incbins()
         elif result == "skip":
-            print "skipping " + hex(tx_far_address)
+            print("skipping " + hex(tx_far_address))
         #    result2 = insert_text(tx_far_address, tx_far_label, apply=True)
         #    local_reset_incbins()
 
@@ -787,12 +789,12 @@ def insert_base_stats(id):
     line_number = find_incbin_to_replace_for(address)
     label = get_mon_name(id).title() + "BaseStats"
     if line_number == None:
-        print "skipping, already inserted at " + hex(address)
+        print("skipping, already inserted at " + hex(address))
         return
 
     #also do a name check
     if (label + ":") in "\n".join(analyze_incbins.asm):
-        print "skipping " + label + " because it is already in use.."
+        print("skipping " + label + " because it is already in use..")
         return
     
     newlines = split_incbin_line_into_three(line_number, address, 28 )
@@ -811,7 +813,7 @@ def insert_base_stats(id):
     newlines = newlines.replace("$x", "$")
 
     diff = generate_diff_insert(line_number, newlines)
-    print diff
+    print(diff)
     apply_diff(diff, try_fixing=False, do_compile=False)
 
 def insert_all_base_stats():

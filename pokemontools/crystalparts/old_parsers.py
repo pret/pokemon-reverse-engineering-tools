@@ -274,9 +274,9 @@ def old_parse_people_event_bytes(some_bytes, address=None, map_group=None, map_i
 
         is_regular_script = lower_bits == 00
         # pointer points to script
-        is_give_item = lower_bits == 01
+        is_give_item = lower_bits == 0o1
         # pointer points to [Item no.][Amount]
-        is_trainer = lower_bits == 02
+        is_trainer = lower_bits == 0o2
         # pointer points to trainer header
 
         # goldmap called these next two bytes "text_block" and "text_bank"?

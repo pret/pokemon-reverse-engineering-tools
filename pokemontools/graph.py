@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import print_function
+from __future__ import absolute_import
 import networkx as nx
 
-from romstr import (
+from .romstr import (
     RomStr,
     relative_jumps,
     call_commands,
@@ -92,7 +94,7 @@ class RomGraph(nx.DiGraph):
             # check if there are any nops (probably not a function)
             nops = 0
             for (id, command) in func.asm_commands.items():
-                if command.has_key("id") and command["id"] == 0x0:
+                if "id" in command and command["id"] == 0x0:
                     nops += 1
 
                     # skip this function
@@ -131,7 +133,7 @@ class RomGraph(nx.DiGraph):
         Shows some text output describing which nodes point to which other
         nodes.
         """
-        print self.edges()
+        print(self.edges())
 
     def to_d3(self):
         """

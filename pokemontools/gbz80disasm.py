@@ -2,13 +2,15 @@
 """
 GBC disassembler
 """
+from __future__ import print_function
+from __future__ import absolute_import
 
 import os
 import argparse
 from ctypes import c_int8
 
-import configuration
-from wram import read_constants
+from . import configuration
+from .wram import read_constants
 
 z80_table = [
 	('nop', 0),                    # 00
@@ -392,20 +394,20 @@ def load_symbols(path):
 		label = symbol['label']
 		
 		if 0x0000 <= address < 0x8000:
-			if not sym.has_key(bank):
+			if bank not in sym:
 				sym[bank] = {}
 			
 			sym[bank][address] = label
 			reverse_sym[label] = get_global_address(address, bank)
 			
 		elif 0xa000 <= address < 0xc000:
-			if not sram_sym.has_key(bank):
+			if bank not in sram_sym:
 				sram_sym[bank] = {}
 				
 			sram_sym[bank][address] = label
 			
 		elif address < 0xe000:
-			if not wram_sym.has_key(bank):
+			if bank not in wram_sym:
 				wram_sym[bank] = {}
 			
 			wram_sym[bank][address] = label
@@ -575,7 +577,7 @@ class Disassembler(object):
 			stop_offset = (bank_id + 1) * 0x4000 - 1
 	
 		if debug:
-			print "bank id is: " + str(bank_id)
+			print("bank id is: " + str(bank_id))
 
 		rom = self.rom
 
@@ -904,7 +906,7 @@ if __name__ == "__main__":
 	
 	# suppress output if quiet flag is set
 	if not args.quiet:
-		print output
+		print(output)
 	
 	# only write to the output file if the no write flag is unset
 	if not args.no_write:

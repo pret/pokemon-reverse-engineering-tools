@@ -2,6 +2,8 @@
 """
 VBA automation
 """
+from __future__ import print_function
+from __future__ import absolute_import
 
 import os
 import sys
@@ -18,7 +20,7 @@ from pokemontools.map_names import (
     map_names,
 )
 
-import keyboard
+from . import keyboard
 
 # just use a default config for now until the globals are removed completely
 import pokemontools.configuration as configuration
@@ -183,9 +185,9 @@ class crystal(object):
             self.vba.write_memory_at(self.registers.sp + 1, value >> 8)
             self.vba.write_memory_at(self.registers.sp, value & 0xFF)
             if list(self.vba.memory[self.registers.sp : self.registers.sp + 2]) != [value & 0xFF, value >> 8]:
-                print "desired memory values: " + str([value & 0xFF, value >> 8] )
-                print "actual memory values: " + str(list(self.vba.memory[self.registers.sp : self.registers.sp + 2]))
-                print "wrong value at " + hex(self.registers.sp) + " expected " + hex(value) + " but got " + hex(self.vba.read_memory_at(self.registers.sp))
+                print("desired memory values: " + str([value & 0xFF, value >> 8] ))
+                print("actual memory values: " + str(list(self.vba.memory[self.registers.sp : self.registers.sp + 2])))
+                print("wrong value at " + hex(self.registers.sp) + " expected " + hex(value) + " but got " + hex(self.vba.read_memory_at(self.registers.sp)))
 
     def get_stack(self):
         """
@@ -426,7 +428,7 @@ class crystal(object):
             address = ((hi << 8) | lo)
 
             if address in range(0xa1b, 0xa46) + range(0xaaf, 0xaf5): #  0xaef:
-                print "pressing, then breaking.. address is: " + str(hex(address))
+                print("pressing, then breaking.. address is: " + str(hex(address)))
 
                 # set CurSFX
                 self.vba.write_memory_at(0xc2bf, 0)
@@ -436,19 +438,19 @@ class crystal(object):
                 # check if CurSFX is SFX_READ_TEXT_2
                 if self.vba.read_memory_at(0xc2bf) == 0x8:
                     if "CANCEL Which" in self.get_text():
-                        print "probably the 'switch pokemon' menu"
+                        print("probably the 'switch pokemon' menu")
                         return
                     else:
-                        print "cursfx is set to SFX_READ_TEXT_2, looping.."
-                        print self.get_text()
+                        print("cursfx is set to SFX_READ_TEXT_2, looping..")
+                        print(self.get_text())
                         return self.text_wait(step_size=step_size, max_wait=max_wait, debug=debug, callback=callback, sfx_limit=sfx_limit)
                 else:
                     if sfx_limit > 0:
                         sfx_limit = sfx_limit - 1
-                        print "decreasing sfx_limit"
+                        print("decreasing sfx_limit")
                     else:
                         # probably the last textbox in a sequence
-                        print "cursfx is not set to SFX_READ_TEXT_2, so: breaking"
+                        print("cursfx is not set to SFX_READ_TEXT_2, so: breaking")
 
                         break
             else:
@@ -456,19 +458,19 @@ class crystal(object):
 
                 # yes/no box or the name selection box
                 if address in range(0xa46, 0xaaf):
-                    print "probably at a yes/no box.. exiting."
+                    print("probably at a yes/no box.. exiting.")
                     break
 
                 # date/time box (day choice)
                 # 0x47ab is the one from the intro, 0x49ab is the one from mom.
                 elif 0x47ab in stack or 0x49ab in stack: # was any([x in stack for x in range(0x46EE, 0x47AB)])
                     if not self.is_in_battle():
-                        print "probably at a date/time box ? exiting."
+                        print("probably at a date/time box ? exiting.")
                         break
 
                 # "How many minutes?" selection box
                 elif 0x4826 in stack:
-                    print "probably at a \"How many minutes?\" box ? exiting."
+                    print("probably at a \"How many minutes?\" box ? exiting.")
                     break
 
                 self.vba.step(count=step_size)
@@ -482,7 +484,7 @@ class crystal(object):
             if callback != None:
                 result = callback()
                 if result == True:
-                    print "callback returned True, exiting"
+                    print("callback returned True, exiting")
                     return
 
             # only useful when debugging. When this is left on, text that
@@ -492,7 +494,7 @@ class crystal(object):
                 max_wait = max_wait - 1
 
         if max_wait == 0:
-            print "max_wait was hit"
+            print("max_wait was hit")
 
     def walk_through_walls_slow(self):
         memory = self.vba.memory
@@ -852,7 +854,7 @@ class crystal(object):
         """
         while limit > 0:
             if self.vba.read_memory_at(0xd438) != 255:
-                print "script is done executing"
+                print("script is done executing")
                 return
             else:
                 self.vba.step()
@@ -861,7 +863,7 @@ class crystal(object):
                 limit = limit - 1
 
         if limit == 0:
-            print "limit ran out"
+            print("limit ran out")
 
     def move(self, cmd):
         """

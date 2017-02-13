@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import print_function
 import ply.lex as lex
 import sys, os
 
@@ -466,7 +467,7 @@ class Lexer(object):
         ''' Prints an error msg.
         '''
         #print '%s:%i %s' % (FILENAME, self.lex.lineno, str)
-        print '%s:%s %s' % (FILENAME, "?", str)
+        print('%s:%s %s' % (FILENAME, "?", str))
     
     
     def error(self, str):
@@ -490,5 +491,5 @@ if __name__ == '__main__':
     tmp.input(open(sys.argv[1]).read())
     tok = tmp.token()
     while tok:
-        print tok
+        print(tok)
         tok = tmp.token()

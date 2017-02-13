@@ -159,7 +159,7 @@ class BSSReader:
                 # rgbasm allows labels without :, but prefer convention
                 label = line[:line.find(':')]
                 if '\\' in label:
-                    raise Exception, line + ' ' + label
+                    raise Exception(line + ' ' + label)
                 if ';' not in label:
                     section_label = {
                         'label': label,

@@ -1,6 +1,7 @@
+from __future__ import absolute_import
 import json
 
-import analyze_incbins
+from . import analyze_incbins
 analyze_incbins.scan_for_predefined_labels()
 
 with open('../pokered.sym', 'w') as sym:

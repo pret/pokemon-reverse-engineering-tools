@@ -1,12 +1,14 @@
+from __future__ import print_function
+from __future__ import absolute_import
 #author: Bryan Bishop <kanzure@gmail.com>
 #date: 2012-01-27
 #fix trainer header labels to not suck so much
-import analyze_incbins
+from . import analyze_incbins
 
 def replace_trainer_header_labels(debug=False):
     """trainer header labels could be better"""
     asm = analyze_incbins.asm
-    if debug: print str(type(asm))
+    if debug: print(str(type(asm)))
     single_asm = "\n".join(asm)
     current_map_name = "asdjkl;"
     line_id = 0
@@ -31,8 +33,8 @@ def replace_trainer_header_labels(debug=False):
             new_label = current_map_name + "TH" + str(trainer_header_counter) #trainer_header_name
             single_asm = single_asm.replace(old_label + ":", new_label + ":")
             single_asm = single_asm.replace(old_label + "\n", new_label + "\n")
-            if debug: print "old_label = " + old_label
-            if debug: print "new_label = " + new_label
+            if debug: print("old_label = " + old_label)
+            if debug: print("new_label = " + new_label)
 
             trainer_header_counter += 1
         
@@ -50,8 +52,8 @@ def replace_trainer_header_labels(debug=False):
             single_asm = single_asm.replace(old_label + ":", new_label + ":")
             single_asm = single_asm.replace(old_label + "\n", new_label + "\n")
             single_asm = single_asm.replace(old_label + " ;", new_label + " ;")
-            if debug: print "old_label = " + old_label
-            if debug: print "new_label = " + new_label
+            if debug: print("old_label = " + old_label)
+            if debug: print("new_label = " + new_label)
         #replace a text label
         elif " TextAfterBattle" in line and not current_map_name in line:
             old_label = line.split("dw ")[1].split(" ;")[0]
@@ -59,8 +61,8 @@ def replace_trainer_header_labels(debug=False):
             single_asm = single_asm.replace(old_label + ":", new_label + ":")
             single_asm = single_asm.replace(old_label + "\n", new_label + "\n")
             single_asm = single_asm.replace(old_label + " ;", new_label + " ;")
-            if debug: print "old_label = " + old_label
-            if debug: print "new_label = " + new_label
+            if debug: print("old_label = " + old_label)
+            if debug: print("new_label = " + new_label)
         #replace a text label
         elif " TextEndBattle" in line and not current_map_name in line:
             old_label = line.split("dw ")[1].split(" ;")[0]
@@ -68,12 +70,12 @@ def replace_trainer_header_labels(debug=False):
             single_asm = single_asm.replace(old_label + ":", new_label + ":")
             single_asm = single_asm.replace(old_label + "\n", new_label + "\n")
             single_asm = single_asm.replace(old_label + " ;", new_label + " ;")
-            if debug: print "old_label = " + old_label
-            if debug: print "new_label = " + new_label
+            if debug: print("old_label = " + old_label)
+            if debug: print("new_label = " + new_label)
 
         line_id += 1
 
-    print single_asm
+    print(single_asm)
 
 if __name__ == "__main__":
     analyze_incbins.load_asm()

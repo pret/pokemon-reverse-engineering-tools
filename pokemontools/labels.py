@@ -2,13 +2,14 @@
 """
 Various label/line-related functions.
 """
+from __future__ import absolute_import
 
 import os
 import json
 import logging
 
-import pointers
-import sym
+from . import pointers
+from . import sym
 
 class Labels(object):
     """
@@ -31,7 +32,7 @@ class Labels(object):
         if not os.path.exists(self.path):
             self.filename = find_symfile_in_dir(self.config.path)
             if self.filename == None:
-                raise Exception, "Couldn't find any .sym files. Run rgblink -n to create a .sym file."
+                raise Exception("Couldn't find any .sym files. Run rgblink -n to create a .sym file.")
             self.path = os.path.join(self.config.path, self.filename)
 
         self.labels = sym.read_symfile(self.path)
@@ -178,7 +179,7 @@ def get_address_from_line_comment(line, bank=None):
 def line_has_label(line):
     """returns True if the line has an asm label"""
     if not isinstance(line, str):
-        raise Exception, "can't check this type of object"
+        raise Exception("can't check this type of object")
     line = line.rstrip(" ").lstrip(" ")
     line = remove_quoted_text(line)
     if ";" in line:

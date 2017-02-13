@@ -1,10 +1,12 @@
+from __future__ import print_function
+from __future__ import absolute_import
 #author: Bryan Bishop <kanzure@gmail.com>
 #date: 2012-01-09
-import extract_maps
+from . import extract_maps
 import os
 import json
 from copy import copy, deepcopy
-from pretty_map_headers import random_hash, map_name_cleaner
+from .pretty_map_headers import random_hash, map_name_cleaner
 from ctypes import c_int8
 import sys
 
@@ -530,7 +532,7 @@ temp_opt_table = [
 conflict_table = {}
 for line in temp_opt_table:
     if line[1] in conflict_table.keys():
-        print "CONFLICT: " + line[0] + " ($" + hex(line[1])[2:] + ") .... " + conflict_table[line[1]]
+        print("CONFLICT: " + line[0] + " ($" + hex(line[1])[2:] + ") .... " + conflict_table[line[1]])
     else:
         conflict_table[line[1]] = line[0]
 
@@ -562,8 +564,8 @@ def load_labels(filename="labels.json"):
     if os.path.exists(filename):
         all_labels = json.loads(open(filename, "r").read())
     else:
-        print "You must run analyze_incbins.scan_for_predefined_labels() to create \"labels.json\". Trying..."
-        import analyze_incbins
+        print("You must run analyze_incbins.scan_for_predefined_labels() to create \"labels.json\". Trying...")
+        from . import analyze_incbins
         analyze_incbins.scan_for_predefined_labels()
 load_labels()
 
@@ -607,7 +609,7 @@ def output_bank_opcodes(original_offset, max_byte_count=0x4000):
     bank_id = 0
     if original_offset > 0x8000:
         bank_id = original_offset / 0x4000
-    print "bank id is: " + str(bank_id)
+    print("bank id is: " + str(bank_id))
 
     last_hl_address = None #for when we're scanning the main map script
     last_a_address = None
@@ -849,4 +851,4 @@ if __name__ == "__main__":
     extract_maps.load_map_pointers()
     extract_maps.read_all_map_headers()
 
-    print output_bank_opcodes(int(sys.argv[1], 16))[0]
+    print(output_bank_opcodes(int(sys.argv[1], 16))[0])

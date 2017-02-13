@@ -1,10 +1,11 @@
+from __future__ import absolute_import
 #author: Bryan Bishop <kanzure@gmail.com>
 #date: 2012-01-15
 #replace dimensions with constants
 import sys #for non-newline-terminated output :/
-from add_map_labels_to_map_headers import find_with_start_of_line
-from pretty_map_headers import map_name_cleaner, spacing, offset_to_pointer, map_constants
-from connection_helper import print_connections
+from .add_map_labels_to_map_headers import find_with_start_of_line
+from .pretty_map_headers import map_name_cleaner, spacing, offset_to_pointer, map_constants
+from .connection_helper import print_connections
 from ctypes import c_int8
 
 # X/Y_Movement_Of_Connection
@@ -234,7 +235,7 @@ def replace_values():
             connection_offset += 6
 
 if __name__ == "__main__":
-    import extract_maps
+    from . import extract_maps
     extract_maps.load_rom()
     extract_maps.load_map_pointers()
     extract_maps.read_all_map_headers()

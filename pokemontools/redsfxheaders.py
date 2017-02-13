@@ -1,4 +1,5 @@
-import configuration
+from __future__ import absolute_import
+from . import configuration
 config = configuration.Config()
 rom = bytearray(open(config.rom_path, "r").read())
 

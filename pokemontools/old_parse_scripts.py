@@ -5,21 +5,22 @@ do anything on its own.
 
 old_parse is a part of the Script class
 """
+from __future__ import print_function
 
 def old_parse(self, *args, **kwargs):
     """parses a script-engine script; force=True if you want to re-parse
     and get the debug information"""
-    print "Script.old_parse address="+hex(self.address)
+    print("Script.old_parse address="+hex(self.address))
     #can't handle more than one argument
     if len(args) > 1:
-        raise Exception, "Script.parse_script doesn't know how to handle positional arguments"
+        raise Exception("Script.parse_script doesn't know how to handle positional arguments")
     #use the first positional argument as the address
     elif len(args) == 1:
         self.address = args[0]
         if type(self.address) == str:
             self.address = int(self.address, 16)
         elif type(self.address) != int:
-            raise Exception, "address param is the wrong type"
+            raise Exception("address param is the wrong type")
     #parse any keyword arguments, first make up the defaults
     kwargsorig = {"map_group": None, "map_id": None, "force": False, "debug": True, "origin": False}
     #let the caller override any defaults
@@ -48,16 +49,16 @@ def old_parse(self, *args, **kwargs):
 
     #don't parse these crazy things (battle tower things, some rival things, etc.)
     if address in stop_points:
-        print "got " + hex(address) + ".. map_group=" + str(map_group) + " map_id=" + str(map_id)
+        print("got " + hex(address) + ".. map_group=" + str(map_group) + " map_id=" + str(map_id))
         return None
     #don't parse anything that looks crazy
     if address < 0x4000 and address not in [0x26ef, 0x114, 0x1108]:
-        print "address is less than 0x4000.. address is: " + hex(address)
+        print("address is less than 0x4000.. address is: " + hex(address))
         sys.exit()
 
     #check if work is being repeated
     if is_script_already_parsed_at(address) and not force:
-        raise Exception, "this script has already been parsed before, please use that instance"
+        raise Exception("this script has already been parsed before, please use that instance")
         #use the commands from a previously-parsed Script object
         #self.commands = script_parse_table[address].commands
         #return True
@@ -90,8 +91,8 @@ def old_parse(self, *args, **kwargs):
         start_address = offset
 
         if (len(commands.keys()) > max_cmds) and origin != False:
-            print "too many commands in this script? might not be a script (starting at: " +\
-                  hex(original_start_address) + ").. called from a script at: " + hex(origin)
+            print("too many commands in this script? might not be a script (starting at: " +\
+                  hex(original_start_address) + ").. called from a script at: " + hex(origin))
             sys.exit()
 
         #start checking against possible command bytes
@@ -107,12 +108,12 @@ def old_parse(self, *args, **kwargs):
             last_byte_address = offset + size - 1
             pointer = calculate_pointer_from_bytes_at(start_address+1)
             if pointer == None:
-                raise Exception, "pointer is None (shouldn't be None pointer on 0x0 script command"
+                raise Exception("pointer is None (shouldn't be None pointer on 0x0 script command")
             command["pointer"] = pointer
             if debug:
-                print "in script starting at "+hex(original_start_address)+\
+                print("in script starting at "+hex(original_start_address)+\
                       " about to parse script at "+hex(pointer)+\
-                      " called by "+info+" byte="+hex(command_byte)
+                      " called by "+info+" byte="+hex(command_byte))
             script = rec_parse_script_engine_script_at(pointer, original_start_address, debug=debug)
             command["script"] = script
         elif command_byte == 0x01: #Pointer code [3b+ret]
@@ -126,9 +127,9 @@ def old_parse(self, *args, **kwargs):
             info = "pointer code"
             pointer = calculate_pointer_from_bytes_at(start_address+1, bank=True)
             if debug:
-                print "in script starting at "+hex(original_start_address)+\
+                print("in script starting at "+hex(original_start_address)+\
                       " about to parse script at "+hex(pointer)+\
-                      " called by "+info+" byte="+hex(command_byte)
+                      " called by "+info+" byte="+hex(command_byte))
             script = rec_parse_script_engine_script_at(pointer, original_start_address, debug)
             command["pointer"] = pointer
             command["script"] = script
@@ -141,9 +142,9 @@ def old_parse(self, *args, **kwargs):
             size = 3
             pointer = calculate_pointer_from_bytes_at(start_address+1)
             if debug:
-                print "in script starting at "+hex(original_start_address)+\
+                print("in script starting at "+hex(original_start_address)+\
                       " about to parse script at "+hex(pointer)+\
-                      " called by "+info+" byte="+hex(command_byte)
+                      " called by "+info+" byte="+hex(command_byte))
             script = rec_parse_script_engine_script_at(pointer, original_start_address, debug=debug)
             command["pointer"] = pointer
             command["script"] = script
@@ -157,9 +158,9 @@ def old_parse(self, *args, **kwargs):
             size = 3
             pointer = calculate_pointer_from_bytes_at(start_address+1)
             if debug:
-                print "in script starting at "+hex(original_start_address)+\
+                print("in script starting at "+hex(original_start_address)+\
                       " about to parse script at "+hex(pointer)+\
-                      " called by "+info+" byte="+hex(command_byte)
+                      " called by "+info+" byte="+hex(command_byte))
             script = rec_parse_script_engine_script_at(pointer, original_start_address, debug=debug)
             command["pointer"] = pointer
             command["script"] = script
@@ -173,9 +174,9 @@ def old_parse(self, *args, **kwargs):
             size = 4
             pointer = calculate_pointer_from_bytes_at(start_address+1, bank=True)
             if debug:
-                print "in script starting at "+hex(original_start_address)+\
+                print("in script starting at "+hex(original_start_address)+\
                   " about to parse script at "+hex(pointer)+\
-                  " called by "+info+" byte="+hex(command_byte)
+                  " called by "+info+" byte="+hex(command_byte))
             script = rec_parse_script_engine_script_at(pointer, original_start_address, debug=debug)
             command["pointer"] = pointer
             command["script"] = script
@@ -191,9 +192,9 @@ def old_parse(self, *args, **kwargs):
             command["target_pointer"] = calculate_pointer_from_bytes_at(command["pointer"], bank=True)
 
             if debug:
-                print "in script starting at "+hex(original_start_address)+\
+                print("in script starting at "+hex(original_start_address)+\
                   " about to parse script at "+hex(command["target_pointer"])+\
-                  " called by "+info+" byte="+hex(command_byte)
+                  " called by "+info+" byte="+hex(command_byte))
             script = rec_parse_script_engine_script_at(command["target_pointer"], original_start_address, debug=debug)
             command["script"] = script
             end = True #according to pksv
@@ -207,9 +208,9 @@ def old_parse(self, *args, **kwargs):
             command["byte"] = ord(rom[start_address+1])
             pointer = calculate_pointer_from_bytes_at(start_address+2)
             if debug:
-                print "in script starting at "+hex(original_start_address)+\
+                print("in script starting at "+hex(original_start_address)+\
                   " about to parse script at "+hex(pointer)+\
-                  " called by "+info+" byte="+hex(command_byte)
+                  " called by "+info+" byte="+hex(command_byte))
             script = rec_parse_script_engine_script_at(pointer, original_start_address, debug=debug)
             command["pointer"] = pointer
             command["script"] = script
@@ -223,9 +224,9 @@ def old_parse(self, *args, **kwargs):
             command["byte"] = ord(rom[start_address+1])
             pointer = calculate_pointer_from_bytes_at(start_address+2)
             if debug:
-                print "in script starting at "+hex(original_start_address)+\
+                print("in script starting at "+hex(original_start_address)+\
                   " about to parse script at "+hex(pointer)+\
-                  " called by "+info+" byte="+hex(command_byte)
+                  " called by "+info+" byte="+hex(command_byte))
             script = rec_parse_script_engine_script_at(pointer, original_start_address, debug=debug)
             command["pointer"] = pointer
             command["script"] = script
@@ -238,9 +239,9 @@ def old_parse(self, *args, **kwargs):
             size = 3
             pointer = calculate_pointer_from_bytes_at(start_address+1)
             if debug:
-                print "in script starting at "+hex(original_start_address)+\
+                print("in script starting at "+hex(original_start_address)+\
                   " about to parse script at "+hex(pointer)+\
-                  " called by "+info+" byte="+hex(command_byte)
+                  " called by "+info+" byte="+hex(command_byte))
             script = rec_parse_script_engine_script_at(pointer, original_start_address, debug=debug)
             command["pointer"] = pointer
             command["script"] = script
@@ -253,9 +254,9 @@ def old_parse(self, *args, **kwargs):
             size = 3
             pointer = calculate_pointer_from_bytes_at(start_address+1)
             if debug:
-                print "in script starting at "+hex(original_start_address)+\
+                print("in script starting at "+hex(original_start_address)+\
                   " about to parse script at "+hex(pointer)+\
-                  " called by "+info+" byte="+hex(command_byte)
+                  " called by "+info+" byte="+hex(command_byte))
             script = rec_parse_script_engine_script_at(pointer, original_start_address, debug=debug)
             command["pointer"] = pointer
             command["script"] = script
@@ -269,9 +270,9 @@ def old_parse(self, *args, **kwargs):
             command["byte"] = ord(rom[start_address+1])
             pointer = calculate_pointer_from_bytes_at(start_address+2)
             if debug:
-                print "in script starting at "+hex(original_start_address)+\
+                print("in script starting at "+hex(original_start_address)+\
                   " about to parse script at "+hex(pointer)+\
-                  " called by "+info+" byte="+hex(command_byte)
+                  " called by "+info+" byte="+hex(command_byte))
             script = rec_parse_script_engine_script_at(pointer, original_start_address, debug=debug)
             command["pointer"] = pointer
             command["script"] = script
@@ -285,9 +286,9 @@ def old_parse(self, *args, **kwargs):
             command["byte"] = ord(rom[start_address+1])
             pointer = calculate_pointer_from_bytes_at(start_address+2)
             if debug:
-                print "in script starting at "+hex(original_start_address)+\
+                print("in script starting at "+hex(original_start_address)+\
                   " about to parse script at "+hex(pointer)+\
-                  " called by "+info+" byte="+hex(command_byte)
+                  " called by "+info+" byte="+hex(command_byte))
             script = rec_parse_script_engine_script_at(pointer, original_start_address, debug=debug)
             command["pointer"] = pointer
             command["script"] = script
@@ -1588,9 +1589,9 @@ def old_parse(self, *args, **kwargs):
             size = 3
             script_pointer = calculate_pointer_from_bytes_at(start_address+1, bank=False)
             if debug:
-                print "in script starting at "+hex(original_start_address)+\
+                print("in script starting at "+hex(original_start_address)+\
                   " about to parse script at "+hex(script_pointer)+\
-                  " called by "+info+" byte="+hex(command_byte)
+                  " called by "+info+" byte="+hex(command_byte))
             script = rec_parse_script_engine_script_at(script_pointer, original_start_address, debug=debug)
             command["script_pointer"] = script_pointer
             command["script"] = script
@@ -1612,9 +1613,9 @@ def old_parse(self, *args, **kwargs):
             size = 3
             script_pointer = calculate_pointer_from_bytes_at(start_address+1, bank=False)
             if debug:
-                print "in script starting at "+hex(original_start_address)+\
+                print("in script starting at "+hex(original_start_address)+\
                   " about to parse script at "+hex(script_pointer)+\
-                  " called by "+info+" byte="+hex(command_byte)
+                  " called by "+info+" byte="+hex(command_byte))
             script = rec_parse_script_engine_script_at(script_pointer, original_start_address, debug=debug)
             command["script_pointer"] = script_pointer
             command["script"] = script
@@ -1854,7 +1855,7 @@ def old_parse(self, *args, **kwargs):
             size = 1
             #end = True
             #raise NotImplementedError, "command byte is " + hex(command_byte) + " at " + hex(offset) + " on map " + str(map_group) + "." + str(map_id)
-            print "dunno what this command is: " + hex(command_byte)
+            print("dunno what this command is: " + hex(command_byte))
         long_info = clean_up_long_info(long_info)
 
         if command_byte in pksv_crystal.keys():
@@ -1867,7 +1868,7 @@ def old_parse(self, *args, **kwargs):
                 pksv_no_names[command_byte] = [address]
 
         if debug:
-            print command_debug_information(command_byte=command_byte, map_group=map_group, map_id=map_id, address=offset, info=info, long_info=long_info, pksv_name=pksv_name)
+            print(command_debug_information(command_byte=command_byte, map_group=map_group, map_id=map_id, address=offset, info=info, long_info=long_info, pksv_name=pksv_name))
 
         #store the size of the command
         command["size"] = size

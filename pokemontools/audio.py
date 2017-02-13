@@ -1,17 +1,18 @@
 # coding: utf-8
 
+from __future__ import absolute_import
 import os
 
 from math import ceil
 
-from song_names import song_names
-from sfx_names import sfx_names
-from cry_names import cry_names
+from .song_names import song_names
+from .sfx_names import sfx_names
+from .cry_names import cry_names
 
-from gbz80disasm import get_global_address, get_local_address
-from labels import line_has_label
-from crystal import music_classes as sound_classes
-from crystal import (
+from .gbz80disasm import get_global_address, get_local_address
+from .labels import line_has_label
+from .crystal import music_classes as sound_classes
+from .crystal import (
     Command,
     SingleByteParam,
     MultiByteParam,
@@ -22,7 +23,7 @@ from crystal import (
 rom = load_rom()
 rom = bytearray(rom)
 
-import configuration
+from . import configuration
 conf = configuration.Config()
 
 
@@ -299,7 +300,7 @@ class Channel:
 				self.address / 0x4000 != self.start_address / 0x4000
 			) and not done:
 				done = True
-				raise Exception, self.label + ': reached the end of the bank without finishing!'
+				raise Exception(self.label + ': reached the end of the bank without finishing!')
 
 		self.output += [(self.address, '; %x\n' % self.address, self.address)]
 

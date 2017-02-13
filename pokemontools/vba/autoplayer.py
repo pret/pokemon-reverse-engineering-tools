@@ -2,12 +2,14 @@
 """
 Programmatic speedrun of Pokémon Crystal
 """
+from __future__ import print_function
+from __future__ import absolute_import
 import os
 
 import pokemontools.configuration as configuration
 
 # bring in the emulator and basic tools
-import vba as _vba
+from . import vba as _vba
 
 def skippable(func):
     """
@@ -394,13 +396,13 @@ class SpeedRunner(Runner):
             self.cry.text_wait()
 
             hp = self.cry.get_enemy_hp()
-            print "enemy hp is: " + str(hp)
+            print("enemy hp is: " + str(hp))
 
             if hp == 0:
-                print "enemy hp is zero, exiting"
+                print("enemy hp is zero, exiting")
                 break
             else:
-                print "enemy hp is: " + str(hp)
+                print("enemy hp is: " + str(hp))
 
             attacks = attacks - 1
 
@@ -417,7 +419,7 @@ class SpeedRunner(Runner):
         # happens.
         self.cry.text_wait(max_wait=30, debug=True)
 
-        print "okay, back in the overworld"
+        print("okay, back in the overworld")
 
         cur_hp = ((self.cry.vba.memory[0xdd01] << 8) | self.cry.vba.memory[0xdd02])
         move_pp = self.cry.vba.memory[0xdcf6] # move 1 pp

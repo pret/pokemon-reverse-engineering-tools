@@ -1,4 +1,5 @@
-import gfx
+from __future__ import absolute_import
+from . import gfx
 
 def rip_sprites_from_bank(bank, offset=0):
     """

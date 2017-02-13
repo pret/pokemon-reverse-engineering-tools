@@ -2,12 +2,13 @@
 """
 Basic preprocessor for both pokecrystal and pokered.
 """
+from __future__ import absolute_import
 
 import os
 import sys
 
-import exceptions
-import crystal
+from . import exceptions
+from . import crystal
 
 chars = {
 "ガ": 0x05,
@@ -565,11 +566,11 @@ class Preprocessor(object):
         if show_original_lines:
             sys.stdout.write("; original_line: " + original_line)
 
-	# rgbasm can handle other macros too
+        # rgbasm can handle other macros too
         if "is_rgbasm_macro" in dir(macro):
             if macro.is_rgbasm_macro:
                 sys.stdout.write(original_line)
-	        return
+                return
 
         # certain macros don't need an initial byte written
         # do: all scripting macros
