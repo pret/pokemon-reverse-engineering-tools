@@ -4,8 +4,6 @@
 import json
 import os
 
-from __future__ import print_function
-
 #parse hex values as base 16 (see calculate_pointer)
 base = 16
 
@@ -339,7 +337,7 @@ def get_nth_map_header_pointer_bank_byte(map_id):
     assert_rom()
 
     address = get_nth_map_header_pointer_bank_byte_address(map_id)
-    bank_byte = ord(rom[address])
+    bank_byte = ord(rom[address:address+1])
     return bank_byte
 
 def get_nth_map_header_pointer(map_id):
@@ -351,8 +349,8 @@ def get_nth_map_header_pointer(map_id):
     byte2_address = start_map_header_pointers + (map_id * 2) + 1
 
     #grab the two bytes making up the partial pointer
-    byte1 = ord(rom[byte1_address])
-    byte2 = ord(rom[byte2_address])
+    byte1 = ord(rom[byte1_address:byte1_address+1])
+    byte2 = ord(rom[byte2_address:byte2_address+1])
 
     #swap the bytes (16-bit pointers for z80 are little endian)
     temp = byte1
@@ -391,26 +389,26 @@ def load_map_pointers():
     #print json.dumps(map_pointers)
 
 def read_connection_bytes(connection_bytes, bank):
-    map_id = ord(connection_bytes[0])
+    map_id = ord(connection_bytes[0:1])
     
     #connection strip
-    connected_map_tile_pointer_byte1 = ord(connection_bytes[1])
-    connected_map_tile_pointer_byte2 = ord(connection_bytes[2])
+    connected_map_tile_pointer_byte1 = ord(connection_bytes[1:2])
+    connected_map_tile_pointer_byte2 = ord(connection_bytes[2:3])
     connected_map_tile_pointer = (connected_map_tile_pointer_byte1 + (connected_map_tile_pointer_byte2 << 8))
 
     #connection strip
-    current_map_tile_pointer_byte1 = ord(connection_bytes[3])
-    current_map_tile_pointer_byte2 = ord(connection_bytes[4])
+    current_map_tile_pointer_byte1 = ord(connection_bytes[3:4])
+    current_map_tile_pointer_byte2 = ord(connection_bytes[4:5])
     current_map_tile_pointer = (current_map_tile_pointer_byte1 + (current_map_tile_pointer_byte2 << 8))
 
-    bigness_byte = ord(connection_bytes[5])
-    width_byte = ord(connection_bytes[6])
-    y = ord(connection_bytes[7])
-    x = ord(connection_bytes[8])
+    bigness_byte = ord(connection_bytes[5:6])
+    width_byte = ord(connection_bytes[6:7])
+    y = ord(connection_bytes[7:8])
+    x = ord(connection_bytes[8:9])
 
     #window
-    window_pointer_byte1 = ord(connection_bytes[9])
-    window_pointer_byte2 = ord(connection_bytes[10])
+    window_pointer_byte1 = ord(connection_bytes[9:10])
+    window_pointer_byte2 = ord(connection_bytes[10:11])
     window_pointer = (window_pointer_byte1 + (window_pointer_byte2 << 8))
 
     connection_data = {
@@ -431,10 +429,10 @@ def read_warp_data(address, warp_count):
         offset = address + (warp_id*4) #4 bytes per warp
         warp = {}
         
-        warp["y"] = ord(rom[offset])
-        warp["x"] = ord(rom[offset+1])
-        warp["warp_to_point"] = ord(rom[offset+2])
-        warp["warp_to_map_id"] = ord(rom[offset+3])
+        warp["y"] = ord(rom[offset:offset+1])
+        warp["x"] = ord(rom[offset+1:offset+2])
+        warp["warp_to_point"] = ord(rom[offset+2:offset+3])
+        warp["warp_to_map_id"] = ord(rom[offset+3:offset+4])
 
         warps[warp_id] = warp
     return warps
@@ -444,9 +442,9 @@ def read_sign_data(address, sign_count):
     for sign_id in range(0, sign_count):
         offset = address + (sign_id * 3)
         sign = {}
-        sign["y"] = ord(rom[offset])
-        sign["x"] = ord(rom[offset+1])
-        sign["text_id"] = ord(rom[offset+2])
+        sign["y"] = ord(rom[offset:offset+1])
+        sign["x"] = ord(rom[offset+1:offset+2])
+        sign["text_id"] = ord(rom[offset+2:offset+3])
         signs[sign_id] = sign
     return signs
 
@@ -455,9 +453,10 @@ def read_warp_tos(address, warp_count):
     for warp_to_id in range(0, warp_count):
         offset = address + (warp_to_id * 4)
         warp_to = {}
-        warp_to["event_displacement"] = [ord(rom[offset]),ord(rom[offset+1])]
-        warp_to["y"] = ord(rom[offset+2])
-        warp_to["x"] = ord(rom[offset+3])
+        warp_to["event_displacement"] = [ord(rom[offset:offset+1]),
+                                         ord(rom[offset+1:offset+2])]
+        warp_to["y"] = ord(rom[offset+2:offset+3])
+        warp_to["x"] = ord(rom[offset+3:offset+4])
         warp_tos[warp_to_id] = warp_to
     return warp_tos
 
@@ -465,9 +464,9 @@ def get_object_data(address):
     if type(address) == str: address = int(address, base)
     output = {}
 
-    maps_border_tile = ord(rom[address])
+    maps_border_tile = ord(rom[address:address+1])
     
-    number_of_warps = ord(rom[address+1])
+    number_of_warps = ord(rom[address+1:address+2])
     if number_of_warps == 0: warps = {}
     else:
         warps = read_warp_data(address+2, number_of_warps)
@@ -475,7 +474,7 @@ def get_object_data(address):
     offset = number_of_warps * 4
     address = address + 2 + offset
 
-    number_of_signs = ord(rom[address])
+    number_of_signs = ord(rom[address:address+1])
     if number_of_signs == 0: signs = {}
     else:
         signs = read_sign_data(address+1, number_of_signs)
@@ -483,29 +482,29 @@ def get_object_data(address):
     offset = number_of_signs * 3
     address = address + 1 + offset
 
-    number_of_things = ord(rom[address])
+    number_of_things = ord(rom[address:address+1])
     address = address + 1
 
     things = {}
     for thing_id in range(0, number_of_things):
         thing = {}
-        picture_number = ord(rom[address])
-        y = ord(rom[address+1])
-        x = ord(rom[address+2])
-        movement1 = ord(rom[address+3])
-        movement2 = ord(rom[address+4])
-        text_string_number = ord(rom[address+5])
+        picture_number = ord(rom[address:address+1])
+        y = ord(rom[address+1:address+2])
+        x = ord(rom[address+2:address+3])
+        movement1 = ord(rom[address+3:address+4])
+        movement2 = ord(rom[address+4:address+5])
+        text_string_number = ord(rom[address+5:address+6])
 
         address += 5 + 1
 
         if text_string_number & (1 << 6) != 0: #trainer
             thing["type"] = "trainer"
-            thing["trainer_type"] = ord(rom[address])
-            thing["pokemon_set"] = ord(rom[address+1])
+            thing["trainer_type"] = ord(rom[address:address+1])
+            thing["pokemon_set"] = ord(rom[address+1:address+2])
             address += 2
         elif text_string_number & (1 << 7) != 0: #item
             thing["type"] = "item"
-            thing["item_number"] = ord(rom[address])
+            thing["item_number"] = ord(rom[address:address+1])
             address += 1
         else: #normal person
             thing["type"] = "person"
@@ -568,26 +567,26 @@ def read_map_header(address, bank):
     address = int(address, base)
     bank = int(bank, base)
 
-    tileset = ord(rom[address])
-    y = ord(rom[address+1])
-    x = ord(rom[address+2])
+    tileset = ord(rom[address:address+1])
+    y = ord(rom[address+1:address+2])
+    x = ord(rom[address+2:address+3])
 
-    map_pointer_byte1 = ord(rom[address+3])
-    map_pointer_byte2 = ord(rom[address+4])
+    map_pointer_byte1 = ord(rom[address+3:address+4])
+    map_pointer_byte2 = ord(rom[address+4:address+5])
     partial_map_pointer = (map_pointer_byte1 + (map_pointer_byte2 << 8))
     map_pointer = calculate_pointer(partial_map_pointer, bank)
 
-    texts_pointer_byte1 = ord(rom[address+5])
-    texts_pointer_byte2 = ord(rom[address+6])
+    texts_pointer_byte1 = ord(rom[address+5:address+6])
+    texts_pointer_byte2 = ord(rom[address+6:address+7])
     partial_texts_pointer = (texts_pointer_byte1 + (texts_pointer_byte2 << 8))
     texts_pointer = calculate_pointer(partial_texts_pointer, bank)
 
-    script_pointer_byte1 = ord(rom[address+7])
-    script_pointer_byte2 = ord(rom[address+8])
+    script_pointer_byte1 = ord(rom[address+7:address+8])
+    script_pointer_byte2 = ord(rom[address+8:address+9])
     partial_script_pointer = (script_pointer_byte1 + ( script_pointer_byte2 << 8))
     script_pointer = calculate_pointer(partial_script_pointer, bank)
 
-    connection_byte = ord(rom[address+9]) #0xc = NORTH | SOUTH
+    connection_byte = ord(rom[address+9:address+10]) #0xc = NORTH | SOUTH
     # <&IIMarckus> the connection byte is a bitmask allowing 0-4 connections
     # <&IIMarckus> each connection is 11 bytes
     # <&IIMarckus> or'd
@@ -631,8 +630,8 @@ def read_map_header(address, bank):
     offset = address + 10 + (11 * num_connections)
 
     #object data
-    object_data_pointer_byte1 = ord(rom[offset])
-    object_data_pointer_byte2 = ord(rom[offset+1])
+    object_data_pointer_byte1 = ord(rom[offset:offset+1])
+    object_data_pointer_byte2 = ord(rom[offset+1:offset+2])
     partial_object_data_pointer = (object_data_pointer_byte1 + (object_data_pointer_byte2 << 8))
     object_data_pointer = calculate_pointer(partial_object_data_pointer, bank)
     object_data = get_object_data(object_data_pointer)
