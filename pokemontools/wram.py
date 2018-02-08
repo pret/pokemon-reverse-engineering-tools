@@ -6,6 +6,7 @@ RGBDS BSS section and constant parsing.
 import os
 import os.path
 
+const_value = 0
 
 def separate_comment(line):
     if ';' in line:
@@ -176,7 +177,18 @@ class BSSReader:
                         real = split_line[index]
                         name, value = map(' '.join, [split_line[:index], split_line[index+1:]])
                         value = rgbasm_to_py(value)
-                        self.constants[name] = eval(value, self.constants.copy())
+                        if value:
+                            global const_value
+                            if name == 'const_value':
+                                if value.startswith('const_value + 1'):
+                                    const_value += 1
+                                else: # const_def
+                                    const_value = eval(value)
+                            else: # name is a symbol
+                                if value.startswith('const_value'):
+                                    self.constants[name] = eval(value)
+                                else:
+                                    self.constants[name] = eval(value, self.constants.copy())
 
             else:
                 self.read_bss_line(line)
