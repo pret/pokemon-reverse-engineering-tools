@@ -53,12 +53,12 @@ class BSSReader:
     def __init__(self, *args, **kwargs):
         self.__dict__.update(kwargs)
 
-    def read_bss_line(self, l):
+    def read_bss_line(self, l, union_ignore_space):
         parts = l.strip().split(' ')
         token = parts[0].strip()
         params = ' '.join(parts[1:]).split(',')
 
-        if token in ['ds', 'db', 'dw']:
+        if token in ['ds', 'db', 'dw'] and not union_ignore_space:
             if any(params):
                 length = eval(rgbasm_to_py(params[0]), self.constants.copy())
             else:
@@ -100,6 +100,7 @@ class BSSReader:
 
         macro = False
         macro_name = None
+        union_ignore_space = False
         for line in bss:
             line = line.lstrip()
             line, comment = separate_comment(line)
@@ -109,6 +110,12 @@ class BSSReader:
 
             if not line:
                 pass
+
+            elif line[-5:].upper() == 'NEXTU':
+                union_ignore_space = True
+
+            elif line[-4:].upper() == 'ENDU':
+                union_ignore_space = False
 
             elif line[-4:].upper() == 'ENDM':
                 macro = False
@@ -168,7 +175,7 @@ class BSSReader:
                         'length': 0,
                     }
                     self.section['labels'] += [section_label]
-                    self.read_bss_line(line.split(':')[-1])
+                    self.read_bss_line(line.split(':')[-1], union_ignore_space)
 
             elif any(x in split_line_upper for x in ['EQU', '=', 'SET']): # TODO: refactor
                 for x in ['EQU', '=', 'SET']:
@@ -191,7 +198,7 @@ class BSSReader:
                                     self.constants[name] = eval(value, self.constants.copy())
 
             else:
-                self.read_bss_line(line)
+                self.read_bss_line(line, union_ignore_space)
 
         self.sections += [self.section]
         return self.sections
