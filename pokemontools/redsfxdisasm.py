@@ -1,6 +1,4 @@
-from __future__ import print_function
-from __future__ import absolute_import
-from . import configuration
+import configuration
 config = configuration.Config()
 rom = bytearray(open(config.rom_path, "r").read())
 
@@ -369,7 +367,6 @@ music_notes = {
 sfxnum = 0
 
 for bank in banks:
-	print(bank)
 	header = bank * 0x4000 + 3
 	for sfx in range(1,banks[bank]):
 		sfxname = sfx_names[sfxnum]
@@ -388,19 +385,23 @@ for bank in banks:
 			byte = rom[address]
 			if byte == 0xf8 or (bank == 2 and sfx == 0x5e): executemusic = True
 			else: executemusic = False
-			output += "{}_Ch{}: ; {:02x} ({:0x}:{:02x})\n".format(sfxname, curchannel, address, bank, address % 0x4000 + 0x4000)
+			output += "{}_Ch{}:\n".format(sfxname, channelnumber)
 			while 1:
 				if address == 0x2062a or address == 0x2063d or address == 0x20930:
 					output += "\n{}_branch_{:02x}:\n".format(sfxname, address)
 				if byte == 0x10 and not executemusic:
-					output += "\tunknownsfx0x{:02x} {}".format(byte, rom[address + 1])
+					param = rom[address + 1]
+					if param % 0x10 > 7:
+						output += "\tpitchenvelope {}, {}".format(param >> 4, (param & 0b0111) * -1)
+					else:
+						output += "\tpitchenvelope {}, {}".format(param >> 4, param % 0x10)
 					command_length = 2
 				elif byte < 0x30 and not executemusic:
 					if channelnumber == 7:
-						output += "\tunknownnoise0x20 {}, {}, {}".format(byte % 0x10, rom[address + 1], rom[address + 2])
+						output += "\tnoisenote {}, {}, {}".format(byte % 0x10, rom[address + 1], rom[address + 2])
 						command_length = 3
 					else:
-						output += "\tunknownsfx0x20 {}, {}, {}, {}".format(byte % 0x10, rom[address + 1], rom[address + 2], rom[address + 3])
+						output += "\tsquarenote {}, {}, {}, {}".format(byte % 0x10, rom[address + 1], rom[address + 2], rom[address + 3])
 						command_length = 4
 				elif byte < 0xc0:
 					output += "\t{} {}".format(music_notes[byte >> 4], byte % 0x10 + 1)
@@ -436,7 +437,7 @@ for bank in banks:
 							output += " {}".format(param * 0x100 + rom[address + 1])
 						else:
 							param += rom[address + 1] * 0x100 - 0x4000 + (bank * 0x4000)
-							if param == startingaddress: output += " {}_Ch{}".format(sfxname, curchannel)
+							if param == startingaddress: output += " {}_Ch{}".format(sfxname, channelnumber)
 							else: output += " {}_branch_{:02x}".format(sfxname, param)
 						params += 1
 						if params != len(music_commands[byte]) - 1: output += ","
