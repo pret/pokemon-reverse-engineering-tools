@@ -398,10 +398,28 @@ for bank in banks:
 					command_length = 2
 				elif byte < 0x30 and not executemusic:
 					if channelnumber == 7:
-						output += "\tnoisenote {}, {}, {}".format(byte % 0x10, rom[address + 1], rom[address + 2])
+						param = rom[address + 1]
+						if param & 0b111 == 0:
+							if param % 0x10 > 7:
+								output += "\tnoisenote {}, {}, {}, {}".format(byte % 0x10, param >> 4, 8, rom[address + 2])
+							else:
+								output += "\tnoisenote {}, {}, {}, {}".format(byte % 0x10, param >> 4, 0, rom[address + 2])
+						elif param % 0x10 > 7:
+							output += "\tnoisenote {}, {}, {}, {}".format(byte % 0x10, param >> 4, (param & 0b0111) * -1, rom[address + 2])
+						else:
+							output += "\tnoisenote {}, {}, {}, {}".format(byte % 0x10, param >> 4, param % 0x10, rom[address + 2])
 						command_length = 3
 					else:
-						output += "\tsquarenote {}, {}, {}, {}".format(byte % 0x10, rom[address + 1], rom[address + 2], rom[address + 3])
+						param = rom[address + 1]
+						if param & 0b111 == 0:
+							if param % 0x10 > 7:
+								output += "\tsquarenote {}, {}, {}, {}".format(byte % 0x10, param >> 4, 8, rom[address + 3] * 0x100 + rom[address + 2])
+							else:
+								output += "\tsquarenote {}, {}, {}, {}".format(byte % 0x10, param >> 4, 0, rom[address + 3] * 0x100 + rom[address + 2])
+						elif param % 0x10 > 7:
+							output += "\tsquarenote {}, {}, {}, {}".format(byte % 0x10, param >> 4, (param & 0b0111) * -1, rom[address + 3] * 0x100 + rom[address + 2])
+						else:
+							output += "\tsquarenote {}, {}, {}, {}".format(byte % 0x10, param >> 4, param % 0x10, rom[address + 3] * 0x100 + rom[address + 2])
 						command_length = 4
 				elif byte < 0xc0:
 					output += "\t{} {}".format(music_notes[byte >> 4], byte % 0x10 + 1)
