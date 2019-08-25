@@ -92,7 +92,7 @@ music_commands = {
 	0xea: { "name": "vibrato",              "params": [ "byte", "nibbles" ] },
 	0xeb: { "name": "pitch_slide",          "params": [ "byte_off_by_one", "nibbles_octave_note" ] },
 	0xec: { "name": "duty_cycle",           "params": [ "byte" ] },
-	0xed: { "name": "tempo",                "params": [ "word" ] },
+	0xed: { "name": "tempo",                "params": [ "word_big_endian" ] },
 	0xee: { "name": "stereo_panning",       "params": [ "nibbles_binary" ] },
 	0xf0: { "name": "volume",               "params": [ "nibbles" ] },
 	0xf8: { "name": "execute_music",        "params": [] },
@@ -115,7 +115,7 @@ param_lengths = {
 	"nibbles_octave_note":     1,
 	"byte":                    1,
 	"byte_off_by_one":         1,
-	"word":                    2,
+	"word_big_endian":         2,
 	"label":                   2,
 }
 
@@ -267,14 +267,14 @@ def dump_channel(start_address, end_address, song_name, channel, labels):
 			elif param_type == "nibbles_binary":
 				output += " %{:b}, %{:b}".format(param >> 4, param & 0b1111)
 			elif param_type == "nibbles_unsigned_signed":
-				output += " {}, {}".format(param >> 4, (param & 0b0111) * (-1 if param & 0b1000 else 1))
+				output += " {}, {}".format(param >> 4, param & 0b1111 if param & 0b1111 <= 8 else (param & 0b0111) * -1)
 			elif param_type == "nibbles_octave_note":
 				output += " {}, {}".format(8 - (param >> 4), music_notes[param & 0b1111])
 			elif param_type == "byte":
 				output += " {}".format(param)
 			elif param_type == "byte_off_by_one":
 				output += " {}".format(param + 1)
-			elif param_type == "word":
+			elif param_type == "word_big_endian":
 				output += " {}".format(param * 0x100 + rom[address + 1])
 			elif param_type == "label":
 				param = get_pointer(address)

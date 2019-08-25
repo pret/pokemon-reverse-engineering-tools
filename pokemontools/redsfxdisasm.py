@@ -1,27 +1,125 @@
-import configuration
-config = configuration.Config()
-rom = bytearray(open(config.rom_path, "r").read())
+#!/usr/bin/env python
 
-sfx_names = [
-	"Snare1_2",
-	"Snare2_2",
-	"Snare3_2",
-	"Snare4_2",
-	"Snare5_2",
-	"Triangle1_2",
-	"Triangle2_2",
-	"Snare6_2",
-	"Snare7_2",
-	"Snare8_2",
-	"Snare9_2",
-	"Cymbal1_2",
-	"Cymbal2_2",
-	"Cymbal3_2",
-	"Muted_Snare1_2",
-	"Triangle3_2",
-	"Muted_Snare2_2",
-	"Muted_Snare3_2",
-	"Muted_Snare4_2",
+rom = bytearray(open("baserom.gbc", "rb").read())
+
+sfx_names_1 = [
+	"Noise_Instrument01_1",
+	"Noise_Instrument02_1",
+	"Noise_Instrument03_1",
+	"Noise_Instrument04_1",
+	"Noise_Instrument05_1",
+	"Noise_Instrument06_1",
+	"Noise_Instrument07_1",
+	"Noise_Instrument08_1",
+	"Noise_Instrument09_1",
+	"Noise_Instrument10_1",
+	"Noise_Instrument11_1",
+	"Noise_Instrument12_1",
+	"Noise_Instrument13_1",
+	"Noise_Instrument14_1",
+	"Noise_Instrument15_1",
+	"Noise_Instrument16_1",
+	"Noise_Instrument17_1",
+	"Noise_Instrument18_1",
+	"Noise_Instrument19_1",
+	"Cry00_1",
+	"Cry01_1",
+	"Cry02_1",
+	"Cry03_1",
+	"Cry04_1",
+	"Cry05_1",
+	"Cry06_1",
+	"Cry07_1",
+	"Cry08_1",
+	"Cry09_1",
+	"Cry0A_1",
+	"Cry0B_1",
+	"Cry0C_1",
+	"Cry0D_1",
+	"Cry0E_1",
+	"Cry0F_1",
+	"Cry10_1",
+	"Cry11_1",
+	"Cry12_1",
+	"Cry13_1",
+	"Cry14_1",
+	"Cry15_1",
+	"Cry16_1",
+	"Cry17_1",
+	"Cry18_1",
+	"Cry19_1",
+	"Cry1A_1",
+	"Cry1B_1",
+	"Cry1C_1",
+	"Cry1D_1",
+	"Cry1E_1",
+	"Cry1F_1",
+	"Cry20_1",
+	"Cry21_1",
+	"Cry22_1",
+	"Cry23_1",
+	"Cry24_1",
+	"Cry25_1",
+	"Get_Item1_1",
+	"Get_Item2_1",
+	"Tink_1",
+	"Heal_HP_1",
+	"Heal_Ailment_1",
+	"Start_Menu_1",
+	"Press_AB_1",
+	"Pokedex_Rating_1",
+	"Get_Key_Item_1",
+	"Poisoned_1",
+	"Trade_Machine_1",
+	"Turn_On_PC_1",
+	"Turn_Off_PC_1",
+	"Enter_PC_1",
+	"Shrink_1",
+	"Switch_1",
+	"Healing_Machine_1",
+	"Teleport_Exit1_1",
+	"Teleport_Enter1_1",
+	"Teleport_Exit2_1",
+	"Ledge_1",
+	"Teleport_Enter2_1",
+	"Fly_1",
+	"Denied_1",
+	"Arrow_Tiles_1",
+	"Push_Boulder_1",
+	"SS_Anne_Horn_1",
+	"Withdraw_Deposit_1",
+	"Cut_1",
+	"Go_Inside_1",
+	"Swap_1",
+	"59_1",
+	"Purchase_1",
+	"Collision_1",
+	"Go_Outside_1",
+	"Save_1",
+	"Pokeflute",
+	"Safari_Zone_PA",
+]
+
+sfx_names_2 = [
+	"Noise_Instrument01_2",
+	"Noise_Instrument02_2",
+	"Noise_Instrument03_2",
+	"Noise_Instrument04_2",
+	"Noise_Instrument05_2",
+	"Noise_Instrument06_2",
+	"Noise_Instrument07_2",
+	"Noise_Instrument08_2",
+	"Noise_Instrument09_2",
+	"Noise_Instrument10_2",
+	"Noise_Instrument11_2",
+	"Noise_Instrument12_2",
+	"Noise_Instrument13_2",
+	"Noise_Instrument14_2",
+	"Noise_Instrument15_2",
+	"Noise_Instrument16_2",
+	"Noise_Instrument17_2",
+	"Noise_Instrument18_2",
+	"Noise_Instrument19_2",
 	"Cry00_2",
 	"Cry01_2",
 	"Cry02_2",
@@ -122,120 +220,28 @@ sfx_names = [
 	"Battle_35",
 	"Battle_36",
 	"Silph_Scope",
-	"Snare1_1",
-	"Snare2_1",
-	"Snare3_1",
-	"Snare4_1",
-	"Snare5_1",
-	"Triangle1_1",
-	"Triangle2_1",
-	"Snare6_1",
-	"Snare7_1",
-	"Snare8_1",
-	"Snare9_1",
-	"Cymbal1_1",
-	"Cymbal2_1",
-	"Cymbal3_1",
-	"Muted_Snare1_1",
-	"Triangle3_1",
-	"Muted_Snare2_1",
-	"Muted_Snare3_1",
-	"Muted_Snare4_1",
-	"Cry00_1",
-	"Cry01_1",
-	"Cry02_1",
-	"Cry03_1",
-	"Cry04_1",
-	"Cry05_1",
-	"Cry06_1",
-	"Cry07_1",
-	"Cry08_1",
-	"Cry09_1",
-	"Cry0A_1",
-	"Cry0B_1",
-	"Cry0C_1",
-	"Cry0D_1",
-	"Cry0E_1",
-	"Cry0F_1",
-	"Cry10_1",
-	"Cry11_1",
-	"Cry12_1",
-	"Cry13_1",
-	"Cry14_1",
-	"Cry15_1",
-	"Cry16_1",
-	"Cry17_1",
-	"Cry18_1",
-	"Cry19_1",
-	"Cry1A_1",
-	"Cry1B_1",
-	"Cry1C_1",
-	"Cry1D_1",
-	"Cry1E_1",
-	"Cry1F_1",
-	"Cry20_1",
-	"Cry21_1",
-	"Cry22_1",
-	"Cry23_1",
-	"Cry24_1",
-	"Cry25_1",
-	"Get_Item1_1",
-	"Get_Item2_1",
-	"Tink_1",
-	"Heal_HP_1",
-	"Heal_Ailment_1",
-	"Start_Menu_1",
-	"Press_AB_1",
-	"Pokedex_Rating_1",
-	"Get_Key_Item_1",
-	"Poisoned_1",
-	"Trade_Machine_1",
-	"Turn_On_PC_1",
-	"Turn_Off_PC_1",
-	"Enter_PC_1",
-	"Shrink_1",
-	"Switch_1",
-	"Healing_Machine_1",
-	"Teleport_Exit1_1",
-	"Teleport_Enter1_1",
-	"Teleport_Exit2_1",
-	"Ledge_1",
-	"Teleport_Enter2_1",
-	"Fly_1",
-	"Denied_1",
-	"Arrow_Tiles_1",
-	"Push_Boulder_1",
-	"SS_Anne_Horn_1",
-	"Withdraw_Deposit_1",
-	"Cut_1",
-	"Go_Inside_1",
-	"Swap_1",
-	"59_1",
-	"Purchase_1",
-	"Collision_1",
-	"Go_Outside_1",
-	"Save_1",
-	"Pokeflute",
-	"Safari_Zone_PA",
-	"Snare1_3",
-	"Snare2_3",
-	"Snare3_3",
-	"Snare4_3",
-	"Snare5_3",
-	"Triangle1_3",
-	"Triangle2_3",
-	"Snare6_3",
-	"Snare7_3",
-	"Snare8_3",
-	"Snare9_3",
-	"Cymbal1_3",
-	"Cymbal2_3",
-	"Cymbal3_3",
-	"Muted_Snare1_3",
-	"Triangle3_3",
-	"Muted_Snare2_3",
-	"Muted_Snare3_3",
-	"Muted_Snare4_3",
+]
+
+sfx_names_3 = [
+	"Noise_Instrument01_3",
+	"Noise_Instrument02_3",
+	"Noise_Instrument03_3",
+	"Noise_Instrument04_3",
+	"Noise_Instrument05_3",
+	"Noise_Instrument06_3",
+	"Noise_Instrument07_3",
+	"Noise_Instrument08_3",
+	"Noise_Instrument09_3",
+	"Noise_Instrument10_3",
+	"Noise_Instrument11_3",
+	"Noise_Instrument12_3",
+	"Noise_Instrument13_3",
+	"Noise_Instrument14_3",
+	"Noise_Instrument15_3",
+	"Noise_Instrument16_3",
+	"Noise_Instrument17_3",
+	"Noise_Instrument18_3",
+	"Noise_Instrument19_3",
 	"Cry00_3",
 	"Cry01_3",
 	"Cry02_3",
@@ -320,35 +326,58 @@ sfx_names = [
 	"Slots_Reward",
 	"Slots_New_Spin",
 	"Shooting_Star",
-	]
+]
 
-banks = {
-	0x02: 0x60,
-	0x08: 0x78,
-	0x1f: 0x68,
-	}
+sfx_groups = {
+	0x02: sfx_names_1,
+	0x08: sfx_names_2,
+	0x1f: sfx_names_3,
+}
 
+# music command names and parameter lists
 music_commands = {
-	0xd0: ["notetype", {"type": "nibble"}, 2],
-	0xe0: ["octave", 1],
-	0xe8: ["toggleperfectpitch", 1],
-	0xea: ["vibrato", {"type": "byte"}, {"type": "nibble"}, 3],
-	0xec: ["duty", {"type": "byte"}, 2],
-	0xed: ["tempo", {"type": "word"}, 3],
-	0xf0: ["volume", {"type": "nibble"}, 2],
-	0xf8: ["executemusic", 1],
-	0xfc: ["dutycycle", {"type": "byte"}, 2],
-	0xfe: ["loopchannel", {"type": "byte"}, {"type": "label"}, 4],
-	0xff: ["endchannel", 1],
-	}
+	0x00: { "name": "note",                 "params": [ "note", "lower_nibble_off_by_one" ] },
+	0x10: { "name": "pitch_sweep",          "params": [ "nibbles_unsigned_signed" ] },
+	0x20: { "name": "square_note",          "params": [ "lower_nibble", "nibbles_unsigned_signed", "word" ] },
+	0x21: { "name": "noise_note",           "params": [ "lower_nibble", "nibbles_unsigned_signed", "byte" ] },
+	0xb0: { "name": "dnote",                "params": [ "byte", "lower_nibble_off_by_one" ] },
+	0xc0: { "name": "rest",                 "params": [ "lower_nibble_off_by_one" ] },
+	0xd0: { "name": "note_type",            "params": [ "lower_nibble", "nibbles_unsigned_signed" ] },
+	0xd1: { "name": "dspeed",               "params": [ "lower_nibble" ] },
+	0xe0: { "name": "octave",               "params": [ "octave" ] },
+	0xe8: { "name": "toggle_perfect_pitch", "params": [] },
+	0xea: { "name": "vibrato",              "params": [ "byte", "nibbles" ] },
+	0xeb: { "name": "pitch_slide",          "params": [ "byte_off_by_one", "nibbles_octave_note" ] },
+	0xec: { "name": "duty_cycle",           "params": [ "byte" ] },
+	0xed: { "name": "tempo",                "params": [ "word_big_endian" ] },
+	0xee: { "name": "stereo_panning",       "params": [ "nibbles_binary" ] },
+	0xf0: { "name": "volume",               "params": [ "nibbles" ] },
+	0xf8: { "name": "execute_music",        "params": [] },
+	0xfc: { "name": "duty_cycle_pattern",   "params": [ "crumbs" ] },
+	0xfd: { "name": "sound_call",           "params": [ "label" ] },
+	0xfe: { "name": "sound_loop",           "params": [ "byte", "label" ] },
+	0xff: { "name": "sound_ret",            "params": [] },
+}
 
+# length in bytes of each type of parameter
 param_lengths = {
-	"nibble": 1,
-	"byte": 1,
-	"word": 2,
-	"label": 2,
-	}
+	"note":                    0,
+	"lower_nibble":            0,
+	"lower_nibble_off_by_one": 0,
+	"octave":                  0,
+	"crumbs":                  1,
+	"nibbles":                 1,
+	"nibbles_binary":          1,
+	"nibbles_unsigned_signed": 1,
+	"nibbles_octave_note":     1,
+	"byte":                    1,
+	"byte_off_by_one":         1,
+	"word":                    2,
+	"word_big_endian":         2,
+	"label":                   2,
+}
 
+# constants used for note commands
 music_notes = {
 	0x0: "C_",
 	0x1: "C#",
@@ -362,114 +391,140 @@ music_notes = {
 	0x9: "A_",
 	0xa: "A#",
 	0xb: "B_",
-	}
+}
 
-sfxnum = 0
+# get length in bytes of a music command by ID
+# returns 1 (command ID) + length of all params
+def get_command_length(command_id):
+	length = 1
+	for param in music_commands[command_id]["params"]:
+		length += param_lengths[param]
+	return length
 
-for bank in banks:
-	header = bank * 0x4000 + 3
-	for sfx in range(1,banks[bank]):
-		sfxname = sfx_names[sfxnum]
-		sfxfile = open("music/sfx/" + sfx_names[sfxnum].lower() + ".asm", 'w')
-		sfxname = "SFX_" + sfxname
-		startingaddress = rom[header + 2] * 0x100 + rom[header + 1] + (0x4000 * (bank - 1))
-		end = 0
-		curchannel = 1
-		lastchannel = (rom[header] >> 6) + 1
-		channelnumber = rom[header] % 0x10
-		output = ''
-		while 1:
-			address = startingaddress
-			if curchannel != lastchannel:
-				end = rom[header + 5] * 0x100 + rom[header + 4] + (0x4000 * (bank - 1))
-			byte = rom[address]
-			if byte == 0xf8 or (bank == 2 and sfx == 0x5e): executemusic = True
-			else: executemusic = False
-			output += "{}_Ch{}:\n".format(sfxname, channelnumber)
-			while 1:
-				if address == 0x2062a or address == 0x2063d or address == 0x20930:
-					output += "\n{}_branch_{:02x}:\n".format(sfxname, address)
-				if byte == 0x10 and not executemusic:
-					param = rom[address + 1]
-					if param % 0x10 > 7:
-						output += "\tpitchenvelope {}, {}".format(param >> 4, (param & 0b0111) * -1)
-					else:
-						output += "\tpitchenvelope {}, {}".format(param >> 4, param % 0x10)
-					command_length = 2
-				elif byte < 0x30 and not executemusic:
-					if channelnumber == 7:
-						param = rom[address + 1]
-						if param & 0b111 == 0:
-							if param % 0x10 > 7:
-								output += "\tnoisenote {}, {}, {}, {}".format(byte % 0x10, param >> 4, 8, rom[address + 2])
-							else:
-								output += "\tnoisenote {}, {}, {}, {}".format(byte % 0x10, param >> 4, 0, rom[address + 2])
-						elif param % 0x10 > 7:
-							output += "\tnoisenote {}, {}, {}, {}".format(byte % 0x10, param >> 4, (param & 0b0111) * -1, rom[address + 2])
-						else:
-							output += "\tnoisenote {}, {}, {}, {}".format(byte % 0x10, param >> 4, param % 0x10, rom[address + 2])
-						command_length = 3
-					else:
-						param = rom[address + 1]
-						if param & 0b111 == 0:
-							if param % 0x10 > 7:
-								output += "\tsquarenote {}, {}, {}, {}".format(byte % 0x10, param >> 4, 8, rom[address + 3] * 0x100 + rom[address + 2])
-							else:
-								output += "\tsquarenote {}, {}, {}, {}".format(byte % 0x10, param >> 4, 0, rom[address + 3] * 0x100 + rom[address + 2])
-						elif param % 0x10 > 7:
-							output += "\tsquarenote {}, {}, {}, {}".format(byte % 0x10, param >> 4, (param & 0b0111) * -1, rom[address + 3] * 0x100 + rom[address + 2])
-						else:
-							output += "\tsquarenote {}, {}, {}, {}".format(byte % 0x10, param >> 4, param % 0x10, rom[address + 3] * 0x100 + rom[address + 2])
-						command_length = 4
-				elif byte < 0xc0:
-					output += "\t{} {}".format(music_notes[byte >> 4], byte % 0x10 + 1)
-					command_length = 1
-				elif byte < 0xd0:
-					output += "\trest {}".format(byte % 0x10 + 1)
-					command_length = 1
+def get_base_command_id(command_id, channel, execute_music):
+	# pitch_sweep
+	if command_id == 0x10 and not execute_music:
+		return 0x10
+	# noise_note
+	elif command_id < 0x30 and not execute_music and channel == 8:
+		return 0x21
+	# square_note
+	elif command_id < 0x30 and not execute_music:
+		return 0x20
+	# dnote
+	elif command_id < 0xc0 and channel == 4:
+		return 0xb0
+	# dspeed
+	elif command_id >= 0xd0 and command_id < 0xe0 and channel == 4:
+		return 0xd1
+	# note
+	elif command_id < 0xc0:
+		return 0x00
+	# rest
+	elif command_id < 0xd0:
+		return 0xc0
+	# notetype
+	elif command_id < 0xe0:
+		return 0xd0
+	# octave
+	elif command_id < 0xe8:
+		return 0xe0
+	else:
+		return command_id
+
+# get absolute pointer stored at an address in the rom
+# assumes the pointer refers to the same bank as the bank it is located in
+def get_pointer(address):
+	bank = int(address / 0x4000)
+	return (rom[address + 1] * 0x100 + rom[address]) % 0x4000 + bank * 0x4000
+
+def dump_sfx_channel(start_address, sfx_name, sfx, channel, final_channel, channel_number, header, bank):
+	address = start_address
+	end_address = 0
+	if channel != final_channel:
+		end_address = get_pointer(header + 4)
+	execute_music = False
+	if rom[address] == 0xf8 or sfx_name == "Pokeflute":
+		execute_music = True
+	output = "SFX_{}_Ch{}:\n".format(sfx_name, channel_number)
+	while 1:
+		if address == 0x2062a or address == 0x2063d or address == 0x20930:
+			output += "\nSFX_{}_branch_{:02x}:\n".format(sfx_name, address)
+		command_id = rom[address]
+		command = music_commands[get_base_command_id(command_id, channel_number, execute_music)]
+		output += "\t{}".format(command["name"])
+		address += 1
+		# print all params for current command
+		for i in range(len(command["params"])):
+			param = rom[address]
+			param_type = command["params"][i]
+			param_length = param_lengths[param_type]
+			if param_type == "note":
+				output += " {}".format(music_notes[command_id >> 4])
+			elif param_type == "lower_nibble":
+				output += " {}".format(command_id & 0b1111)
+			elif param_type == "lower_nibble_off_by_one":
+				output += " {}".format((command_id & 0b1111) + 1)
+			elif param_type == "octave":
+				output += " {}".format(8 - (command_id & 0b1111))
+			elif param_type == "crumbs":
+				output += " {}, {}, {}, {}".format((param >> 6) & 0b11, (param >> 4) & 0b11, (param >> 2) & 0b11, (param >> 0) & 0b11)
+			elif param_type == "nibbles":
+				output += " {}, {}".format(param >> 4, param & 0b1111)
+			elif param_type == "nibbles_binary":
+				output += " %{:b}, %{:b}".format(param >> 4, param & 0b1111)
+			elif param_type == "nibbles_unsigned_signed":
+				output += " {}, {}".format(param >> 4, param & 0b1111 if param & 0b1111 <= 8 else (param & 0b0111) * -1)
+			elif param_type == "nibbles_octave_note":
+				output += " {}, {}".format(8 - (param >> 4), music_notes[param & 0b1111])
+			elif param_type == "byte":
+				output += " {}".format(param)
+			elif param_type == "byte_off_by_one":
+				output += " {}".format(param + 1)
+			elif param_type == "word":
+				output += " {}".format(param + rom[address + 1] * 0x100)
+			elif param_type == "word_big_endian":
+				output += " {}".format(param * 0x100 + rom[address + 1])
+			elif param_type == "label":
+				param = get_pointer(address)
+				if param == start_address:
+					output += " SFX_{}_Ch{}".format(sfx_name, channel_number)
 				else:
-					if byte < 0xe0:
-						command = music_commands[0xd0]
-						output += "\t{} {},".format(command[0], byte % 0x10)
-						byte = 0xd0
-					elif byte < 0xe8:
-						command = music_commands[0xe0]
-						output += "\t{} {}".format(command[0], 0xe8 - byte)
-						byte = 0xe0
-					else:
-						command = music_commands[byte]
-						output += "\t{}".format(command[0])
-					command_length = 1
-					params = 1
-					# print all params for current command
-					while params != len(music_commands[byte]) - 1:
-						param_type = music_commands[byte][params]["type"]
-						address += command_length
-						command_length = param_lengths[param_type]
-						param = rom[address]
-						if param_type == "nibble":
-							output += " {}, {}".format(param >> 4, param % 0x10)
-						elif param_type == "byte":
-							output += " {}".format(param)
-						elif param_type == "word":
-							output += " {}".format(param * 0x100 + rom[address + 1])
-						else:
-							param += rom[address + 1] * 0x100 - 0x4000 + (bank * 0x4000)
-							if param == startingaddress: output += " {}_Ch{}".format(sfxname, channelnumber)
-							else: output += " {}_branch_{:02x}".format(sfxname, param)
-						params += 1
-						if params != len(music_commands[byte]) - 1: output += ","
-				output += "\n"
-				address += command_length
-				if byte == 0xff or address == end: break
-				byte = rom[address]
+					output += " SFX_{}_branch_{:x}".format(sfx_name, param)
+			address += param_length
+			if i < len(command["params"]) - 1:
+				output += ","
+		output += "\n"
+		if command_id == 0xff or address == end_address:
+			break
+	return output, address
+
+def dump_all_sfx_in_bank(bank, sfx_names, path):
+	header = bank * 0x4000 + 3
+	for sfx in range(0, len(sfx_names)):
+		sfx_name = sfx_names[sfx]
+		final_channel = (rom[header] >> 6) + 1
+		channel_number = rom[header] % 0x10 + 1
+		start_address = get_pointer(header + 1)
+		cur_channel = 1
+		output = ""
+		while 1:
+			channel_output, end_address = dump_sfx_channel(start_address, sfx_name, sfx, cur_channel, final_channel, channel_number, header, bank)
+			output += channel_output
 			header += 3
-			channelnumber = rom[header]
-			if curchannel == lastchannel:
-			#	output += "; {}".format(hex(address))
-				sfxfile.write(output)
+			if cur_channel == final_channel:
 				break
+			cur_channel += 1
+			channel_number = rom[header] + 1
 			output += "\n\n"
-			startingaddress = address
-			curchannel += 1
-		sfxnum += 1
+			start_address = end_address
+		sfx_file = open(path + sfx_name.lower() + ".asm", "w")
+		sfx_file.write(output)
+		sfx_file.close()
+
+def dump_all_sfx(path):
+	for bank in sfx_groups:
+		dump_all_sfx_in_bank(bank, sfx_groups[bank], path)
+
+if __name__ == "__main__":
+	dump_all_sfx("audio/sfx/")
