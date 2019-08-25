@@ -1,28 +1,27 @@
-from __future__ import absolute_import
-from . import configuration
-config = configuration.Config()
-rom = bytearray(open(config.rom_path, "r").read())
+#!/usr/bin/env python
 
-sfx_names = [
-	"Snare1_1",
-	"Snare2_1",
-	"Snare3_1",
-	"Snare4_1",
-	"Snare5_1",
-	"Triangle1_1",
-	"Triangle2_1",
-	"Snare6_1",
-	"Snare7_1",
-	"Snare8_1",
-	"Snare9_1",
-	"Cymbal1_1",
-	"Cymbal2_1",
-	"Cymbal3_1",
-	"Muted_Snare1_1",
-	"Triangle3_1",
-	"Muted_Snare2_1",
-	"Muted_Snare3_1",
-	"Muted_Snare4_1",
+rom = bytearray(open("baserom.gbc", "rb").read())
+
+sfx_names_1 = [
+	"Noise_Instrument01_1",
+	"Noise_Instrument02_1",
+	"Noise_Instrument03_1",
+	"Noise_Instrument04_1",
+	"Noise_Instrument05_1",
+	"Noise_Instrument06_1",
+	"Noise_Instrument07_1",
+	"Noise_Instrument08_1",
+	"Noise_Instrument09_1",
+	"Noise_Instrument10_1",
+	"Noise_Instrument11_1",
+	"Noise_Instrument12_1",
+	"Noise_Instrument13_1",
+	"Noise_Instrument14_1",
+	"Noise_Instrument15_1",
+	"Noise_Instrument16_1",
+	"Noise_Instrument17_1",
+	"Noise_Instrument18_1",
+	"Noise_Instrument19_1",
 	"Cry00_1",
 	"Cry01_1",
 	"Cry02_1",
@@ -99,25 +98,28 @@ sfx_names = [
 	"Save_1",
 	"Pokeflute",
 	"Safari_Zone_PA",
-	"Snare1_2",
-	"Snare2_2",
-	"Snare3_2",
-	"Snare4_2",
-	"Snare5_2",
-	"Triangle1_2",
-	"Triangle2_2",
-	"Snare6_2",
-	"Snare7_2",
-	"Snare8_2",
-	"Snare9_2",
-	"Cymbal1_2",
-	"Cymbal2_2",
-	"Cymbal3_2",
-	"Muted_Snare1_2",
-	"Triangle3_2",
-	"Muted_Snare2_2",
-	"Muted_Snare3_2",
-	"Muted_Snare4_2",
+]
+
+sfx_names_2 = [
+	"Noise_Instrument01_2",
+	"Noise_Instrument02_2",
+	"Noise_Instrument03_2",
+	"Noise_Instrument04_2",
+	"Noise_Instrument05_2",
+	"Noise_Instrument06_2",
+	"Noise_Instrument07_2",
+	"Noise_Instrument08_2",
+	"Noise_Instrument09_2",
+	"Noise_Instrument10_2",
+	"Noise_Instrument11_2",
+	"Noise_Instrument12_2",
+	"Noise_Instrument13_2",
+	"Noise_Instrument14_2",
+	"Noise_Instrument15_2",
+	"Noise_Instrument16_2",
+	"Noise_Instrument17_2",
+	"Noise_Instrument18_2",
+	"Noise_Instrument19_2",
 	"Cry00_2",
 	"Cry01_2",
 	"Cry02_2",
@@ -218,25 +220,28 @@ sfx_names = [
 	"Battle_35",
 	"Battle_36",
 	"Silph_Scope",
-	"Snare1_3",
-	"Snare2_3",
-	"Snare3_3",
-	"Snare4_3",
-	"Snare5_3",
-	"Triangle1_3",
-	"Triangle2_3",
-	"Snare6_3",
-	"Snare7_3",
-	"Snare8_3",
-	"Snare9_3",
-	"Cymbal1_3",
-	"Cymbal2_3",
-	"Cymbal3_3",
-	"Muted_Snare1_3",
-	"Triangle3_3",
-	"Muted_Snare2_3",
-	"Muted_Snare3_3",
-	"Muted_Snare4_3",
+]
+
+sfx_names_3 = [
+	"Noise_Instrument01_3",
+	"Noise_Instrument02_3",
+	"Noise_Instrument03_3",
+	"Noise_Instrument04_3",
+	"Noise_Instrument05_3",
+	"Noise_Instrument06_3",
+	"Noise_Instrument07_3",
+	"Noise_Instrument08_3",
+	"Noise_Instrument09_3",
+	"Noise_Instrument10_3",
+	"Noise_Instrument11_3",
+	"Noise_Instrument12_3",
+	"Noise_Instrument13_3",
+	"Noise_Instrument14_3",
+	"Noise_Instrument15_3",
+	"Noise_Instrument16_3",
+	"Noise_Instrument17_3",
+	"Noise_Instrument18_3",
+	"Noise_Instrument19_3",
 	"Cry00_3",
 	"Cry01_3",
 	"Cry02_3",
@@ -321,40 +326,40 @@ sfx_names = [
 	"Slots_Reward",
 	"Slots_New_Spin",
 	"Shooting_Star",
-	]
+]
 
-headerlist = (
-	["sfxheaders02.asm", 0x8003, 0x822e],
-	["sfxheaders08.asm", 0x20003, 0x202be],
-	["sfxheaders1f.asm", 0x7c003, 0x7c249],
-	)
+sfx_banks = [
+	0x02,
+	0x08,
+	0x1f,
+]
 
-def printsfxheaders(filename, address, end, sfxnum):
-	file = open(filename, 'w')
-	bank = address / 0x4000
-	byte = rom[address]
-	sfx = 1
-	channel = 1
-	file.write("SFX_Headers_{:02x}::\n".format(bank))
+sfx_groups = {
+	0x02: sfx_names_1,
+	0x08: sfx_names_2,
+	0x1f: sfx_names_3,
+}
+
+def dump_all_sfx_headers_in_bank(bank, sfx_names, path, i):
+	file = open(path + "sfxheaders" + str(i) + ".asm", "w")
+	file.write("SFX_Headers_{}::\n".format(i))
 	file.write("\tdb $ff, $ff, $ff ; padding\n")
-	while address != end:
-		left = (byte >> 6) + 1
-		file.write("\nSFX_{}:: ; {:02x} ({:0x}:{:02x})\n".format(sfx_names[sfxnum], address, bank, address % 0x4000 + 0x4000))
-		while left != 0:
-			pointer = rom[address + 2] * 0x100 + rom[address + 1]
-			if byte >> 4 != 0: file.write("	db ( ${:0x}0 | CH{:0x} )\n".format(byte >> 4, byte % 0x10))
-			else: file.write("\tdb CH{:0x}\n".format(byte))
-			file.write("\tdw SFX_{}_Ch{}\n".format(sfx_names[sfxnum], channel))
+	address = bank * 0x4000 + 3
+	for sfx_name in sfx_names:
+		file.write("\nSFX_{}::\n".format(sfx_name))
+		file.write("\taudio_header SFX_{}".format(sfx_name))
+		num_channels = (rom[address] >> 6) + 1
+		for channel in range(num_channels):
+			file.write(", Ch{}".format(rom[address] % 0x10 + 1))
 			address += 3
-			byte = rom[address]
-			channel += 1
-			left -= 1
-		channel = 1
-		sfx += 1
-		sfxnum += 1
-	#file.write("\n; {}".format(hex(address)))
-	return sfxnum
+		file.write("\n")
+	file.close()
 
-sfxnum = 0
-for header in headerlist:
-	sfxnum = printsfxheaders(header[0], header[1], header[2], sfxnum)
+def dump_all_sfx_headers(path):
+	import os
+	os.makedirs(path, exist_ok=True)
+	for i, bank in enumerate(sfx_banks):
+		dump_all_sfx_headers_in_bank(bank, sfx_groups[bank], path, i + 1)
+
+if __name__ == "__main__":
+	dump_all_sfx_headers("audio/headers/")

@@ -523,6 +523,8 @@ def dump_all_sfx_in_bank(bank, sfx_names, path):
 		sfx_file.close()
 
 def dump_all_sfx(path):
+	import os
+	os.makedirs(path, exist_ok=True)
 	for bank in sfx_groups:
 		dump_all_sfx_in_bank(bank, sfx_groups[bank], path)
 
