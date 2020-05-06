@@ -340,10 +340,10 @@ music_commands = {
 	0x10: { "name": "pitch_sweep",          "params": [ "nibbles_unsigned_signed" ] },
 	0x20: { "name": "square_note",          "params": [ "lower_nibble", "nibbles_unsigned_signed", "word" ] },
 	0x21: { "name": "noise_note",           "params": [ "lower_nibble", "nibbles_unsigned_signed", "byte" ] },
-	0xb0: { "name": "dnote",                "params": [ "byte", "lower_nibble_off_by_one" ] },
+	0xb0: { "name": "drum_note",            "params": [ "byte", "lower_nibble_off_by_one" ] },
 	0xc0: { "name": "rest",                 "params": [ "lower_nibble_off_by_one" ] },
 	0xd0: { "name": "note_type",            "params": [ "lower_nibble", "nibbles_unsigned_signed" ] },
-	0xd1: { "name": "dspeed",               "params": [ "lower_nibble" ] },
+	0xd1: { "name": "drum_speed",           "params": [ "lower_nibble" ] },
 	0xe0: { "name": "octave",               "params": [ "octave" ] },
 	0xe8: { "name": "toggle_perfect_pitch", "params": [] },
 	0xea: { "name": "vibrato",              "params": [ "byte", "nibbles" ] },
@@ -411,10 +411,10 @@ def get_base_command_id(command_id, channel, execute_music):
 	# square_note
 	elif command_id < 0x30 and not execute_music:
 		return 0x20
-	# dnote
+	# drum_note
 	elif command_id < 0xc0 and channel == 4:
 		return 0xb0
-	# dspeed
+	# drum_speed
 	elif command_id >= 0xd0 and command_id < 0xe0 and channel == 4:
 		return 0xd1
 	# note
