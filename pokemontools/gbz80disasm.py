@@ -223,7 +223,7 @@ z80_table = [
 	('rst $8', 0),                 # cf
 	('ret nc', 0),                 # d0
 	('pop de', 0),                 # d1
-	('jp nc, ${:04x}', 2),         # d2
+	('jp nc, {}', 2),              # d2
 	('db $d3', 0),                 # d3
 	('call nc, {}', 2),            # d4
 	('push de', 0),                # d5
@@ -231,7 +231,7 @@ z80_table = [
 	('rst $10', 0),                # d7
 	('ret c', 0),                  # d8
 	('reti', 0),                   # d9
-	('jp c, ${:04x}', 2),          # da
+	('jp c, {}', 2),               # da
 	('db $db', 0),                 # db
 	('call c, {}', 2),             # dc
 	('db $dd', 2),                 # dd
