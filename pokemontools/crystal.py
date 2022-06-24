@@ -1577,7 +1577,7 @@ def create_movement_commands(debug=False):
         if type(cmd) == str:
             cmd = [cmd]
         cmd_name = cmd[0].replace(" ", "_")
-        params = {"id": byte, "size": 1, "end": byte is 0x47, "macro_name": cmd_name}
+        params = {"id": byte, "size": 1, "end": byte == 0x47, "macro_name": cmd_name}
         params["param_types"] = {}
         if len(cmd) > 1:
             param_types = cmd[1:]

@@ -1,10 +1,9 @@
 #author: Bryan Bishop <kanzure@gmail.com>
 #date: 2012-01-02
 #url: http://hax.iimarck.us/files/rbheaders.txt
+from __future__ import print_function
 import json
 import os
-
-from __future__ import print_function
 
 #parse hex values as base 16 (see calculate_pointer)
 base = 16
