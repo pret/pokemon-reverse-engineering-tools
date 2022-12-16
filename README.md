@@ -1,6 +1,13 @@
 pokemontools
 ==============================
 
+# 2022 Note
+This repository was a collection of tools for reverse engineering the Generation 1 and 2 Pokémon games in the early days of disassembling. The scripts here range from tooling to help build repositories to programs of varying complexity which would extract ROM data. None of the tools are maintained anymore and were written in python2, and some don't run at all because [the port to python3](https://github.com/pret/pokemon-reverse-engineering-tools/commits?author=eevee) was done rather lazily. The two main tools of interest, [gbz80disasm.py](pokemontools/gbz80disasm.py) and [gfx.py](pokemontools/gfx.py) are no longer used and have modern, updated tooling (see [mgbdis](https://github.com/mattcurrie/mgbdis) for a replacement for `gbz80disasm.py` and the various programs in [pokecrystal/tools](https://github.com/pret/pokecrystal/tree/master/tools) for a replacement for `gfx.py`.
+
+As a result, this repository has been archived and is available only for historical purposes. You are on your own if you choose to use any scripts here as a base for tooling. Only a few of the tools here were released under an open source license if that is of concern for you.
+
+# Original README below
+
 ``pokemontools`` is a python module that provides various reverse engineering
 components for various Pokémon games. This includes:
 
