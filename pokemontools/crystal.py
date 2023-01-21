@@ -2468,6 +2468,265 @@ class BigEndianParam(object):
 class DecimalBigEndianParam(BigEndianParam):
     should_be_decimal = True
 
+class VolumeByteParam():
+    """or SingleByte(CommandParam)"""
+    size = 1
+    should_be_decimal = False
+    byte_type = "db"
+
+    def __init__(self, *args, **kwargs):
+        for (key, value) in kwargs.items():
+            setattr(self, key, value)
+        # check address
+        if not hasattr(self, "address"):
+            raise Exception("an address is a requirement")
+        elif self.address == None:
+            raise Exception("address must not be None")
+        elif not is_valid_address(self.address):
+            raise Exception("address must be valid")
+        # check size
+        if not hasattr(self, "size") or self.size == None:
+            raise Exception("size is probably 1?")
+        # parse bytes from ROM
+        self.parse()
+
+    def parse(self): self.byte = ord(rom[self.address])
+
+    def get_dependencies(self, recompute=False, global_dependencies=set()):
+        return []
+
+    def to_asm(self):
+        if not self.should_be_decimal:
+            return hex((self.byte & 0xf0) >> 4).replace("0x", "$") + ", " + hex(self.byte & 0xf).replace("0x", "$")
+        else:
+            return str(self.byte)
+
+    @staticmethod
+    def from_asm(value):
+        return value
+
+class VolEnvelopeByteParam():
+    """or SingleByte(CommandParam)"""
+    size = 1
+    should_be_decimal = False
+    byte_type = "db"
+
+    def __init__(self, *args, **kwargs):
+        for (key, value) in kwargs.items():
+            setattr(self, key, value)
+        # check address
+        if not hasattr(self, "address"):
+            raise Exception("an address is a requirement")
+        elif self.address == None:
+            raise Exception("address must not be None")
+        elif not is_valid_address(self.address):
+            raise Exception("address must be valid")
+        # check size
+        if not hasattr(self, "size") or self.size == None:
+            raise Exception("size is probably 1?")
+        # parse bytes from ROM
+        self.parse()
+
+    def parse(self): self.byte = ord(rom[self.address])
+
+    def get_dependencies(self, recompute=False, global_dependencies=set()):
+        return []
+
+    def to_asm(self):
+        if not self.should_be_decimal:
+            return hex((self.byte & 0xf0) >> 4).replace("0x", "$") + ", " + hex((self.byte & 0x8) >> 3).replace("0x", "$") + ", " + hex(self.byte & 0x7).replace("0x", "$")
+        else:
+            return str(self.byte)
+
+    @staticmethod
+    def from_asm(value):
+        return value
+
+class DutyCycleByteParam():
+    """or SingleByte(CommandParam)"""
+    size = 1
+    should_be_decimal = False
+    byte_type = "db"
+
+    def __init__(self, *args, **kwargs):
+        for (key, value) in kwargs.items():
+            setattr(self, key, value)
+        # check address
+        if not hasattr(self, "address"):
+            raise Exception("an address is a requirement")
+        elif self.address == None:
+            raise Exception("address must not be None")
+        elif not is_valid_address(self.address):
+            raise Exception("address must be valid")
+        # check size
+        if not hasattr(self, "size") or self.size == None:
+            raise Exception("size is probably 1?")
+        # parse bytes from ROM
+        self.parse()
+
+    def parse(self): self.byte = ord(rom[self.address])
+
+    def get_dependencies(self, recompute=False, global_dependencies=set()):
+        return []
+
+    def to_asm(self):
+        if not self.should_be_decimal:
+            return hex((self.byte & 0x3) >> 0).replace("0x", "$") + ", " + hex((self.byte & 0xc) >> 2).replace("0x", "$") + ", " + hex((self.byte & 0x30) >> 4).replace("0x", "$") + ", " + hex((self.byte & 0xc0) >> 6).replace("0x", "$")
+        else:
+            return str(self.byte)
+
+    @staticmethod
+    def from_asm(value):
+        return value
+
+class TransposeByteParam():
+    """or SingleByte(CommandParam)"""
+    size = 1
+    should_be_decimal = False
+    byte_type = "db"
+
+    def __init__(self, *args, **kwargs):
+        for (key, value) in kwargs.items():
+            setattr(self, key, value)
+        # check address
+        if not hasattr(self, "address"):
+            raise Exception("an address is a requirement")
+        elif self.address == None:
+            raise Exception("address must not be None")
+        elif not is_valid_address(self.address):
+            raise Exception("address must be valid")
+        # check size
+        if not hasattr(self, "size") or self.size == None:
+            raise Exception("size is probably 1?")
+        # parse bytes from ROM
+        self.parse()
+
+    def parse(self): self.byte = ord(rom[self.address])
+
+    def get_dependencies(self, recompute=False, global_dependencies=set()):
+        return []
+
+    def to_asm(self):
+        if not self.should_be_decimal:
+            return hex((self.byte & 0xf0) >> 4).replace("0x", "$") + ", " + hex(self.byte & 0xf).replace("0x", "$")
+        else:
+            return str(self.byte)
+
+    @staticmethod
+    def from_asm(value):
+        return value
+
+class SweepByteParam():
+    """or SingleByte(CommandParam)"""
+    size = 1
+    should_be_decimal = False
+    byte_type = "db"
+
+    def __init__(self, *args, **kwargs):
+        for (key, value) in kwargs.items():
+            setattr(self, key, value)
+        # check address
+        if not hasattr(self, "address"):
+            raise Exception("an address is a requirement")
+        elif self.address == None:
+            raise Exception("address must not be None")
+        elif not is_valid_address(self.address):
+            raise Exception("address must be valid")
+        # check size
+        if not hasattr(self, "size") or self.size == None:
+            raise Exception("size is probably 1?")
+        # parse bytes from ROM
+        self.parse()
+
+    def parse(self): self.byte = ord(rom[self.address])
+
+    def get_dependencies(self, recompute=False, global_dependencies=set()):
+        return []
+
+    def to_asm(self):
+        if not self.should_be_decimal:
+            return hex((self.byte & 0xf0) >> 4).replace("0x", "$") + ", " + hex((self.byte & 0x8) >> 3).replace("0x", "$") + ", " + hex(self.byte & 0x7).replace("0x", "$")
+        else:
+            return str(self.byte)
+
+    @staticmethod
+    def from_asm(value):
+        return value
+
+class VibratoByteParam():
+    """or SingleByte(CommandParam)"""
+    size = 1
+    should_be_decimal = False
+    byte_type = "db"
+
+    def __init__(self, *args, **kwargs):
+        for (key, value) in kwargs.items():
+            setattr(self, key, value)
+        # check address
+        if not hasattr(self, "address"):
+            raise Exception("an address is a requirement")
+        elif self.address == None:
+            raise Exception("address must not be None")
+        elif not is_valid_address(self.address):
+            raise Exception("address must be valid")
+        # check size
+        if not hasattr(self, "size") or self.size == None:
+            raise Exception("size is probably 1?")
+        # parse bytes from ROM
+        self.parse()
+
+    def parse(self): self.byte = ord(rom[self.address])
+
+    def get_dependencies(self, recompute=False, global_dependencies=set()):
+        return []
+
+    def to_asm(self):
+        if not self.should_be_decimal:
+            return hex((self.byte & 0xf0) >> 4).replace("0x", "$") + ", " + hex((self.byte & 0xf) >> 0).replace("0x", "$")
+        else:
+            return str(self.byte)
+
+    @staticmethod
+    def from_asm(value):
+        return value
+
+class PitchBendByteParam():
+    """or SingleByte(CommandParam)"""
+    size = 1
+    should_be_decimal = False
+    byte_type = "db"
+
+    def __init__(self, *args, **kwargs):
+        for (key, value) in kwargs.items():
+            setattr(self, key, value)
+        # check address
+        if not hasattr(self, "address"):
+            raise Exception("an address is a requirement")
+        elif self.address == None:
+            raise Exception("address must not be None")
+        elif not is_valid_address(self.address):
+            raise Exception("address must be valid")
+        # check size
+        if not hasattr(self, "size") or self.size == None:
+            raise Exception("size is probably 1?")
+        # parse bytes from ROM
+        self.parse()
+
+    def parse(self): self.byte = ord(rom[self.address])
+
+    def get_dependencies(self, recompute=False, global_dependencies=set()):
+        return []
+
+    def to_asm(self):
+        if not self.should_be_decimal:
+            return hex((self.byte & 0xf0) >> 4).replace("0x", "$") + ", " + hex((self.byte & 0xf) >> 0).replace("0x", "$")
+        else:
+            return str(self.byte)
+
+    @staticmethod
+    def from_asm(value):
+        return value
+
 music_commands = {
     0xD0: ["octave 8"],
     0xD1: ["octave 7"],
@@ -2477,31 +2736,31 @@ music_commands = {
     0xD5: ["octave 3"],
     0xD6: ["octave 2"],
     0xD7: ["octave 1"],
-    0xD8: ["notetype", ["note_length", SingleByteParam], ["intensity", SingleByteParam]], # no intensity on channel 4/8
-    0xD9: ["forceoctave", ["octave", SingleByteParam]],
+    0xD8: ["notetype", ["note_length", SingleByteParam], ["volenvelope", VolEnvelopeByteParam]], # no volenvelope on channel 4/8
+    0xD9: ["transpose", ["transpose", TransposeByteParam]],
     0xDA: ["tempo", ["tempo", DecimalBigEndianParam]],
-    0xDB: ["dutycycle", ["duty_cycle", SingleByteParam]],
-    0xDC: ["intensity", ["intensity", SingleByteParam]],
-    0xDD: ["soundinput", ["input", SingleByteParam]],
-    0xDE: ["unknownmusic0xde", ["unknown", SingleByteParam]],
+    0xDB: ["waveduty", ["wave_duty", SingleByteParam]],
+    0xDC: ["volenvelope", ["volenvelope", VolEnvelopeByteParam]],
+    0xDD: ["sweep", ["sweep", SweepByteParam]],
+    0xDE: ["dutycycle", ["dutycycle", DutyCycleByteParam]],
     0xDF: ["togglesfx"],
-    0xE0: ["unknownmusic0xe0", ["unknown", SingleByteParam], ["unknown", SingleByteParam]],
-    0xE1: ["vibrato", ["delay", SingleByteParam], ["extent", SingleByteParam]],
+    0xE0: ["pitchbend", ["unknown", SingleByteParam], ["unknown", PitchBendByteParam]],
+    0xE1: ["vibrato", ["delay", SingleByteParam], ["extent", VibratoByteParam]],
     0xE2: ["unknownmusic0xe2", ["unknown", SingleByteParam]],
-    0xE3: ["togglenoise", ["id", SingleByteParam]], # no parameters on toggle off
+    0xE3: ["drumkittoggle", ["id", SingleByteParam]], # no parameters on toggle off
     0xE4: ["panning", ["tracks", SingleByteParam]],
-    0xE5: ["volume", ["volume", SingleByteParam]],
-    0xE6: ["tone", ["tone", BigEndianParam]],
+    0xE5: ["volume", ["volume", VolumeByteParam]],
+    0xE6: ["pitchoffset", ["pitchoffset", BigEndianParam]],
     0xE7: ["unknownmusic0xe7", ["unknown", SingleByteParam]],
     0xE8: ["unknownmusic0xe8", ["unknown", SingleByteParam]],
-    0xE9: ["globaltempo", ["value", DecimalBigEndianParam]],
+    0xE9: ["addtempo", ["value", DecimalBigEndianParam]],
     0xEA: ["restartchannel", ["address", PointerLabelParam]],
     0xEB: ["newsong", ["id", DecimalBigEndianParam]],
     0xEC: ["sfxpriorityon"],
     0xED: ["sfxpriorityoff"],
-    0xEE: ["unknownmusic0xee", ["address", PointerLabelParam]],
+    0xEE: ["conditionaljump", ["address", PointerLabelParam]],
     0xEF: ["stereopanning", ["tracks", SingleByteParam]],
-    0xF0: ["sfxtogglenoise", ["id", SingleByteParam]], # no parameters on toggle off
+    0xF0: ["sfxdrumkittoggle", ["id", SingleByteParam]], # no parameters on toggle off
     0xF1: ["music0xf1"], # nothing
     0xF2: ["music0xf2"], # nothing
     0xF3: ["music0xf3"], # nothing
@@ -2511,7 +2770,7 @@ music_commands = {
     0xF7: ["music0xf7"], # nothing
     0xF8: ["music0xf8"], # nothing
     0xF9: ["unknownmusic0xf9"],
-    0xFA: ["setcondition", ["condition", SingleByteParam]],
+    0xFA: ["condition", ["condition", SingleByteParam]],
     0xFB: ["jumpif", ["condition", SingleByteParam], ["address", PointerLabelParam]],
     0xFC: ["jumpchannel", ["address", PointerLabelParam]],
     0xFD: ["loopchannel", ["count", DecimalParam], ["address", PointerLabelParam]],
@@ -2522,7 +2781,7 @@ music_commands = {
 music_command_enders = [
     "restartchannel",
     "newsong",
-    "unknownmusic0xee",
+    "conditionaljump",
     "jumpchannel",
     "endchannel",
 ]
